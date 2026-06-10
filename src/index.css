@@ -7,7 +7,7 @@
 
 @theme inline {
     --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
+    --font-sans: "Geist Variable", sans-serif;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -46,85 +46,162 @@
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
+    /* ── Pipeline stage chip utilities ─────────────────────────────── */
+    /* Usage: bg-stage-concept, text-stage-concept-fg, etc.           */
+    --color-stage-concept:       var(--stage-concept);
+    --color-stage-concept-fg:    var(--stage-concept-fg);
+    --color-stage-dev:           var(--stage-dev);
+    --color-stage-dev-fg:        var(--stage-dev-fg);
+    --color-stage-review:        var(--stage-review);
+    --color-stage-review-fg:     var(--stage-review-fg);
+    --color-stage-approved:      var(--stage-approved);
+    --color-stage-approved-fg:   var(--stage-approved-fg);
+    --color-stage-production:    var(--stage-production);
+    --color-stage-production-fg: var(--stage-production-fg);
+    --color-stage-shipped:       var(--stage-shipped);
+    --color-stage-shipped-fg:    var(--stage-shipped-fg);
+    --color-stage-onhold:        var(--stage-onhold);
+    --color-stage-onhold-fg:     var(--stage-onhold-fg);
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
+    /* ── Surfaces ───────────────────────────────────────────────────── */
+    --background:             oklch(0.977 0.006 254);   /* barely-blue white  */
+    --foreground:             oklch(0.148 0.012 255);   /* near-black, cool   */
+    --card:                   oklch(1 0 0);
+    --card-foreground:        oklch(0.148 0.012 255);
+    --popover:                oklch(1 0 0);
+    --popover-foreground:     oklch(0.148 0.012 255);
+
+    /* ── Brand ──────────────────────────────────────────────────────── */
+    --primary:                oklch(0.588 0.154 255);   /* #327DD6            */
+    --primary-foreground:     oklch(1 0 0);
+
+    /* ── UI chrome ──────────────────────────────────────────────────── */
+    --secondary:              oklch(0.930 0.012 255);
+    --secondary-foreground:   oklch(0.258 0.024 255);
+    --muted:                  oklch(0.958 0.007 254);
+    --muted-foreground:       oklch(0.520 0.018 255);
+    --accent:                 oklch(0.912 0.018 255);
+    --accent-foreground:      oklch(0.230 0.030 255);
+
+    /* ── Status ─────────────────────────────────────────────────────── */
+    --destructive:            oklch(0.577 0.245 27.325);
+    --destructive-foreground: oklch(1 0 0);
+
+    /* ── Structure ──────────────────────────────────────────────────── */
+    --border:                 oklch(0.893 0.010 255);
+    --input:                  oklch(0.893 0.010 255);
+    --ring:                   oklch(0.588 0.154 255);
+
+    /* ── Charts ─────────────────────────────────────────────────────── */
+    --chart-1:                oklch(0.588 0.154 255);   /* brand blue         */
+    --chart-2:                oklch(0.680 0.130 195);   /* teal               */
+    --chart-3:                oklch(0.660 0.148 152);   /* sage               */
+    --chart-4:                oklch(0.720 0.138 62);    /* amber              */
+    --chart-5:                oklch(0.620 0.158 305);   /* violet             */
+
     --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+
+    /* ── Sidebar ────────────────────────────────────────────────────── */
+    --sidebar:                      oklch(0.966 0.007 254);
+    --sidebar-foreground:           oklch(0.148 0.012 255);
+    --sidebar-primary:              oklch(0.588 0.154 255);
+    --sidebar-primary-foreground:   oklch(1 0 0);
+    --sidebar-accent:               oklch(0.912 0.018 255);
+    --sidebar-accent-foreground:    oklch(0.230 0.030 255);
+    --sidebar-border:               oklch(0.893 0.010 255);
+    --sidebar-ring:                 oklch(0.588 0.154 255);
+
+    /* ── Pipeline stage chips — light ───────────────────────────────── */
+    --stage-concept:          oklch(0.932 0.030 305);
+    --stage-concept-fg:       oklch(0.360 0.072 305);
+    --stage-dev:              oklch(0.920 0.038 255);
+    --stage-dev-fg:           oklch(0.355 0.085 255);
+    --stage-review:           oklch(0.934 0.058 72);
+    --stage-review-fg:        oklch(0.400 0.088 65);
+    --stage-approved:         oklch(0.920 0.060 152);
+    --stage-approved-fg:      oklch(0.340 0.080 152);
+    --stage-production:       oklch(0.932 0.060 42);
+    --stage-production-fg:    oklch(0.400 0.090 38);
+    --stage-shipped:          oklch(0.915 0.068 168);
+    --stage-shipped-fg:       oklch(0.330 0.078 168);
+    --stage-onhold:           oklch(0.932 0.055 87);
+    --stage-onhold-fg:        oklch(0.400 0.085 80);
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    /* ── Surfaces ───────────────────────────────────────────────────── */
+    --background:             oklch(0.148 0.018 255);
+    --foreground:             oklch(0.930 0.010 255);
+    --card:                   oklch(0.188 0.018 255);
+    --card-foreground:        oklch(0.930 0.010 255);
+    --popover:                oklch(0.188 0.018 255);
+    --popover-foreground:     oklch(0.930 0.010 255);
+
+    /* ── Brand ──────────────────────────────────────────────────────── */
+    --primary:                oklch(0.660 0.154 255);   /* lifted for dark bg */
+    --primary-foreground:     oklch(1 0 0);
+
+    /* ── UI chrome ──────────────────────────────────────────────────── */
+    --secondary:              oklch(0.242 0.020 255);
+    --secondary-foreground:   oklch(0.820 0.012 255);
+    --muted:                  oklch(0.220 0.016 255);
+    --muted-foreground:       oklch(0.548 0.018 255);
+    --accent:                 oklch(0.258 0.020 255);
+    --accent-foreground:      oklch(0.900 0.010 255);
+
+    /* ── Status ─────────────────────────────────────────────────────── */
+    --destructive:            oklch(0.704 0.191 22.216);
+    --destructive-foreground: oklch(1 0 0);
+
+    /* ── Structure ──────────────────────────────────────────────────── */
+    --border:                 oklch(1 0 0 / 10%);
+    --input:                  oklch(1 0 0 / 15%);
+    --ring:                   oklch(0.660 0.154 255);
+
+    /* ── Charts ─────────────────────────────────────────────────────── */
+    --chart-1:                oklch(0.660 0.140 255);
+    --chart-2:                oklch(0.720 0.120 195);
+    --chart-3:                oklch(0.710 0.140 152);
+    --chart-4:                oklch(0.760 0.138 65);
+    --chart-5:                oklch(0.680 0.150 305);
+
+    /* ── Sidebar ────────────────────────────────────────────────────── */
+    --sidebar:                      oklch(0.188 0.018 255);
+    --sidebar-foreground:           oklch(0.930 0.010 255);
+    --sidebar-primary:              oklch(0.660 0.154 255);
+    --sidebar-primary-foreground:   oklch(1 0 0);
+    --sidebar-accent:               oklch(0.258 0.020 255);
+    --sidebar-accent-foreground:    oklch(0.900 0.010 255);
+    --sidebar-border:               oklch(1 0 0 / 10%);
+    --sidebar-ring:                 oklch(0.660 0.154 255);
+
+    /* ── Pipeline stage chips — dark ────────────────────────────────── */
+    --stage-concept:          oklch(0.282 0.038 305);
+    --stage-concept-fg:       oklch(0.820 0.068 305);
+    --stage-dev:              oklch(0.250 0.040 255);
+    --stage-dev-fg:           oklch(0.800 0.090 255);
+    --stage-review:           oklch(0.278 0.052 72);
+    --stage-review-fg:        oklch(0.845 0.090 72);
+    --stage-approved:         oklch(0.248 0.050 152);
+    --stage-approved-fg:      oklch(0.800 0.078 152);
+    --stage-production:       oklch(0.270 0.052 42);
+    --stage-production-fg:    oklch(0.835 0.090 42);
+    --stage-shipped:          oklch(0.248 0.058 168);
+    --stage-shipped-fg:       oklch(0.798 0.075 168);
+    --stage-onhold:           oklch(0.272 0.048 87);
+    --stage-onhold-fg:        oklch(0.840 0.088 87);
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+    * {
+        @apply border-border outline-ring/50;
     }
-  body {
-    @apply bg-background text-foreground;
+    body {
+        @apply bg-background text-foreground;
     }
-  html {
-    @apply font-sans;
+    html {
+        @apply font-sans;
     }
 }
