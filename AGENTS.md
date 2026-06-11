@@ -30,6 +30,7 @@ Then load additional docs only when relevant:
 | Add/change env vars, config, the backend URL | `AGENTS.md`, `docs/configuration.md`, `docs/deployment.md` if runtime/CORS affected | architecture docs |
 | Change local setup, scripts, lint, shadcn components, tooling | `AGENTS.md`, `docs/development.md` | `docs/deployment.md` |
 | Change Docker, hosting, the deploy/preview flow, rollback | `AGENTS.md`, `docs/deployment.md`, `docs/configuration.md` | local-only dev docs |
+| Change CI/CD, the release pipeline, GitHub Actions, registry, deploy trigger | `AGENTS.md`, **`docs/cicd.md`**, `.github/workflows/deploy.yml` | local-only dev docs |
 | Change how data is read/written (collections, fields, the SDK) | `AGENTS.md`, `docs/architecture.md`, **the `directus` repo's `AGENTS.md`** (backend schema is there) | deployment docs |
 | Investigate a bug/incident | `AGENTS.md` §11 + §14, `HANDOFF.md` if present | unrelated docs |
 | Continue unfinished work | `AGENTS.md` §15, **`HANDOFF.md`** (required reading when present) | docs outside the handoff scope |
@@ -112,7 +113,8 @@ Do not rename these identifiers casually — both repos depend on them.
 
 | Container/service | Purpose | Managed by | App/project ID | Image/source |
 |---|---|---|---|---|
-| `poppim-web` | This frontend (nginx serving the Vite build) | **raw `docker run`** on the `coolify` Docker network (NOT a Coolify app yet) | n/a | local image `poppim-web:latest` (built from this repo's `Dockerfile`) |
+| `poppim-web` (raw) | This frontend, **legacy** path currently serving prod | raw `docker run` on the `coolify` network (being retired) | n/a | local image `poppim-web:latest` |
+| `poppim-web` (Coolify service) | The **intended** prod runtime (pulls the CI image) | **Coolify** | service uuid `ysvdyj3t7d5tyh5ogrvlka4y`, project `jdq36h5dq74o6ddhich9l796` | `ghcr.io/u2giants/poppim-web:main` |
 | `directus-app` / `directus-db` | The backend this app calls | Coolify service `directus` (`nzli85mk3luzb6u7cnq5fidu`) | see `directus` repo | `directus/directus:11` + `postgres:16-alpine` |
 
 ## 10. What to ignore
@@ -165,7 +167,9 @@ The frontend holds **no secrets** (it's a browser app; all auth is via the backe
 
 ## 13. Deployment
 
-**Current reality — serving PRODUCTION, but via raw-docker (not yet the standard Coolify/CI path):**
+**Intended path (built — see `docs/cicd.md`):** push to `main` → GitHub Actions (`.github/workflows/deploy.yml`) verify → build → push `ghcr.io/u2giants/poppim-web:main`+`:sha-<commit>` → trigger Coolify (service `poppim-web`, uuid `ysvdyj3t7d5tyh5ogrvlka4y`) → Coolify pulls + runs. Actions never touches the server. **Verify→build→push→trigger all pass; one owner step remains** before cutover: the GHCR package must be made **public** (or Coolify given a `read:packages` pull credential) — see `docs/cicd.md` "Status".
+
+**Current reality — until that step, production is served via legacy raw-docker (the path the pipeline replaces):**
 - **Build:** `npm run build` → `dist/`, then `docker build -t poppim-web:latest .` (multi-stage node→nginx; `nginx.conf` has the SPA fallback).
 - **Run:** `docker rm -f poppim-web` then `docker run -d --name poppim-web --network coolify --label …` with Traefik labels (entrypoints `http`/`https`, `certresolver=letsencrypt`, **host rule `Host(\`pm.designflow.app\`) || Host(\`pm-dev.designflow.app\`)`**, service port 80). One container serves both the production URL `pm.designflow.app` and the `pm-dev` alias. This reuses Coolify's existing Traefik proxy for routing + TLS. The exact `docker run` is in `docs/deployment.md`.
 - **Production cutover done (2026-06-11):** `pm.designflow.app` was repointed from the Directus backend to this container — the backend dropped `pm` from its Coolify sub-app `fqdn` (id=16) and `pm` was added to `AUTH_MICROSOFT_REDIRECT_ALLOW_LIST`. Data Studio now lives only at `data.designflow.app`.
@@ -195,7 +199,7 @@ No production incidents (the app is preview-only so far).
 | Status | Item | Owner/next action |
 |---|---|---|
 | in-progress | ClickUp image backfill | Importer running in the `directus` repo (`pm-system/migration/clickup-images.mjs`); ~thousands remaining, fills `product.cover_url` |
-| open | Harden the deploy: Coolify app + CI | Production runs at `pm.designflow.app` but via **raw docker** (§13). Move to a Coolify-managed app + GitHub Actions (needs a GHCR `write:packages` token or a Coolify git source) |
+| blocked | Finish CI/Coolify cutover | Pipeline built (`.github/workflows/deploy.yml` + Coolify service `ysvdyj3t7d5tyh5ogrvlka4y`); verify→build→push→trigger pass. **Owner action:** make the GHCR package public (or add a `read:packages` pull cred to Coolify) — then I re-trigger, validate on `pm-ci`, repoint `pm` to the Coolify service, and delete the raw-docker container. See `docs/cicd.md`. |
 | open | Server-side filtering/pagination | Filters are client-side over the loaded page (§11); push to the API for full-dataset filtering |
 | done | Wire board toolbar filters (Assignee/Licensor/Due/Sort + active-filter strip) | client-side; `filters.ts` + `BoardToolbar.tsx`; 2026-06-11 |
 | done | Production deploy at `pm.designflow.app` | live (raw-docker); SSO + cert verified; 2026-06-11 |

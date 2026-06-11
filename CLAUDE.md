@@ -9,7 +9,7 @@
 `npm run build` (`tsc -b && vite build`) must pass — strict TS with `noUnusedLocals`/`noUnusedParameters`. shadcn UI primitives in `src/components/ui/` are generated; change them via `npx shadcn@latest add` (style `new-york`), not by hand.
 
 ## Deploy
-There is **no CI yet**. The live preview is a raw `docker build` + `docker run` with Traefik labels — see `docs/deployment.md`. This is a temporary, exceptional path (the org standard is Coolify + CI). Don't invent an SSH/CI flow that doesn't exist.
+The intended path is the **GitHub Actions → GHCR → Coolify** pipeline (`.github/workflows/deploy.yml`, `docs/cicd.md`). It's built; one owner step (make the GHCR package public) remains before cutover. Until then, production is on a **legacy raw-docker** container (`docs/deployment.md`) being retired. Do not SSH into the server or `docker run` on it as a normal deploy — that's the path we're removing. Runtime config (domain, env) belongs in Coolify, not in shell.
 
 ## Commit style
 Short imperative subject (`add`/`fix`/`update`/`remove`), no trailing period; body only for non-obvious rationale. Commit + push on `main` (no force push). Git author must be `Albert Hazan <u2giants@users.noreply.github.com>` — GitHub blocks the gmail address.
