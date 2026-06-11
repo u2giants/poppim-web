@@ -15,9 +15,13 @@ The PIM frontend (this repo) replacing the ClickUp board, on the shared Directus
 ## In progress (live, not finished)
 - **ClickUp image backfill** is *running* in the `directus` repo (`pm-system/migration/clickup-images.mjs`), filling `product.cover_url` with public ClickUp thumbnail URLs. Resumable; ~thousands remaining. Check progress: count `product` where `cover_url` is non-empty. This app already renders them on cards.
 
+## Done since first handoff
+- **Board toolbar filters** wired (`filters.ts` + `BoardToolbar.tsx`): search + Assignee/Licensor/Due multi-select + Sort + active-filter strip — client-side over the loaded page.
+- **Production deploy:** `pm.designflow.app` cut over to this frontend (raw-docker; SSO + cert verified). Data Studio now only at `data.designflow.app`. See `docs/deployment.md`.
+
 ## Not started / open (exact next actions)
-1. **Wire the board toolbar filters** — Assignee/Licensor/Due/Sort are disabled placeholders in `BoardPage.tsx` (AGENTS.md §11). Make them filter the loaded products (and/or server-side). Search already works as the pattern.
-2. **Production deploy** — replace the raw-docker `pm-dev` preview with a Coolify app at `pm.designflow.app` (GHCR image + GitHub Actions, or Coolify git-build). Blocker: the build host's `gh` token lacks `write:packages`; needs a token with package write or a Coolify git source. Then add `.github/workflows/` and update `docs/deployment.md`.
+1. **Harden the deploy** — production runs via **raw docker** (not Coolify-managed/CI). Move to a Coolify app + GitHub Actions. Blocker: build host `gh` token lacks `write:packages` (no GHCR); needs a package-write token or a Coolify git source. Then add `.github/workflows/` and update `docs/deployment.md`.
+2. **Server-side filtering/pagination** — filters are client-side over the loaded page; push to the API for the full dataset.
 3. **Board scale (Prompt B):** "load more past 50 cards" + "collapse columns" not implemented; board currently loads a capped page via `fetchProducts(limit)`.
 4. **List / Timeline views** — header tabs are placeholders.
 5. **URL deep-linking (Prompt C `?item=`)** — `react-router-dom` is installed but unused; the app uses a gate in `App.tsx`.

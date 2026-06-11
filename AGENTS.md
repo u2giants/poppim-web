@@ -5,7 +5,7 @@ Canonical operating guide for **poppim-web**. Read this first; it routes you to 
 ## 1. Project summary
 `poppim-web` is the **PIM (product/project management) frontend** for POP Creations — a React single-page app that is the human UI for the product-development pipeline, replacing the ClickUp board. **Users:** internal staff (designers, sales, licensing, management). It stores **no data of its own**; every read/write goes through the **shared Directus backend** at `https://data.designflow.app` (backend repo: `u2giants/directus`). The outcome that matters: a fast, tailored Kanban + task-detail app on the company's shared "super-app" database, so PIM data interlinks with the future CRM/DAM. Sibling frontends (separate repos): `popcmr-web` (CRM), `popdam-web` (DAM).
 
-**Live preview:** `https://pm-dev.designflow.app` (temporary — see §13). **Permanent home at launch:** `pm.designflow.app`.
+**Live in production:** `https://pm.designflow.app` (the permanent human URL; admins use `data.designflow.app` for Directus Data Studio). A preview alias `https://pm-dev.designflow.app` serves the same container. Both are still a raw-docker deploy — see §13.
 
 ## Multi-model AI note
 
@@ -98,8 +98,8 @@ This app only **reads/writes** the backend; the schema is defined in the `direct
 | Entity/System | Identifier | Where defined | Notes |
 |---|---|---|---|
 | Backend API | `https://data.designflow.app` | `src/lib/directus.ts` (`VITE_DIRECTUS_URL`) | shared Directus; **never** the human URL |
-| This app (preview) | `https://pm-dev.designflow.app` | Traefik labels on the `poppim-web` container | temporary (§13) |
-| This app (launch) | `pm.designflow.app` | planned | permanent human URL (per `directus` domain plan) |
+| This app (production) | `https://pm.designflow.app` | Traefik labels on the `poppim-web` container | **live** — permanent human URL |
+| This app (preview alias) | `https://pm-dev.designflow.app` | same container | same image; dev alias |
 | Repo | `u2giants/poppim-web` | GitHub | |
 | Container | `poppim-web` | raw `docker run` on the `coolify` network | §9 |
 | Backend collections read | `product`, `stage`, `retailer` | `directus` repo `pm-system/apply-schema.mjs` | board data |
@@ -144,10 +144,11 @@ Actually: the importer stores ClickUp's public thumbnail URL directly on `produc
 Why: fast, no storage volume needed for the preview.
 Do not change without: knowing these URLs die if ClickUp is cancelled — durable storage (copy to DAM/R2) is a planned follow-up (§15).
 
-### Toolbar filters are visual placeholders
-Looks like: Assignee/Licensor/Due/Sort buttons in the board toolbar.
-Actually: only **search** works; those filter triggers are disabled placeholders matching Design's Prompt B layout.
-Do not change assuming they work: wiring them is open work (§15).
+### Board filters are client-side, over the loaded page
+Looks like: the toolbar filters (search, Assignee, Licensor, Due, Sort) act instantly.
+Actually: they filter/sort the **already-loaded** products in memory (`src/features/board/filters.ts` + `BoardToolbar.tsx`), not server-side. The board loads a capped page (`fetchProducts(limit)`); the filter strip says "Showing X of Y **loaded**".
+Why: fast + simple for the current page size; server-side filtering/pagination is a later step (§15).
+Do not assume: filters reach products beyond the loaded page.
 
 ### `react-router-dom` is installed but unused
 The app uses a simple auth gate in `App.tsx`, not routes. Router is a dep for the planned deep-link/URL routing (Prompt C `?item=` deep links). Don't assume routing exists yet.
@@ -164,9 +165,10 @@ The frontend holds **no secrets** (it's a browser app; all auth is via the backe
 
 ## 13. Deployment
 
-**Current reality (a temporary preview, not the standard Coolify/CI path):**
+**Current reality — serving PRODUCTION, but via raw-docker (not yet the standard Coolify/CI path):**
 - **Build:** `npm run build` → `dist/`, then `docker build -t poppim-web:latest .` (multi-stage node→nginx; `nginx.conf` has the SPA fallback).
-- **Run:** `docker rm -f poppim-web` then `docker run -d --name poppim-web --network coolify --label …` with Traefik labels (entrypoints `http`/`https`, `certresolver=letsencrypt`, host `pm-dev.designflow.app`, service port 80). This reuses Coolify's existing Traefik proxy for routing + TLS. The exact `docker run` is documented in the `directus` repo AGENTS.md §11.
+- **Run:** `docker rm -f poppim-web` then `docker run -d --name poppim-web --network coolify --label …` with Traefik labels (entrypoints `http`/`https`, `certresolver=letsencrypt`, **host rule `Host(\`pm.designflow.app\`) || Host(\`pm-dev.designflow.app\`)`**, service port 80). One container serves both the production URL `pm.designflow.app` and the `pm-dev` alias. This reuses Coolify's existing Traefik proxy for routing + TLS. The exact `docker run` is in `docs/deployment.md`.
+- **Production cutover done (2026-06-11):** `pm.designflow.app` was repointed from the Directus backend to this container — the backend dropped `pm` from its Coolify sub-app `fqdn` (id=16) and `pm` was added to `AUTH_MICROSOFT_REDIRECT_ALLOW_LIST`. Data Studio now lives only at `data.designflow.app`.
 - **No GitHub Actions / CI yet. No registry push** (the `gh` token lacks `write:packages`, so GHCR is unavailable; the image is local-only).
 - **Runtime env:** `VITE_*` is **baked at build time** (static SPA) — there is no runtime env to change; rebuild to change the backend URL.
 - **Rollback:** rebuild from a prior commit and re-run, or `docker run` a prior image tag.
@@ -193,8 +195,10 @@ No production incidents (the app is preview-only so far).
 | Status | Item | Owner/next action |
 |---|---|---|
 | in-progress | ClickUp image backfill | Importer running in the `directus` repo (`pm-system/migration/clickup-images.mjs`); ~thousands remaining, fills `product.cover_url` |
-| open | Wire board toolbar filters (Assignee/Licensor/Due/Sort) | Currently disabled placeholders (§11); make functional |
-| open | Production deploy at `pm.designflow.app` | Replace the raw-docker `pm-dev` preview with a Coolify app + CI (needs a GHCR token or Coolify git build) |
+| open | Harden the deploy: Coolify app + CI | Production runs at `pm.designflow.app` but via **raw docker** (§13). Move to a Coolify-managed app + GitHub Actions (needs a GHCR `write:packages` token or a Coolify git source) |
+| open | Server-side filtering/pagination | Filters are client-side over the loaded page (§11); push to the API for full-dataset filtering |
+| done | Wire board toolbar filters (Assignee/Licensor/Due/Sort + active-filter strip) | client-side; `filters.ts` + `BoardToolbar.tsx`; 2026-06-11 |
+| done | Production deploy at `pm.designflow.app` | live (raw-docker); SSO + cert verified; 2026-06-11 |
 | open | Board "load more past 50 / collapse columns" (Prompt B) | Not yet implemented; board loads a capped page |
 | open | List / Timeline views | Tabs exist as placeholders in the board header |
 | open | URL deep-linking (`?item=`) for the detail panel (Prompt C) | `react-router-dom` installed but unused |

@@ -2,8 +2,10 @@
 
 See `AGENTS.md` §13 for the summary. This is the **actual** current process, not an ideal one.
 
-## Current state: temporary raw-Docker preview
-`poppim-web` is **not yet a Coolify-managed app or a CI pipeline.** It runs as a locally-built image attached to Coolify's existing Traefik proxy.
+## Current state: serving PRODUCTION via raw Docker
+`poppim-web` is **live in production at `https://pm.designflow.app`** (cutover 2026-06-11) — but it is **not yet a Coolify-managed app or a CI pipeline.** It runs as a locally-built image attached to Coolify's existing Traefik proxy, with one container serving both `pm.designflow.app` (production) and `pm-dev.designflow.app` (alias).
+
+**Cutover notes:** `pm` was repointed from the Directus backend to this container — the backend dropped `pm` from its Coolify sub-app `fqdn` (`service_applications` id=16, now `data.designflow.app` only) and `pm` was added to `AUTH_MICROSOFT_REDIRECT_ALLOW_LIST`. Directus Data Studio now lives only at `data.designflow.app`.
 
 **Why temporary:** the `gh` token on the build host lacks `write:packages`, so GHCR is unavailable, and a Coolify git-build isn't wired up. This deviates from the org standard (deploy via Coolify + GitHub Actions → registry → Coolify) and is tracked as open work (AGENTS.md §15).
 
@@ -18,10 +20,10 @@ docker rm -f poppim-web 2>/dev/null
 docker run -d --name poppim-web --restart unless-stopped --network coolify \
   --label "traefik.enable=true" \
   --label 'traefik.http.routers.poppimweb-http.entryPoints=http' \
-  --label 'traefik.http.routers.poppimweb-http.rule=Host(`pm-dev.designflow.app`)' \
+  --label 'traefik.http.routers.poppimweb-http.rule=Host(`pm.designflow.app`) || Host(`pm-dev.designflow.app`)' \
   --label 'traefik.http.routers.poppimweb-http.service=poppimweb' \
   --label 'traefik.http.routers.poppimweb-https.entryPoints=https' \
-  --label 'traefik.http.routers.poppimweb-https.rule=Host(`pm-dev.designflow.app`)' \
+  --label 'traefik.http.routers.poppimweb-https.rule=Host(`pm.designflow.app`) || Host(`pm-dev.designflow.app`)' \
   --label 'traefik.http.routers.poppimweb-https.tls=true' \
   --label 'traefik.http.routers.poppimweb-https.tls.certresolver=letsencrypt' \
   --label 'traefik.http.routers.poppimweb-https.service=poppimweb' \
