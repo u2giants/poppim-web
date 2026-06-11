@@ -1,14 +1,18 @@
 # poppim-web
 
-PIM frontend for POP Creations — React + Vite + TypeScript + Tailwind v4 + shadcn/ui,
-on the shared **Directus** backend (`data.designflow.app`).
+PIM (product/project management) **frontend** for POP Creations — a React + Vite + TypeScript + Tailwind v4 + shadcn/ui SPA on the shared **Directus** backend (`https://data.designflow.app`). It's the human UI replacing the ClickUp board; it stores no data of its own.
 
-**Read `AGENTS.md` first.**
+Live preview: **https://pm-dev.designflow.app** · Backend repo: `u2giants/directus` · Siblings: `popcmr-web` (CRM), `popdam-web` (DAM).
 
+## Start here
+- **[`AGENTS.md`](./AGENTS.md)** — canonical operating guide + documentation map (read first).
+- [`docs/architecture.md`](./docs/architecture.md) · [`docs/development.md`](./docs/development.md) · [`docs/configuration.md`](./docs/configuration.md) · [`docs/deployment.md`](./docs/deployment.md)
+- [`HANDOFF.md`](./HANDOFF.md) — current in-progress state (when present).
+
+## Run
 ```bash
 npm install
-npm run dev
+npm run dev      # http://localhost:5173
+npm run build    # tsc -b && vite build
 ```
-
-Set `VITE_DIRECTUS_URL` in `.env` (defaults to the production backend).
-Sibling apps: `popcmr-web` (CRM), `popdam-web` (DAM). Backend repo: `u2giants/directus`.
+Set `VITE_DIRECTUS_URL` in `.env` (defaults to the prod backend).
