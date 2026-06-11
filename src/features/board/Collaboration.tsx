@@ -171,11 +171,13 @@ export function CommentSection({ productId }: { productId: string }) {
   }
 
   return (
-    <section className="space-y-3">
-      <SectionTitle count={comments.length ? String(comments.length) : undefined}>Comments</SectionTitle>
-      <div className="space-y-3">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="border-b px-4 py-3">
+        <SectionTitle count={comments.length ? String(comments.length) : undefined}>Activity</SectionTitle>
+      </div>
+      <div className="flex-1 space-y-4 overflow-y-auto px-4 py-3">
         {comments.map((c) => (
-          <div key={c.id} className="flex gap-2">
+          <div key={c.id} className="flex gap-2.5">
             <Avatar className="size-7 shrink-0"><AvatarFallback className="text-[10px]">{userInitials(c.user_created)}</AvatarFallback></Avatar>
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline gap-2">
@@ -186,12 +188,21 @@ export function CommentSection({ productId }: { productId: string }) {
             </div>
           </div>
         ))}
-        {comments.length === 0 && <p className="text-xs text-muted-foreground">No comments yet.</p>}
+        {comments.length === 0 && <p className="text-xs text-muted-foreground">No activity yet. Start the conversation below.</p>}
       </div>
-      <div className="space-y-2">
-        <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Write a comment…" rows={2} />
-        <Button size="sm" onClick={post} disabled={busy || !draft.trim()}>{busy ? 'Posting…' : 'Comment'}</Button>
+      <div className="shrink-0 space-y-2 border-t p-3">
+        <Textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) post() }}
+          placeholder="Add a comment…"
+          rows={2}
+        />
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">⌘↵ to send</span>
+          <Button size="sm" onClick={post} disabled={busy || !draft.trim()}>{busy ? 'Posting…' : 'Comment'}</Button>
+        </div>
       </div>
-    </section>
+    </div>
   )
 }
