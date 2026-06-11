@@ -14,6 +14,11 @@ export interface Retailer {
   name: string
 }
 
+export interface Licensor {
+  id: string
+  name: string
+}
+
 export interface Product {
   id: string
   code: string | null
@@ -21,6 +26,7 @@ export interface Product {
   business_unit: string | null
   stage: string | Stage | null
   retailer: string | Retailer | null
+  licensor: string | Licensor | null
   on_shelf_date: string | null
   pi_status: string | null
   cover_url: string | null

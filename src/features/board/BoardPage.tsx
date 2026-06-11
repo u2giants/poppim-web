@@ -10,15 +10,17 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { toast } from 'sonner'
-import type { Product, Stage } from '@/lib/types'
-import { fetchProducts, fetchStages, setProductStage, stageId } from './api'
+import type { Product, Stage, DirectusUser } from '@/lib/types'
+import { fetchProducts, fetchStages, fetchAssigneeMap, setProductStage, stageId } from './api'
+import { listUsers } from './collab'
 import { stageAccentBg } from './stageColor'
+import { applyFilters, sortItems, distinctLicensors, emptyFilters, type Filters } from './filters'
 import { TaskCard } from './TaskCard'
 import { TaskDetailSheet } from './TaskDetailSheet'
-import { Input } from '@/components/ui/input'
+import { BoardToolbar } from './BoardToolbar'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Search, SlidersHorizontal, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 
 const UNGROUPED = '__none__'
 
@@ -50,19 +52,22 @@ function ColumnView({ col, onOpen }: { col: Column; onOpen: (p: Product) => void
 export function BoardPage() {
   const [stages, setStages] = useState<Stage[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [assigneeMap, setAssigneeMap] = useState<Map<string, Set<string>>>(new Map())
+  const [users, setUsers] = useState<DirectusUser[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [active, setActive] = useState<Product | null>(null)
   const [dragging, setDragging] = useState<Product | null>(null)
-  const [search, setSearch] = useState('')
+  const [filters, setFilters] = useState<Filters>(emptyFilters())
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
   useEffect(() => {
-    Promise.all([fetchStages(), fetchProducts()])
-      .then(([s, p]) => { setStages(s); setProducts(p) })
+    Promise.all([fetchStages(), fetchProducts(), fetchAssigneeMap()])
+      .then(([s, p, a]) => { setStages(s); setProducts(p); setAssigneeMap(a) })
       .catch(() => setError('Could not load the board. Check your connection to the backend.'))
       .finally(() => setLoading(false))
+    listUsers().then(setUsers).catch(() => setUsers([]))
   }, [])
 
   async function move(productId: string, toStageId: string | null) {
@@ -78,11 +83,8 @@ export function BoardPage() {
     }
   }
 
-  const visible = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return products
-    return products.filter((p) => `${p.name ?? ''} ${p.code ?? ''}`.toLowerCase().includes(q))
-  }, [products, search])
+  const visible = useMemo(() => applyFilters(products, filters, assigneeMap), [products, filters, assigneeMap])
+  const licensors = useMemo(() => distinctLicensors(products), [products])
 
   const columns = useMemo<Column[]>(() => {
     const byStage = new Map<string, Product[]>()
@@ -90,11 +92,11 @@ export function BoardPage() {
       const key = stageId(p) ?? UNGROUPED
       ;(byStage.get(key) ?? byStage.set(key, []).get(key)!).push(p)
     }
-    const cols = stages.map((s) => ({ id: s.id, name: s.name, items: byStage.get(s.id) ?? [] }))
+    const cols = stages.map((s) => ({ id: s.id, name: s.name, items: sortItems(byStage.get(s.id) ?? [], filters.sort) }))
     const ungrouped = byStage.get(UNGROUPED) ?? []
-    if (ungrouped.length) cols.unshift({ id: UNGROUPED, name: 'No stage', items: ungrouped })
+    if (ungrouped.length) cols.unshift({ id: UNGROUPED, name: 'No stage', items: sortItems(ungrouped, filters.sort) })
     return cols
-  }, [stages, visible])
+  }, [stages, visible, filters.sort])
 
   function onDragStart(e: DragStartEvent) {
     setDragging((e.active.data.current?.product as Product) ?? null)
@@ -123,21 +125,16 @@ export function BoardPage() {
           <Plus className="size-4" /> New Item
         </Button>
       </div>
-      {/* Toolbar */}
-      <div className="flex h-12 shrink-0 items-center gap-2 border-b px-5">
-        <div className="relative w-[240px]">
-          <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search items…" className="h-8 pl-8" />
-        </div>
-        {['Assignee', 'Licensor', 'Due'].map((f) => (
-          <Button key={f} variant="outline" size="sm" className="h-8 text-muted-foreground" disabled>
-            {f}
-          </Button>
-        ))}
-        <Button variant="ghost" size="sm" className="ml-auto h-8 gap-1.5 text-muted-foreground" disabled>
-          <SlidersHorizontal className="size-4" /> Sort
-        </Button>
-      </div>
+
+      <BoardToolbar
+        filters={filters}
+        setFilters={setFilters}
+        licensors={licensors}
+        users={users}
+        shown={visible.length}
+        total={products.length}
+      />
+
       {/* Board area */}
       <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
         <div className="flex flex-1 gap-2.5 overflow-x-auto px-5 py-4">
