@@ -34,9 +34,11 @@ npm run preview  # serve the production build
 | `src/features/board/` | **Slice 1**: `BoardPage` (products grouped by stage), `TaskCard`, `TaskDetailSheet`, `api.ts` |
 
 ## 5. Current state (slice 1 = Task board + task detail)
-- ✅ Auth shell, login, app shell, board grouped by stage, task-detail drawer with core fields — **builds**.
-- ⏳ The collaboration sections in the detail drawer (**assignees, checklist, subtasks, comments**) are placeholders, pending: (a) Claude Design layout specs, (b) backend model additions in the `directus` repo (assignees M2M, checklist/subtask collections; comments are native `directus_comments`).
-- ⏳ Drag-to-change-stage not wired yet.
+- ✅ Auth shell, login, app shell, board grouped by stage, task-detail drawer with core fields — **builds & runs against the live backend**.
+- ✅ **Collaboration wired & functional** (`src/features/board/collab.ts` + `Collaboration.tsx`): assignees (M2M), checklist, subtasks, and comments (native `directus_comments`) — all CRUD round-trips to the backend. Backend model added via the `directus` repo's `pm-system/add-collaboration-model.mjs`.
+- ⏳ **Visual refinement pending Claude Design Prompt B (board) + C (task detail)** — current styling is functional-clean shadcn, not yet the final design.
+- ⏳ Drag-to-change-stage not wired yet; board still loads a capped page (no filters/pagination yet).
+- ⏳ Not yet deployed publicly; runs via `npm run dev`/`preview`. SSO-from-the-frontend (cross-subdomain) not yet wired — login currently works via email/password (token mode); the Microsoft button redirects but full SSO return needs backend session-cookie config.
 
 ## 6. Backend dependencies (must be set on `directus` before this runs against real data)
 - **CORS**: the backend must allow this app's origin (`CORS_ENABLED=true`, origin allow-list) — set in Coolify on the `directus` service.
