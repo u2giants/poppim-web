@@ -57,14 +57,9 @@ AI/operators **may** change in Coolify directly: the service's domain binding, r
 - Domain (production target): `pm.designflow.app` (currently validating on `pm-ci.designflow.app`). Domain is bound via the Coolify sub-app `fqdn` (the §11 quirk in the `directus` repo AGENTS.md): `service_applications.fqdn = https://<host>:80`.
 - Deploy trigger: `GET {COOLIFY_URL}/api/v1/deploy?uuid=ysvdyj3t7d5tyh5ogrvlka4y` with the Coolify bearer token.
 
-## ⚠ Status & the one remaining setup step
-The pipeline is built and **verify → build → push → trigger all pass**, but Coolify cannot yet **pull** the image because the **GHCR package is private** (`u2giants` is a personal account + private repo → private package; `docker pull` returns `denied`).
+## ✅ Status — LIVE (2026-06-11)
+The pipeline is fully operational and serving production. `git push` to `main` is the entire deploy:
+verify → build → push to GHCR → trigger Coolify → Coolify pulls + runs. The **GHCR package `poppim-web` is public** (the bundle is served publicly anyway), so Coolify pulls anonymously — no registry credential needed.
 
-**To finish the cutover, the owner must do ONE of these (one-time):**
-1. **Make the GHCR package public** (recommended; the bundle is already served publicly, so nothing secret leaks): GitHub → your profile → **Packages** → `poppim-web` → **Package settings** → **Change visibility → Public**. Then the pipeline is fully automatic.
-2. **Or** give Coolify a pull credential: create a GitHub PAT with `read:packages` and add it to Coolify as a Docker-registry credential for `ghcr.io`.
-
-Until then, **production stays on the legacy raw-docker deploy** (see `docs/deployment.md`) — which is the path this pipeline replaces and which will be retired immediately after the Coolify path serves `pm.designflow.app`.
-
-## Legacy path being retired (§10/§23)
-The temporary raw-`docker run` deploy (a `poppim-web` container with hand-written Traefik labels) is **not** a sanctioned normal path. It is kept only until the Coolify pipeline above is serving production, then removed so it can't be reintroduced as a fallback.
+- **Production:** `pm.designflow.app` is served by the Coolify service `poppim-web` (`ysvdyj3t7d5tyh5ogrvlka4y`), running `ghcr.io/u2giants/poppim-web:main`. `pm-dev` (preview) and `pm-ci` (validation) point at the same service.
+- **Legacy raw-docker removed:** the old hand-run `poppim-web` container (Traefik labels) was deleted at cutover. Do not reintroduce raw `docker run` as a deploy path (§10/§23). `docs/deployment.md` documents that retired path for historical context only.

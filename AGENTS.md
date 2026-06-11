@@ -99,8 +99,9 @@ This app only **reads/writes** the backend; the schema is defined in the `direct
 | Entity/System | Identifier | Where defined | Notes |
 |---|---|---|---|
 | Backend API | `https://data.designflow.app` | `src/lib/directus.ts` (`VITE_DIRECTUS_URL`) | shared Directus; **never** the human URL |
-| This app (production) | `https://pm.designflow.app` | Traefik labels on the `poppim-web` container | **live** — permanent human URL |
-| This app (preview alias) | `https://pm-dev.designflow.app` | same container | same image; dev alias |
+| This app (production) | `https://pm.designflow.app` | Coolify service `ysvdyj3t7d5tyh5ogrvlka4y` (GHCR image) | **live** — permanent human URL |
+| This app (aliases) | `https://pm-dev.designflow.app`, `https://pm-ci.designflow.app` | same Coolify service | preview / CI-validation |
+| GHCR image | `ghcr.io/u2giants/poppim-web` | GitHub Actions | **public** package; tags `:main` + `:sha-<commit>` |
 | Repo | `u2giants/poppim-web` | GitHub | |
 | Container | `poppim-web` | raw `docker run` on the `coolify` network | §9 |
 | Backend collections read | `product`, `stage`, `retailer` | `directus` repo `pm-system/apply-schema.mjs` | board data |
@@ -113,8 +114,7 @@ Do not rename these identifiers casually — both repos depend on them.
 
 | Container/service | Purpose | Managed by | App/project ID | Image/source |
 |---|---|---|---|---|
-| `poppim-web` (raw) | This frontend, **legacy** path currently serving prod | raw `docker run` on the `coolify` network (being retired) | n/a | local image `poppim-web:latest` |
-| `poppim-web` (Coolify service) | The **intended** prod runtime (pulls the CI image) | **Coolify** | service uuid `ysvdyj3t7d5tyh5ogrvlka4y`, project `jdq36h5dq74o6ddhich9l796` | `ghcr.io/u2giants/poppim-web:main` |
+| `poppim-web-ysvdyj3t7d5tyh5ogrvlka4y` | This frontend (prod) — pulls the CI image | **Coolify** | service uuid `ysvdyj3t7d5tyh5ogrvlka4y`, project `jdq36h5dq74o6ddhich9l796` | `ghcr.io/u2giants/poppim-web:main` |
 | `directus-app` / `directus-db` | The backend this app calls | Coolify service `directus` (`nzli85mk3luzb6u7cnq5fidu`) | see `directus` repo | `directus/directus:11` + `postgres:16-alpine` |
 
 ## 10. What to ignore
@@ -167,12 +167,12 @@ The frontend holds **no secrets** (it's a browser app; all auth is via the backe
 
 ## 13. Deployment
 
-**Intended path (built — see `docs/cicd.md`):** push to `main` → GitHub Actions (`.github/workflows/deploy.yml`) verify → build → push `ghcr.io/u2giants/poppim-web:main`+`:sha-<commit>` → trigger Coolify (service `poppim-web`, uuid `ysvdyj3t7d5tyh5ogrvlka4y`) → Coolify pulls + runs. Actions never touches the server. **Verify→build→push→trigger all pass; one owner step remains** before cutover: the GHCR package must be made **public** (or Coolify given a `read:packages` pull credential) — see `docs/cicd.md` "Status".
+**LIVE pipeline (the only deploy path — see `docs/cicd.md`):** push to `main` → GitHub Actions (`.github/workflows/deploy.yml`) verify → build → push `ghcr.io/u2giants/poppim-web:main`+`:sha-<commit>` → trigger Coolify (service `poppim-web`, uuid `ysvdyj3t7d5tyh5ogrvlka4y`) → Coolify pulls + runs. Actions never touches the server. **A `git push` to `main` is the entire deploy.** The GHCR package is **public**, so Coolify pulls anonymously (no registry cred).
 
-**Current reality — until that step, production is served via legacy raw-docker (the path the pipeline replaces):**
-- **Build:** `npm run build` → `dist/`, then `docker build -t poppim-web:latest .` (multi-stage node→nginx; `nginx.conf` has the SPA fallback).
-- **Run:** `docker rm -f poppim-web` then `docker run -d --name poppim-web --network coolify --label …` with Traefik labels (entrypoints `http`/`https`, `certresolver=letsencrypt`, **host rule `Host(\`pm.designflow.app\`) || Host(\`pm-dev.designflow.app\`)`**, service port 80). One container serves both the production URL `pm.designflow.app` and the `pm-dev` alias. This reuses Coolify's existing Traefik proxy for routing + TLS. The exact `docker run` is in `docs/deployment.md`.
-- **Production cutover done (2026-06-11):** `pm.designflow.app` was repointed from the Directus backend to this container — the backend dropped `pm` from its Coolify sub-app `fqdn` (id=16) and `pm` was added to `AUTH_MICROSOFT_REDIRECT_ALLOW_LIST`. Data Studio now lives only at `data.designflow.app`.
+- **Production:** `pm.designflow.app` is served by the Coolify service (container `poppim-web-ysvdyj3t7d5tyh5ogrvlka4y`); `pm-dev`/`pm-ci` point at the same service. Domains bound via the Coolify sub-app `fqdn` (`service_applications` id=17).
+- **Rollback:** redeploy a prior `:sha-<commit>` image tag via Coolify (`docs/cicd.md`).
+- **Retired:** the legacy raw-`docker run` deploy was removed at cutover (2026-06-11). `docs/deployment.md` documents it for history only — do not reintroduce raw docker.
+- Data Studio (Directus) is at `data.designflow.app`; this app is the human URL `pm.designflow.app`.
 - **No GitHub Actions / CI yet. No registry push** (the `gh` token lacks `write:packages`, so GHCR is unavailable; the image is local-only).
 - **Runtime env:** `VITE_*` is **baked at build time** (static SPA) — there is no runtime env to change; rebuild to change the backend URL.
 - **Rollback:** rebuild from a prior commit and re-run, or `docker run` a prior image tag.
@@ -199,7 +199,7 @@ No production incidents (the app is preview-only so far).
 | Status | Item | Owner/next action |
 |---|---|---|
 | in-progress | ClickUp image backfill | Importer running in the `directus` repo (`pm-system/migration/clickup-images.mjs`); ~thousands remaining, fills `product.cover_url` |
-| blocked | Finish CI/Coolify cutover | Pipeline built (`.github/workflows/deploy.yml` + Coolify service `ysvdyj3t7d5tyh5ogrvlka4y`); verify→build→push→trigger pass. **Owner action:** make the GHCR package public (or add a `read:packages` pull cred to Coolify) — then I re-trigger, validate on `pm-ci`, repoint `pm` to the Coolify service, and delete the raw-docker container. See `docs/cicd.md`. |
+| done | CI/Coolify pipeline + cutover | `git push main` → Actions → GHCR → Coolify (`ysvdyj3t7d5tyh5ogrvlka4y`) serving `pm.designflow.app`; legacy raw-docker removed; GHCR package public; 2026-06-11. See `docs/cicd.md`. |
 | open | Server-side filtering/pagination | Filters are client-side over the loaded page (§11); push to the API for full-dataset filtering |
 | done | Wire board toolbar filters (Assignee/Licensor/Due/Sort + active-filter strip) | client-side; `filters.ts` + `BoardToolbar.tsx`; 2026-06-11 |
 | done | Production deploy at `pm.designflow.app` | live (raw-docker); SSO + cert verified; 2026-06-11 |

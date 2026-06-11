@@ -1,11 +1,13 @@
 # Deployment — poppim-web
 
-See `AGENTS.md` §13 for the summary. This is the **actual** current process, not an ideal one.
+> **The live deploy path is the CI pipeline — see [`docs/cicd.md`](./cicd.md).** A `git push` to `main` builds the image (GHCR) and Coolify pulls + runs it at `pm.designflow.app`. This file is kept for **history**: it documents the temporary raw-docker path that was used before the pipeline, and which was **removed at cutover (2026-06-11)**. Do not reintroduce it.
 
-## Current state: serving PRODUCTION via raw Docker
-`poppim-web` is **live in production at `https://pm.designflow.app`** (cutover 2026-06-11) — but it is **not yet a Coolify-managed app or a CI pipeline.** It runs as a locally-built image attached to Coolify's existing Traefik proxy, with one container serving both `pm.designflow.app` (production) and `pm-dev.designflow.app` (alias).
+**One permanent fact from the cutover:** `pm.designflow.app` was moved off the Directus backend — the backend dropped `pm` from its Coolify sub-app `fqdn` (`service_applications` id=16, now `data.designflow.app` only) and `pm` is in `AUTH_MICROSOFT_REDIRECT_ALLOW_LIST`. Directus Data Studio now lives only at `data.designflow.app`.
 
-**Cutover notes:** `pm` was repointed from the Directus backend to this container — the backend dropped `pm` from its Coolify sub-app `fqdn` (`service_applications` id=16, now `data.designflow.app` only) and `pm` was added to `AUTH_MICROSOFT_REDIRECT_ALLOW_LIST`. Directus Data Studio now lives only at `data.designflow.app`.
+---
+
+## (Historical) the retired raw-Docker process
+The text below describes the temporary path used before the CI pipeline. It is **no longer in use.**
 
 **Why temporary:** the `gh` token on the build host lacks `write:packages`, so GHCR is unavailable, and a Coolify git-build isn't wired up. This deviates from the org standard (deploy via Coolify + GitHub Actions → registry → Coolify) and is tracked as open work (AGENTS.md §15).
 

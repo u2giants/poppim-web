@@ -17,17 +17,17 @@ The PIM frontend (this repo) replacing the ClickUp board, on the shared Directus
 
 ## Done since first handoff
 - **Board toolbar filters** wired (`filters.ts` + `BoardToolbar.tsx`): search + Assignee/Licensor/Due multi-select + Sort + active-filter strip — client-side over the loaded page.
-- **Production deploy:** `pm.designflow.app` cut over to this frontend (raw-docker; SSO + cert verified). Data Studio now only at `data.designflow.app`. See `docs/deployment.md`.
+- **Production deploy:** `pm.designflow.app` cut over to this frontend. Data Studio now only at `data.designflow.app`.
+- **CI/CD pipeline LIVE:** `git push main` → GitHub Actions → GHCR (public) → Coolify service `ysvdyj3t7d5tyh5ogrvlka4y` serving `pm.designflow.app`. Legacy raw-docker removed. See `docs/cicd.md`.
 
 ## Not started / open (exact next actions)
-1. **Finish CI/Coolify cutover** — the pipeline is BUILT (`.github/workflows/deploy.yml` + Coolify service `ysvdyj3t7d5tyh5ogrvlka4y`); verify→build→push→trigger all pass. **One owner step:** make the GHCR package `poppim-web` public (or add a `read:packages` pull credential to Coolify) — `docker pull ghcr.io/u2giants/poppim-web:main` currently returns `denied`. Then: re-trigger Coolify, validate on `pm-ci.designflow.app`, repoint `pm.designflow.app` to the Coolify service (drop it from the raw-docker container), and `docker rm -f poppim-web`. See `docs/cicd.md`.
-2. **Server-side filtering/pagination** — filters are client-side over the loaded page; push to the API for the full dataset.
-3. **Board scale (Prompt B):** "load more past 50 cards" + "collapse columns" not implemented; board currently loads a capped page via `fetchProducts(limit)`.
-4. **List / Timeline views** — header tabs are placeholders.
-5. **URL deep-linking (Prompt C `?item=`)** — `react-router-dom` is installed but unused; the app uses a gate in `App.tsx`.
-6. **Durable images** — `cover_url` points at ClickUp's CDN (dies if ClickUp is cancelled); plan to copy into the DAM/R2.
-7. **Confirm end-to-end Microsoft SSO** from a real tenant login (redirect chain verified; full round-trip unconfirmed).
-8. **Cleanup** — delete unused Vite-template assets (`src/assets/*`, `public/icons.svg`).
+1. **Server-side filtering/pagination** — filters are client-side over the loaded page; push to the API for the full dataset.
+2. **Board scale (Prompt B):** "load more past 50 cards" + "collapse columns" not implemented; board currently loads a capped page via `fetchProducts(limit)`.
+3. **List / Timeline views** — header tabs are placeholders.
+4. **URL deep-linking (Prompt C `?item=`)** — `react-router-dom` is installed but unused; the app uses a gate in `App.tsx`.
+5. **Durable images** — `cover_url` points at ClickUp's CDN (dies if ClickUp is cancelled); plan to copy into the DAM/R2.
+6. **Confirm end-to-end Microsoft SSO** from a real tenant login (redirect chain verified; full round-trip unconfirmed).
+7. **Cleanup** — delete unused Vite-template assets (`src/assets/*`, `public/icons.svg`).
 
 ## Decisions made (and why)
 - shadcn **`new-york` (Radix)** not the CLI default `base-nova` (Base UI) — `asChild` + docs consistency (AGENTS.md §11).
