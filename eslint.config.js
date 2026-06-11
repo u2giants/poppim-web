@@ -6,7 +6,8 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // dist = build artifact; src/components/ui = generated shadcn (don't lint vendored primitives)
+  globalIgnores(['dist', 'src/components/ui/**']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -17,6 +18,14 @@ export default defineConfig([
     ],
     languageOptions: {
       globals: globals.browser,
+    },
+    rules: {
+      // HMR-only dev rule; not a production-correctness issue.
+      'react-refresh/only-export-components': 'off',
+      // Targeted `as any` escape hatches for the Directus SDK's strict field typing — keep visible as warnings.
+      '@typescript-eslint/no-explicit-any': 'warn',
+      // Opinionated newer rule; our effect setState patterns are intentional.
+      'react-hooks/set-state-in-effect': 'warn',
     },
   },
 ])
