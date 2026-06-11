@@ -23,6 +23,7 @@ export async function fetchProducts(limit = 500): Promise<Product[]> {
         'business_unit',
         'on_shelf_date',
         'pi_status',
+        'cover_url',
         { stage: ['id', 'name'] },
         { retailer: ['id', 'name'] },
       ],

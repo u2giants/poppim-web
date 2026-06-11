@@ -23,6 +23,7 @@ export interface Product {
   retailer: string | Retailer | null
   on_shelf_date: string | null
   pi_status: string | null
+  cover_url: string | null
 }
 
 export interface DirectusUser {
