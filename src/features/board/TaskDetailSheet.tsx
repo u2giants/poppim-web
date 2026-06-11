@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { AssigneeSection, ChecklistSection, SubtaskSection, CommentSection } from './Collaboration'
 
 function stageName(p: Product): string | null {
   if (!p.stage) return null
@@ -23,18 +24,6 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
       <span className="text-muted-foreground">{label}</span>
       <span className="col-span-2">{value ?? <span className="text-muted-foreground">—</span>}</span>
     </div>
-  )
-}
-
-// Placeholder for a slice section not built yet (assignees / checklist / subtasks / comments).
-function PendingSection({ title }: { title: string }) {
-  return (
-    <section className="space-y-2">
-      <h3 className="text-sm font-semibold">{title}</h3>
-      <p className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
-        Coming in this slice — design spec from Claude Design pending.
-      </p>
-    </section>
   )
 }
 
@@ -71,10 +60,11 @@ export function TaskDetailSheet({
                 <Field label="PI status" value={product.pi_status} />
               </section>
               <Separator />
-              <PendingSection title="Assignees" />
-              <PendingSection title="Checklist" />
-              <PendingSection title="Subtasks" />
-              <PendingSection title="Comments" />
+              <AssigneeSection productId={product.id} />
+              <ChecklistSection productId={product.id} />
+              <SubtaskSection productId={product.id} />
+              <Separator />
+              <CommentSection productId={product.id} />
             </div>
           </>
         )}
