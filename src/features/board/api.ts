@@ -1,6 +1,10 @@
-import { readItems } from '@directus/sdk'
+import { readItems, updateItem } from '@directus/sdk'
 import { directus } from '@/lib/directus'
 import type { Product, Stage } from '@/lib/types'
+
+export async function setProductStage(productId: string, stageId: string | null) {
+  return directus.request(updateItem('product', productId, { stage: stageId }))
+}
 
 export async function fetchStages(): Promise<Stage[]> {
   return directus.request(
