@@ -33,9 +33,10 @@ function cardBg(task: MockTask, colorBy: ColorBy): string {
 }
 
 const PILL_STYLES: Record<string, { bg: string; color: string }> = {
-  blocked:  { bg: '#F6CDBC', color: '#9E3B1C' },
-  Feedback: { bg: '#C7E3FB', color: '#1C6BAA' },
-  ASAP:     { bg: '#F4BBA4', color: '#8E3315' },
+  blocked:   { bg: '#F6CDBC', color: '#9E3B1C' },
+  Feedback:  { bg: '#C7E3FB', color: '#1C6BAA' },
+  ASAP:      { bg: '#F4BBA4', color: '#8E3315' },
+  'PI Req':  { bg: '#FBEBD3', color: '#9A6400' },
 }
 
 export function PimTaskCard({
