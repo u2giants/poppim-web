@@ -5,7 +5,7 @@ import type { MockTask, Category } from '@/lib/mockData'
 
 // ─── Licensor normalisation ──────────────────────────────────────────────────
 
-const LICENSOR_DISPLAY: Record<string, string> = {
+export const LICENSOR_DISPLAY: Record<string, string> = {
   disney: 'Disney',
   marvel: 'Marvel',
   'star wars': 'Star Wars',

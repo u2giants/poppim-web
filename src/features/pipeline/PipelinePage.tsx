@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -17,13 +17,24 @@ import { useAppState } from '@/lib/appState'
 import { STAGE_COLORS, LICENSOR_META, CATEGORY_ICONS, CATEGORY_COLORS, type MockTask } from '@/lib/mockData'
 import { PimTaskCard } from '@/components/PimTaskCard'
 import { TaskDetailModal } from '@/components/TaskDetailModal'
-import { fetchStages, fetchPipelineProducts, setProductStage } from './api'
+import { fetchStages, fetchPipelineProducts, setProductStage, countPipelineProducts } from './api'
 import { productToTask, orderedStageNames, stageColor } from './adapter'
 import type { Stage } from '@/lib/types'
+import type { FetchProductsOpts } from './api'
 
-// Merge real stage colors with mock stage colors (mock colors win for known names)
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
 function resolveStageColor(name: string): { bg: string; dot: string } {
   return STAGE_COLORS[name] ?? stageColor(name)
+}
+
+function useDebounce<T>(value: T, ms: number): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), ms)
+    return () => clearTimeout(t)
+  }, [value, ms])
+  return debounced
 }
 
 function setItemParam(id: string | null) {
@@ -33,30 +44,69 @@ function setItemParam(id: string | null) {
   history.replaceState(null, '', url)
 }
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export function PipelinePage() {
-  const { pipelineView } = useAppState()
+  const { pipelineView, searchQuery, filterLicensors } = useAppState()
   const [tasks, setTasks] = useState<MockTask[]>([])
   const [stageNames, setStageNames] = useState<string[]>([])
-  const [stageIdMap, setStageIdMap] = useState<Map<string, string>>(new Map()) // name → id
+  const [stageIdMap, setStageIdMap] = useState<Map<string, string>>(new Map())
+  const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [fetching, setFetching] = useState(false)
   const [activeTask, setActiveTask] = useState<MockTask | null>(null)
 
+  const fetchVersion = useRef(0)
+  const isFirstProducts = useRef(true)
+
+  const debouncedSearch = useDebounce(searchQuery, 300)
+
+  // Stages load once.
   useEffect(() => {
-    const pendingId = new URLSearchParams(window.location.search).get('item')
-    Promise.all([fetchStages(), fetchPipelineProducts()])
-      .then(([stages, products]) => {
-        const mapped = products.map(productToTask)
+    fetchStages()
+      .then((stages) => {
         setStageNames(orderedStageNames(stages as Stage[]))
         setStageIdMap(new Map((stages as Stage[]).map((s) => [s.name, s.id])))
+      })
+      .catch(console.error)
+  }, [])
+
+  // Products reload whenever debounced search or licensor filter changes.
+  useEffect(() => {
+    const pendingId = isFirstProducts.current
+      ? new URLSearchParams(window.location.search).get('item')
+      : null
+
+    const hasFilter = debouncedSearch.trim() || filterLicensors.size > 0
+    const opts: FetchProductsOpts = {
+      search: debouncedSearch.trim() || undefined,
+      licensors: filterLicensors.size > 0 ? [...filterLicensors] : undefined,
+      limit: hasFilter ? 500 : 300,
+    }
+
+    const v = ++fetchVersion.current
+    if (!isFirstProducts.current) setFetching(true)
+
+    Promise.all([fetchPipelineProducts(opts), countPipelineProducts(opts)])
+      .then(([products, total]) => {
+        if (v !== fetchVersion.current) return
+        const mapped = products.map(productToTask)
         setTasks(mapped)
+        setTotalCount(total)
         if (pendingId) {
           const match = mapped.find((t) => t.id === pendingId)
           if (match) setActiveTask(match)
         }
       })
       .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [])
+      .finally(() => {
+        if (v !== fetchVersion.current) return
+        setLoading(false)
+        setFetching(false)
+        isFirstProducts.current = false
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, filterLicensors])
 
   function openTask(t: MockTask) {
     setActiveTask(t)
@@ -76,12 +126,18 @@ export function PipelinePage() {
     )
   }
 
+  const shown = tasks.length
+  const truncated = totalCount > shown
+
   return (
-    <>
+    <div className="relative h-full">
       {pipelineView === 'kanban' ? (
         <KanbanView
           tasks={tasks}
           stageNames={stageNames}
+          shown={shown}
+          total={totalCount}
+          fetching={fetching}
           onOpen={openTask}
           onMove={(taskId, toStageName) => {
             const prevStage = tasks.find((t) => t.id === taskId)?.stage ?? toStageName
@@ -95,10 +151,26 @@ export function PipelinePage() {
           }}
         />
       ) : (
-        <TableView tasks={tasks} stageNames={stageNames} onOpen={openTask} />
+        <TableView
+          tasks={tasks}
+          stageNames={stageNames}
+          shown={shown}
+          total={totalCount}
+          fetching={fetching}
+          onOpen={openTask}
+        />
+      )}
+      {/* Truncation notice (kanban only — table has its own footer) */}
+      {pipelineView === 'kanban' && truncated && !fetching && (
+        <div
+          className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full px-4 py-1.5 text-[12px] font-medium shadow-md"
+          style={{ background: '#1B2840', color: '#fff', zIndex: 10 }}
+        >
+          Showing first {shown.toLocaleString()} of {totalCount.toLocaleString()} — search or filter to narrow
+        </div>
       )}
       <TaskDetailModal task={activeTask} onClose={closeTask} />
-    </>
+    </div>
   )
 }
 
@@ -107,33 +179,28 @@ export function PipelinePage() {
 function KanbanView({
   tasks,
   stageNames,
+  fetching,
   onOpen,
   onMove,
 }: {
   tasks: MockTask[]
   stageNames: string[]
+  shown: number
+  total: number
+  fetching: boolean
   onOpen: (t: MockTask) => void
   onMove: (taskId: string, toStage: string) => void
 }) {
-  const { colorBy, searchQuery, filterLicensors } = useAppState()
+  const { colorBy } = useAppState()
   const [dragging, setDragging] = useState<MockTask | null>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
-  const visible = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase()
-    return tasks.filter((t) => {
-      if (q && !t.title.toLowerCase().includes(q) && !t.licensor.toLowerCase().includes(q)) return false
-      if (filterLicensors.size && !filterLicensors.has(t.licensor)) return false
-      return true
-    })
-  }, [tasks, searchQuery, filterLicensors])
-
   const columns = useMemo(() =>
     stageNames.map((name) => ({
       name,
-      items: visible.filter((t) => t.stage === name),
-    })), [visible, stageNames])
+      items: tasks.filter((t) => t.stage === name),
+    })), [tasks, stageNames])
 
   function onDragStart(e: DragStartEvent) {
     setDragging(tasks.find((t) => t.id === e.active.id) ?? null)
@@ -151,7 +218,10 @@ function KanbanView({
 
   return (
     <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
-      <div className="flex h-full gap-[14px] overflow-x-auto px-6 py-5" style={{ background: '#fff' }}>
+      <div
+        className="flex h-full gap-[14px] overflow-x-auto px-6 py-5 transition-opacity"
+        style={{ background: '#fff', opacity: fetching ? 0.55 : 1 }}
+      >
         {columns.map(({ name, items }) => (
           <KanbanColumn key={name} stageName={name} items={items} colorBy={colorBy} onOpen={onOpen} />
         ))}
@@ -223,30 +293,33 @@ function DraggableCard({
 
 // ─── Table ───────────────────────────────────────────────────────────────────
 
+const TABLE_PAGE_SIZE = 100
+
 function TableView({
   tasks,
   stageNames,
+  shown,
+  total,
+  fetching,
   onOpen,
 }: {
   tasks: MockTask[]
   stageNames: string[]
+  shown: number
+  total: number
+  fetching: boolean
   onOpen: (t: MockTask) => void
 }) {
-  const { groupBy, searchQuery, filterLicensors } = useAppState()
+  const { groupBy } = useAppState()
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [page, setPage] = useState(0)
 
-  const visible = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase()
-    return tasks.filter((t) => {
-      if (q && !t.title.toLowerCase().includes(q) && !t.licensor.toLowerCase().includes(q)) return false
-      if (filterLicensors.size && !filterLicensors.has(t.licensor)) return false
-      return true
-    })
-  }, [tasks, searchQuery, filterLicensors])
+  // Reset page when tasks change (new filter/search).
+  useEffect(() => { setPage(0) }, [tasks])
 
   const groups = useMemo(() => {
     const map = new Map<string, MockTask[]>()
-    for (const t of visible) {
+    for (const t of tasks) {
       const key =
         groupBy === 'stage'    ? t.stage :
         groupBy === 'licensor' ? t.licensor :
@@ -256,56 +329,118 @@ function TableView({
     }
     const order = groupBy === 'stage' ? stageNames : [...map.keys()].sort()
     return order.map((k) => ({ key: k, items: map.get(k) ?? [] })).filter((g) => g.items.length > 0)
-  }, [visible, groupBy, stageNames])
+  }, [tasks, groupBy, stageNames])
+
+  // Flatten all rows for pagination
+  const allRows = useMemo(() =>
+    groups.flatMap((g) => g.items.map((t) => ({ ...t, _group: g.key }))),
+    [groups])
+  const totalPages = Math.ceil(allRows.length / TABLE_PAGE_SIZE)
+  const pageRows = useMemo(
+    () => allRows.slice(page * TABLE_PAGE_SIZE, (page + 1) * TABLE_PAGE_SIZE),
+    [allRows, page])
+
+  // Determine which groups appear on this page (to render headers)
+  const visibleGroups = useMemo(() => {
+    const seen = new Set<string>()
+    const result: typeof groups = []
+    for (const row of pageRows) {
+      if (!seen.has(row._group)) {
+        seen.add(row._group)
+        result.push(groups.find((g) => g.key === row._group)!)
+      }
+    }
+    return result
+  }, [pageRows, groups])
 
   return (
-    <div className="h-full overflow-auto">
-      <table className="w-full text-left">
-        <thead>
-          <tr style={{ borderBottom: '1px solid #EAEEF5' }}>
-            {(['Task', 'Stage', 'Licensor', 'Due', 'Assignee'] as const).map((h) => (
-              <th
-                key={h}
-                className="sticky top-0 bg-white px-5 py-3 text-[11px] font-bold uppercase tracking-[0.04em]"
-                style={{ color: '#94A0B5', zIndex: 1, width: h === 'Task' ? '45%' : undefined }}
-              >
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {groups.map(({ key, items }) => (
-            <>
-              <tr
-                key={`h-${key}`}
-                className="cursor-pointer"
-                onClick={() => setCollapsed((p) => { const n = new Set(p); n.has(key) ? n.delete(key) : n.add(key); return n })}
-                style={{ background: '#F6F8FC', borderBottom: '1px solid #EAEEF5' }}
-              >
-                <td colSpan={5} className="px-5 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <ChevronRight
-                      className="size-4 transition-transform"
-                      style={{ color: '#5A6883', transform: collapsed.has(key) ? 'rotate(0deg)' : 'rotate(90deg)' }}
-                    />
-                    {groupBy === 'stage' && (
-                      <span className="size-2 rounded-full" style={{ background: resolveStageColor(key).dot }} />
-                    )}
-                    <span className="text-[13px] font-bold capitalize" style={{ color: '#1B2840' }}>{key}</span>
-                    <span className="rounded px-1.5 py-0.5 text-[11px] font-semibold" style={{ background: '#EAEEF5', color: '#5A6883' }}>
-                      {items.length}
-                    </span>
-                  </div>
-                </td>
-              </tr>
-              {!collapsed.has(key) && items.map((task) => (
-                <TableTaskRow key={task.id} task={task} onOpen={onOpen} />
+    <div className="flex h-full flex-col" style={{ opacity: fetching ? 0.55 : 1 }}>
+      <div className="flex-1 overflow-auto">
+        <table className="w-full text-left">
+          <thead>
+            <tr style={{ borderBottom: '1px solid #EAEEF5' }}>
+              {(['Task', 'Stage', 'Licensor', 'Due', 'Assignee'] as const).map((h) => (
+                <th
+                  key={h}
+                  className="sticky top-0 bg-white px-5 py-3 text-[11px] font-bold uppercase tracking-[0.04em]"
+                  style={{ color: '#94A0B5', zIndex: 1, width: h === 'Task' ? '45%' : undefined }}
+                >
+                  {h}
+                </th>
               ))}
-            </>
-          ))}
-        </tbody>
-      </table>
+            </tr>
+          </thead>
+          <tbody>
+            {visibleGroups.map(({ key }) => {
+              const groupItems = pageRows.filter((r) => r._group === key)
+              return (
+                <>
+                  <tr
+                    key={`h-${key}`}
+                    className="cursor-pointer"
+                    onClick={() => setCollapsed((p) => { const n = new Set(p); n.has(key) ? n.delete(key) : n.add(key); return n })}
+                    style={{ background: '#F6F8FC', borderBottom: '1px solid #EAEEF5' }}
+                  >
+                    <td colSpan={5} className="px-5 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <ChevronRight
+                          className="size-4 transition-transform"
+                          style={{ color: '#5A6883', transform: collapsed.has(key) ? 'rotate(0deg)' : 'rotate(90deg)' }}
+                        />
+                        {groupBy === 'stage' && (
+                          <span className="size-2 rounded-full" style={{ background: resolveStageColor(key).dot }} />
+                        )}
+                        <span className="text-[13px] font-bold capitalize" style={{ color: '#1B2840' }}>{key}</span>
+                        <span className="rounded px-1.5 py-0.5 text-[11px] font-semibold" style={{ background: '#EAEEF5', color: '#5A6883' }}>
+                          {groups.find(g => g.key === key)?.items.length ?? 0}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                  {!collapsed.has(key) && groupItems.map((task) => (
+                    <TableTaskRow key={task.id} task={task} onOpen={onOpen} />
+                  ))}
+                </>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Footer: pagination + result count */}
+      <div
+        className="shrink-0 flex items-center justify-between px-5 py-2.5 text-[12px]"
+        style={{ borderTop: '1px solid #EAEEF5', color: '#94A0B5' }}
+      >
+        <span>
+          {shown < total
+            ? `Showing first ${shown.toLocaleString()} of ${total.toLocaleString()} — search or filter to narrow`
+            : `${total.toLocaleString()} product${total === 1 ? '' : 's'}`}
+        </span>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <button
+              disabled={page === 0}
+              onClick={() => setPage((p) => p - 1)}
+              className="rounded px-2.5 py-1 text-[12px] font-medium transition-colors disabled:opacity-30 hover:bg-[#F6F8FC]"
+              style={{ color: '#5A6883' }}
+            >
+              ← Prev
+            </button>
+            <span style={{ color: '#1B2840' }}>
+              {page + 1} / {totalPages}
+            </span>
+            <button
+              disabled={page >= totalPages - 1}
+              onClick={() => setPage((p) => p + 1)}
+              className="rounded px-2.5 py-1 text-[12px] font-medium transition-colors disabled:opacity-30 hover:bg-[#F6F8FC]"
+              style={{ color: '#5A6883' }}
+            >
+              Next →
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
