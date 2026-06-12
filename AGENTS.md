@@ -146,11 +146,9 @@ Actually: the importer stores ClickUp's public thumbnail URL directly on `produc
 Why: fast, no storage volume needed for the preview.
 Do not change without: knowing these URLs die if ClickUp is cancelled — durable storage (copy to DAM/R2) is a planned follow-up (§15).
 
-### Board filters are client-side, over the loaded page
-Looks like: the toolbar filters (search, Assignee, Licensor, Due, Sort) act instantly.
-Actually: they filter/sort the **already-loaded** products in memory (`src/features/board/filters.ts` + `BoardToolbar.tsx`), not server-side. The board loads a capped page (`fetchProducts(limit)`); the filter strip says "Showing X of Y **loaded**".
-Why: fast + simple for the current page size; server-side filtering/pagination is a later step (§15).
-Do not assume: filters reach products beyond the loaded page.
+### Pipeline filters are server-side (Directus API)
+Search and licensor filters are pushed to Directus via `_icontains` / `name._in`. The pipeline loads 300 products unfiltered, 500 when any filter is active. A parallel `aggregate` count query surfaces the true total; a toast / table footer shows "Showing first N of M" when truncated. Search is debounced 300 ms; stale fetch results are discarded via an incrementing ref.
+Do not assume: all 15K+ products are loaded at once — they aren't.
 
 ### No client-side router
 The app uses a simple auth gate in `App.tsx`, not routes. Deep-linking is done with `history.replaceState` + `URLSearchParams` (`?item=<uuid>`). `react-router-dom` is installed but not used — don't add route components without a clear reason.
@@ -201,7 +199,7 @@ No production incidents (the app is preview-only so far).
 |---|---|---|
 | in-progress | ClickUp image backfill | Importer running in the `directus` repo (`pm-system/migration/clickup-images.mjs`); ~thousands remaining, fills `product.cover_url` |
 | done | CI/Coolify pipeline + cutover | `git push main` → Actions → GHCR → Coolify (`ysvdyj3t7d5tyh5ogrvlka4y`) serving `pm.designflow.app`; legacy raw-docker removed; GHCR package public; 2026-06-11. See `docs/cicd.md`. |
-| open | Server-side filtering/pagination | Filters are client-side over the loaded page (§11); push to the API for full-dataset filtering |
+| done | Server-side filtering/pagination | Search + licensor pushed to Directus `_icontains`/`_in`; parallel count query; debounced 300ms; table prev/next pagination; truncation badge; 2026-06-12 |
 | done | Wire PipelinePage to real Directus data | `pipeline/adapter.ts` + `pipeline/api.ts`; real products/stages/licensors; drag-to-stage with optimistic updates; 2026-06-12 |
 | done | Wire TaskDetailModal to real Directus data | Comments and assignees loaded from Directus via `board/collab.ts`; mock comments removed; 2026-06-12 |
 | done | Cover images on PimTaskCard | `cover_url` fetched and rendered as top banner when present; 2026-06-12 |
