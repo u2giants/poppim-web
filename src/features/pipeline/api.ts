@@ -13,6 +13,7 @@ export async function fetchPipelineProducts(limit = 500): Promise<Product[]> {
         'name',
         'on_shelf_date',
         'pi_status',
+        'cover_url',
         { stage: ['id', 'name'] },
         { licensor: ['id', 'name'] },
       ],

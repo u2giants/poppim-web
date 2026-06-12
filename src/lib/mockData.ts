@@ -78,6 +78,7 @@ export interface MockTask {
   attach: number
   pill: string | null
   assignees: string[]
+  coverUrl?: string
   buyer?: string
   factory?: string
   retailer?: string

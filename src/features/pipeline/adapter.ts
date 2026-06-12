@@ -142,6 +142,7 @@ export function productToTask(product: Product): MockTask {
     attach: 0,
     pill: piStatusPill(product.pi_status),
     assignees: [],
+    coverUrl: product.cover_url ?? undefined,
   }
 }
 

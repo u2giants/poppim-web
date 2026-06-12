@@ -62,7 +62,7 @@ export function PimTaskCard({
   return (
     <div
       onClick={() => !dragging && onOpen(task)}
-      className="cursor-pointer select-none rounded-xl p-[13px_14px] transition-all"
+      className="cursor-pointer select-none overflow-hidden rounded-xl transition-all"
       style={{
         background: colorBy === 'none' ? '#fff' : bg,
         border: colorBy === 'none' ? '1px solid #EAEEF5' : `1px solid ${bg}`,
@@ -79,6 +79,15 @@ export function PimTaskCard({
         ;(e.currentTarget as HTMLElement).style.transform = 'translateY(0)'
       }}
     >
+      {task.coverUrl && (
+        <img
+          src={task.coverUrl}
+          alt=""
+          loading="lazy"
+          className="h-28 w-full object-cover"
+        />
+      )}
+      <div className="p-[13px_14px]">
       {/* Title row: category tile + title */}
       <div className="flex items-start gap-2.5">
         <div
@@ -172,6 +181,7 @@ export function PimTaskCard({
           </div>
         </div>
       </div>
+      </div> {/* end p-[13px_14px] */}
     </div>
   )
 }
