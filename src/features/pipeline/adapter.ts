@@ -143,7 +143,19 @@ export function productToTask(product: Product): MockTask {
     pill: piStatusPill(product.pi_status),
     assignees: [],
     coverUrl: product.cover_url ?? undefined,
+    coverThumbUrl: thumbUrl(product.cover_url, product.id),
   }
+}
+
+// Covers stored on DigitalOcean Spaces have a companion thumbnail at
+// covers/<id>_thumb.webp (board cards use the thumb; the opened card uses the
+// full original). For covers still on ClickUp's CDN (mid-migration) there is no
+// thumb, so the card falls back to the full URL.
+const SPACES_COVERS = 'https://poppim.nyc3.digitaloceanspaces.com/covers/'
+function thumbUrl(coverUrl: string | null, id: string): string | undefined {
+  if (!coverUrl) return undefined
+  if (coverUrl.startsWith(SPACES_COVERS)) return `${SPACES_COVERS}${id}_thumb.webp`
+  return coverUrl
 }
 
 // ─── Stage list ordering ─────────────────────────────────────────────────────

@@ -35,6 +35,7 @@ interface Props {
 
 export function TaskDetailModal({ task, onClose }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null)
+  const [coverOk, setCoverOk] = useState(true)
 
   useEffect(() => {
     if (!task) return
@@ -42,6 +43,9 @@ export function TaskDetailModal({ task, onClose }: Props) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [task, onClose])
+
+  // Reset the cover error flag when a different card is opened.
+  useEffect(() => { setCoverOk(true) }, [task?.id])
 
   if (!task) return null
 
@@ -100,6 +104,19 @@ export function TaskDetailModal({ task, onClose }: Props) {
           >
             {task.title}
           </h2>
+
+          {/* Full-size cover (the board shows a thumbnail; here we load the original) */}
+          {task.coverUrl && coverOk && (
+            <div className="px-6 pt-5">
+              <img
+                src={task.coverUrl}
+                alt=""
+                className="max-h-[420px] w-full rounded-xl object-contain"
+                style={{ background: '#F6F8FC' }}
+                onError={() => setCoverOk(false)}
+              />
+            </div>
+          )}
 
           {/* Fields grid */}
           <div className="grid grid-cols-2 gap-x-6 gap-y-4 px-6 pt-5">

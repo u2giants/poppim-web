@@ -81,13 +81,18 @@ export function PimTaskCard({
         ;(e.currentTarget as HTMLElement).style.transform = 'translateY(0)'
       }}
     >
-      {task.coverUrl && imgOk && (
+      {(task.coverThumbUrl ?? task.coverUrl) && imgOk && (
         <img
-          src={task.coverUrl}
+          src={task.coverThumbUrl ?? task.coverUrl}
           alt=""
           loading="lazy"
           className="h-28 w-full object-cover"
-          onError={() => setImgOk(false)}
+          onError={(e) => {
+            // If the thumbnail 404s but a full original exists, fall back to it once.
+            const img = e.currentTarget
+            if (task.coverUrl && img.src !== task.coverUrl) img.src = task.coverUrl
+            else setImgOk(false)
+          }}
         />
       )}
       <div className="p-[13px_14px]">
