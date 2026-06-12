@@ -162,6 +162,7 @@ The frontend holds **no secrets** (it's a browser app; all auth is via the backe
 | Variable | Purpose | Stored where | Required in dev | Required in prod |
 |---|---|---|---|---|
 | `VITE_DIRECTUS_URL` | Backend API base URL (build-time) | `.env` / `.env.example` (defaults to `https://data.designflow.app` in `src/lib/directus.ts`) | optional | optional (baked at build) |
+| `VITE_BUILD_GIT_SHA`, `VITE_BUILD_COMMIT_DATE`, `VITE_BUILD_RUN` | Build metadata displayed in the top bar and used for deploy verification | Set by Docker build args in CI; local fallback in `vite.config.ts` | no | set by workflow |
 
 **Backend-side env this app depends on** (set on the `directus` Coolify service, NOT here): this app's origin must be in `CORS_ORIGIN` and `AUTH_MICROSOFT_REDIRECT_ALLOW_LIST`, with `CORS_CREDENTIALS=true` and the `.designflow.app` session-cookie settings. See `directus` repo AGENTS.md §11/§12.
 
@@ -175,7 +176,8 @@ The frontend holds **no secrets** (it's a browser app; all auth is via the backe
 - Data Studio (Directus) is at `data.designflow.app`; this app is the human URL `pm.designflow.app`.
 - **Runtime env:** `VITE_*` is **baked at build time** (static SPA) — there is no runtime env to change; rebuild to change the backend URL.
 - **§QUIRK-1 — service vs application:** `poppim-web` is a Coolify *service* (docker-compose), not a Coolify *application*. The workflow triggers `GET /api/v1/services/{uuid}/restart`. The alternative `/api/v1/deploy?uuid=` endpoint silently no-ops on services (returns HTTP 200, does nothing). See `docs/cicd.md §QUIRK-1`.
-- **§QUIRK-2 — Caddy intercepts `/version.json`:** Coolify's Caddy layer applies `try_files` before nginx, so `https://pm.designflow.app/version.json` always returns the SPA shell — it cannot be polled to confirm a deploy. The CI verify step is advisory (`::warning::`) for this reason. See `docs/cicd.md §QUIRK-2`.
+- **§QUIRK-2 — Caddy intercepts `/version.json`:** Coolify's Caddy layer applies `try_files` before nginx, so `https://pm.designflow.app/version.json` returns the SPA shell — it cannot be polled to confirm a deploy. The CI verify step checks the `build-sha` meta tag in the served HTML instead. See `docs/cicd.md §QUIRK-2`.
+- **Top-bar build badge:** `src/components/Topbar.tsx` displays the short commit SHA and commit timestamp in `America/New_York`, sourced from `src/lib/buildInfo.ts`. Do not turn this into runtime config; it is intentionally baked into the static build for auditability.
 
 ## 14. Critical incidents
 

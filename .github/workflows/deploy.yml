@@ -58,12 +58,18 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Read commit metadata
+        id: commit
+        run: |
+          commit_date="$(git show -s --format=%cI "$GITHUB_SHA")"
+          echo "date=${commit_date}" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           build-args: |
             VCS_REF=${{ github.sha }}
+            COMMIT_DATE=${{ steps.commit.outputs.date }}
             BUILD_RUN=${{ github.run_id }}
           # sha-<commit> is the immutable audit/rollback tag; main is the convenience pointer (§6.2/§18).
           tags: |
@@ -87,25 +93,23 @@ jobs:
             "${COOLIFY_URL}/api/v1/services/${COOLIFY_APP_UUID}/restart" \
             -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"
 
-      - name: Wait for production to come up on new image
+      - name: Verify production is serving this commit
         env:
           EXPECTED_SHA: ${{ github.sha }}
+          BASE_URL: https://pm.designflow.app
         run: |
-          # Coolify restarts the service and pulls :main. Poll until the running container
-          # serves version.json with the new git_sha (nginx serves it directly; Caddy's
-          # try_files does not intercept existing files).
+          # index.html contains <meta name="build-sha" content="<sha>"> (baked by Vite).
+          # Caddy always serves index.html for all routes, so we grep it directly.
+          # Cache-busting query string prevents stale CDN/proxy responses.
           for attempt in {1..30}; do
-            body="$(curl -fsS --max-time 10 "https://pm.designflow.app/version.json" 2>/dev/null || true)"
-            live_sha="$(printf '%s' "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('git_sha',''))" 2>/dev/null || true)"
-
-            if [ "$live_sha" = "$EXPECTED_SHA" ]; then
+            html="$(curl -fsS --max-time 10 "${BASE_URL}/?_v=${EXPECTED_SHA}-${attempt}" 2>/dev/null || true)"
+            if printf '%s' "$html" | grep -Fq "${EXPECTED_SHA}"; then
               echo "Production is serving ${EXPECTED_SHA}."
               exit 0
             fi
-
-            echo "Attempt ${attempt}/30: live='${live_sha:-missing}', expected='${EXPECTED_SHA}'."
+            echo "Attempt ${attempt}/30: production has not updated to ${EXPECTED_SHA} yet."
             sleep 10
           done
 
-          echo "::warning::Deploy triggered but version.json did not confirm ${EXPECTED_SHA} within 5 min. Service may still be pulling — check Coolify."
-          # Don't hard-fail: the restart was queued; a slow pull is not a deployment failure.
+          echo "::error::Coolify restart completed, but production did not serve ${EXPECTED_SHA} within 5 min."
+          exit 1

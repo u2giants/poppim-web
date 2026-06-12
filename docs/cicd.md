@@ -17,13 +17,13 @@ push to main
        verify   : npm ci → lint → build (tsc + vite)   [gate]
        publish  : docker build → push ghcr.io/u2giants/poppim-web:main  + :sha-<commit>
        deploy   : GET /api/v1/services/{uuid}/restart  (Coolify service restart — see §QUIRK-1)
-       verify   : poll https://pm.designflow.app/version.json for the pushed commit SHA (see §QUIRK-2)
+       verify   : poll https://pm.designflow.app/?_v=<sha> for the commit SHA in the HTML (see §QUIRK-2)
   → Coolify pulls the new :main image and runs it
   → VPS runs the container
 ```
 Jobs use native `needs` (`verify → publish → deploy`) — deploy never runs unless verify + publish pass (§7/§8/§12.1). GitHub Actions **never SSHes into the server or runs docker on it** (§3/§10).
 
-The image writes `/version.json` during the Docker build from `VCS_REF=${{ github.sha }}`. After triggering Coolify, the workflow polls `https://pm.designflow.app/version.json` for the new SHA and emits a warning (not a hard failure) if it doesn't appear within 5 min (see §QUIRK-2).
+The Docker build bakes the commit SHA into `index.html` via `<meta name="build-sha" content="%VITE_BUILD_GIT_SHA%">` (Vite substitutes `VITE_BUILD_GIT_SHA` at build time). The deploy job polls the live HTML and greps for that SHA to confirm the new image is running (hard fail if not confirmed within 5 min — see §QUIRK-2).
 
 ## Branch policy (§4)
 Single-branch: `main` is the only release branch. No staging/promotion model.
@@ -65,13 +65,13 @@ AI/operators **may** change in Coolify directly: the service's domain binding, r
 
 The workflow uses `GET /api/v1/services/ysvdyj3t7d5tyh5ogrvlka4y/restart`. Do **not** switch to the `/deploy` endpoint — it will no-op.
 
-## §QUIRK-2 — Caddy intercepts `/version.json` (verify step is advisory only)
+## §QUIRK-2 — Caddy intercepts `/version.json` (and all static paths)
 
-Coolify's Caddy reverse-proxy layer applies `try_files={path} /index.html /index.php` in its service labels. This intercepts **all** requests — including requests for real static files — before they reach the nginx container. Even though nginx serves `version.json` correctly, Caddy rewrites the request to `/index.html` first, so `https://pm.designflow.app/version.json` always returns the SPA shell (HTTP 200, Content-Type: text/html).
+Coolify's Caddy reverse-proxy layer applies `try_files={path} /index.html /index.php` in its service labels. This intercepts **all** requests — including requests for real static files like `/version.json` — before they reach the nginx container. `https://pm.designflow.app/version.json` always returns the SPA shell (HTTP 200, Content-Type: text/html).
 
-Consequence: the CI verify step (`poll /version.json for the new git_sha`) can never confirm a deploy. The step emits `::warning::` instead of `exit 1` — a slow or stalled Coolify pull is worth investigating in Coolify's UI, but it does not constitute a pipeline failure by itself.
+**Workaround:** the commit SHA is baked into `index.html` itself via `<meta name="build-sha" content="%VITE_BUILD_GIT_SHA%">` (Vite substitutes the value at build time from `VITE_BUILD_GIT_SHA` which the Dockerfile sets to the git commit SHA). Since Caddy *always* serves `index.html`, polling `/?_v=<sha>` for the SHA in the HTML response is reliable. The deploy verify step uses this and **hard-fails** if production does not serve the new SHA within 5 minutes.
 
-Do **not** attempt to fix this by reconfiguring Caddy labels or adding a separate health endpoint — the Caddy config is Coolify-managed and must not be edited directly (§20).
+Do **not** attempt to fix this by reconfiguring Caddy labels — the Caddy config is Coolify-managed and must not be edited directly (§20).
 
 ## Coolify topology to recreate (§17)
 - Platform: **Coolify** at `http://178.156.180.212:8000`, server `onwp0kd7w1w74w9yeotnoihp`, project **POP PIM** (`jdq36h5dq74o6ddhich9l796`).
@@ -87,7 +87,7 @@ GitHub Actions run `27414801292` pushed `ghcr.io/u2giants/poppim-web:main` for c
 
 **Recovery:** manually called `GET /api/v1/services/ysvdyj3t7d5tyh5ogrvlka4y/stop` then `/start`, forcing a fresh pull of `:main`.
 
-**Permanent fix:** workflow updated to use `GET /api/v1/services/{uuid}/restart` (see §QUIRK-1). A second discovery during this investigation: `/version.json` is intercepted by Caddy and cannot be used for deploy verification (see §QUIRK-2) — the verify step was downgraded to a warning.
+**Permanent fix:** workflow updated to use `GET /api/v1/services/{uuid}/restart` (see §QUIRK-1). A second discovery: `/version.json` is intercepted by Caddy (see §QUIRK-2), so the workflow now verifies by polling the HTML for the commit SHA baked into `<meta name="build-sha">`.
 
 ## Status — live (2026-06-12)
 

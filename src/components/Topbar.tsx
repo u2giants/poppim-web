@@ -5,6 +5,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Bell, Search, Plus } from 'lucide-react'
 import { LICENSORS, PEOPLE } from '@/lib/mockData'
+import { buildInfo, formatCommitDateInNewYork } from '@/lib/buildInfo'
 
 const COLOR_OPTIONS: { value: ColorBy; label: string }[] = [
   { value: 'category',  label: 'Category' },
@@ -33,6 +34,7 @@ export function Topbar() {
   } = useAppState()
 
   const isPipeline = screen === 'pipeline'
+  const commitDate = formatCommitDateInNewYork(buildInfo.commitDateIso)
 
   function toggleLicensor(name: string) {
     const next = new Set(filterLicensors)
@@ -84,6 +86,17 @@ export function Topbar() {
       )}
 
       <div className="flex-1" />
+
+      <div
+        className="hidden min-w-[178px] max-w-[240px] shrink-0 flex-col justify-center rounded-md border px-2.5 py-1 text-[10.5px] leading-tight lg:flex"
+        style={{ borderColor: '#EAEEF5', background: '#F6F8FC', color: '#5A6883' }}
+        title={`Commit ${buildInfo.gitSha} · ${commitDate}`}
+      >
+        <span className="font-mono font-semibold" style={{ color: '#1B2840' }}>
+          {buildInfo.shortGitSha}
+        </span>
+        <span className="truncate">{commitDate}</span>
+      </div>
 
       {/* Search icon */}
       <button
