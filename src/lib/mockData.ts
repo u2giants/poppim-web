@@ -113,15 +113,32 @@ export const TASKS: MockTask[] = [
 
 export const STAGES = ['Concept', 'In Development', 'Licensor Review', 'Approved', 'Sampling', 'Production', 'Shipped']
 
-export const LICENSORS = ['Disney', 'Marvel', 'Lucasfilm', 'Nickelodeon', 'Sanrio', 'Seasonal']
+export const LICENSORS = [
+  'Disney', 'Marvel', 'Star Wars', 'Nickelodeon', 'WB', 'NBCU',
+  'Peanuts', 'Sega', 'WWE', 'Care Bears', 'Coca-Cola', 'One Piece',
+  'Sesame Street', 'Strawberry SC', 'Lucasfilm', 'Sanrio', 'Seasonal',
+]
 
 export const LICENSOR_META: Record<string, { gradient: string; letter: string; dotColor: string }> = {
-  Disney:       { gradient: 'linear-gradient(135deg,#4F9DF7,#3A5BD0)', letter: 'D', dotColor: '#4F9DF7' },
-  Marvel:       { gradient: 'linear-gradient(135deg,#F0564B,#D32A2A)', letter: 'M', dotColor: '#F0564B' },
-  Lucasfilm:    { gradient: 'linear-gradient(135deg,#454B5C,#C9A227)', letter: 'L', dotColor: '#C9A227' },
-  Nickelodeon:  { gradient: 'linear-gradient(135deg,#FF9F43,#F47B20)', letter: 'N', dotColor: '#FF9F43' },
-  Sanrio:       { gradient: 'linear-gradient(135deg,#FF9FC4,#EA6B9C)', letter: 'S', dotColor: '#FF9FC4' },
-  Seasonal:     { gradient: 'linear-gradient(135deg,#5BC59C,#2FA37C)', letter: '❄', dotColor: '#5BC59C' },
+  // Mock display names (used by mock data screens)
+  Disney:            { gradient: 'linear-gradient(135deg,#4F9DF7,#3A5BD0)', letter: 'D', dotColor: '#4F9DF7' },
+  Marvel:            { gradient: 'linear-gradient(135deg,#F0564B,#D32A2A)', letter: 'M', dotColor: '#F0564B' },
+  Lucasfilm:         { gradient: 'linear-gradient(135deg,#454B5C,#C9A227)', letter: 'L', dotColor: '#C9A227' },
+  Nickelodeon:       { gradient: 'linear-gradient(135deg,#FF9F43,#F47B20)', letter: 'N', dotColor: '#FF9F43' },
+  Sanrio:            { gradient: 'linear-gradient(135deg,#FF9FC4,#EA6B9C)', letter: 'S', dotColor: '#FF9FC4' },
+  Seasonal:          { gradient: 'linear-gradient(135deg,#5BC59C,#2FA37C)', letter: '❄', dotColor: '#5BC59C' },
+  // Real licensor names (from Directus, normalised via adapter.ts)
+  'Star Wars':       { gradient: 'linear-gradient(135deg,#454B5C,#C9A227)', letter: 'SW', dotColor: '#C9A227' },
+  WB:                { gradient: 'linear-gradient(135deg,#1D4CC8,#0E3BA0)', letter: 'WB', dotColor: '#1D4CC8' },
+  NBCU:              { gradient: 'linear-gradient(135deg,#0F5FA8,#0A4882)', letter: 'N', dotColor: '#0F5FA8' },
+  Peanuts:           { gradient: 'linear-gradient(135deg,#E8B84B,#C9952A)', letter: 'P', dotColor: '#E8B84B' },
+  Sega:              { gradient: 'linear-gradient(135deg,#1B75BE,#1455A0)', letter: 'S', dotColor: '#1B75BE' },
+  WWE:               { gradient: 'linear-gradient(135deg,#E31837,#C01030)', letter: 'W', dotColor: '#E31837' },
+  'Care Bears':      { gradient: 'linear-gradient(135deg,#FF7EB3,#E05A9A)', letter: 'CB', dotColor: '#FF7EB3' },
+  'Coca-Cola':       { gradient: 'linear-gradient(135deg,#F40009,#CC0007)', letter: 'C', dotColor: '#F40009' },
+  'One Piece':       { gradient: 'linear-gradient(135deg,#E8801A,#C96B14)', letter: 'OP', dotColor: '#E8801A' },
+  'Sesame Street':   { gradient: 'linear-gradient(135deg,#F3CC12,#D4AE0E)', letter: 'SS', dotColor: '#F3CC12' },
+  'Strawberry SC':   { gradient: 'linear-gradient(135deg,#E8546A,#C93C54)', letter: 'SS', dotColor: '#E8546A' },
 }
 
 export const CATEGORY_COLORS: Record<string, { bg: string; accent: string }> = {

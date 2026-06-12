@@ -7,11 +7,19 @@ function cardBg(task: MockTask, colorBy: ColorBy): string {
   switch (colorBy) {
     case 'category': return CATEGORY_COLORS[task.category]?.bg ?? '#fff'
     case 'licensor': {
-      const map: Record<string, string> = {
-        Disney: '#DCEBFC', Marvel: '#FBDCDC', Lucasfilm: '#F3EFD9',
-        Nickelodeon: '#FBE8D2', Sanrio: '#FBDAE7', Seasonal: '#D9EDDB',
+      const meta = LICENSOR_META[task.licensor]
+      if (meta) {
+        // derive a pastel tint from the first stop of the gradient
+        const match = meta.gradient.match(/#[0-9A-Fa-f]{6}/)
+        if (match) {
+          const hex = match[0].slice(1)
+          const r = parseInt(hex.slice(0, 2), 16)
+          const g = parseInt(hex.slice(2, 4), 16)
+          const b = parseInt(hex.slice(4, 6), 16)
+          return `rgba(${r},${g},${b},0.12)`
+        }
       }
-      return map[task.licensor] ?? '#fff'
+      return '#F6F8FC'
     }
     case 'stage': return STAGE_COLORS[task.stage]?.bg ?? '#fff'
     case 'priority': {

@@ -1,35 +1,98 @@
-import { useState, useMemo } from 'react'
-import { DndContext, DragOverlay, PointerSensor, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
-import { useDraggable } from '@dnd-kit/core'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useDroppable,
+  useDraggable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
+import { ChevronRight } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
 import { useAppState } from '@/lib/appState'
-import { TASKS, STAGES, STAGE_COLORS, LICENSOR_META, CATEGORY_ICONS, CATEGORY_COLORS, PEOPLE, PRIORITY_COLORS, type MockTask } from '@/lib/mockData'
+import { STAGE_COLORS, LICENSOR_META, CATEGORY_ICONS, CATEGORY_COLORS, type MockTask } from '@/lib/mockData'
 import { PimTaskCard } from '@/components/PimTaskCard'
 import { TaskDetailModal } from '@/components/TaskDetailModal'
-import { Checkbox } from '@/components/ui/checkbox'
-import { ChevronRight } from 'lucide-react'
+import { fetchStages, fetchPipelineProducts, setProductStage } from './api'
+import { productToTask, orderedStageNames, stageColor } from './adapter'
+import type { Stage } from '@/lib/types'
+
+// Merge real stage colors with mock stage colors (mock colors win for known names)
+function resolveStageColor(name: string): { bg: string; dot: string } {
+  return STAGE_COLORS[name] ?? stageColor(name)
+}
 
 export function PipelinePage() {
   const { pipelineView } = useAppState()
+  const [tasks, setTasks] = useState<MockTask[]>([])
+  const [stageNames, setStageNames] = useState<string[]>([])
+  const [stageIdMap, setStageIdMap] = useState<Map<string, string>>(new Map()) // name → id
+  const [loading, setLoading] = useState(true)
   const [activeTask, setActiveTask] = useState<MockTask | null>(null)
+
+  useEffect(() => {
+    Promise.all([fetchStages(), fetchPipelineProducts()])
+      .then(([stages, products]) => {
+        setStageNames(orderedStageNames(stages as Stage[]))
+        setStageIdMap(new Map((stages as Stage[]).map((s) => [s.name, s.id])))
+        setTasks(products.map(productToTask))
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm" style={{ color: '#94A0B5' }}>
+        Loading pipeline…
+      </div>
+    )
+  }
 
   return (
     <>
       {pipelineView === 'kanban' ? (
-        <KanbanView onOpen={setActiveTask} />
+        <KanbanView
+          tasks={tasks}
+          stageNames={stageNames}
+          onOpen={setActiveTask}
+          onMove={(taskId, toStageName) => {
+            const prevStage = tasks.find((t) => t.id === taskId)?.stage ?? toStageName
+            setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, stage: toStageName } : t)))
+            const toStageId = stageIdMap.get(toStageName)
+            if (toStageId) {
+              setProductStage(taskId, toStageId).catch(() => {
+                setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, stage: prevStage } : t)))
+              })
+            }
+          }}
+        />
       ) : (
-        <TableView onOpen={setActiveTask} />
+        <TableView tasks={tasks} stageNames={stageNames} onOpen={setActiveTask} />
       )}
       <TaskDetailModal task={activeTask} onClose={() => setActiveTask(null)} />
     </>
   )
 }
 
-// ─── Kanban ────────────────────────────────────────────────────────────────
+// ─── Kanban ─────────────────────────────────────────────────────────────────
 
-function KanbanView({ onOpen }: { onOpen: (t: MockTask) => void }) {
+function KanbanView({
+  tasks,
+  stageNames,
+  onOpen,
+  onMove,
+}: {
+  tasks: MockTask[]
+  stageNames: string[]
+  onOpen: (t: MockTask) => void
+  onMove: (taskId: string, toStage: string) => void
+}) {
   const { colorBy, searchQuery, filterLicensors } = useAppState()
-  const [tasks, setTasks] = useState<MockTask[]>(TASKS)
   const [dragging, setDragging] = useState<MockTask | null>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
@@ -37,17 +100,17 @@ function KanbanView({ onOpen }: { onOpen: (t: MockTask) => void }) {
   const visible = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     return tasks.filter((t) => {
-      if (q && !t.title.toLowerCase().includes(q)) return false
+      if (q && !t.title.toLowerCase().includes(q) && !t.licensor.toLowerCase().includes(q)) return false
       if (filterLicensors.size && !filterLicensors.has(t.licensor)) return false
       return true
     })
   }, [tasks, searchQuery, filterLicensors])
 
   const columns = useMemo(() =>
-    STAGES.map((stage) => ({
-      stage,
-      items: visible.filter((t) => t.stage === stage),
-    })), [visible])
+    stageNames.map((name) => ({
+      name,
+      items: visible.filter((t) => t.stage === name),
+    })), [visible, stageNames])
 
   function onDragStart(e: DragStartEvent) {
     setDragging(tasks.find((t) => t.id === e.active.id) ?? null)
@@ -55,52 +118,41 @@ function KanbanView({ onOpen }: { onOpen: (t: MockTask) => void }) {
 
   function onDragEnd(e: DragEndEvent) {
     setDragging(null)
-    const overId = e.over?.id as string | undefined
-    if (!overId || !e.active.id) return
+    const toStage = e.over?.id as string | undefined
     const taskId = e.active.id as string
-    if (STAGES.includes(overId)) {
-      setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, stage: overId } : t))
+    if (!toStage || !taskId) return
+    if (stageNames.includes(toStage)) {
+      onMove(taskId, toStage)
     }
   }
 
   return (
     <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
-      <div
-        className="flex h-full gap-[14px] overflow-x-auto px-6 py-5"
-        style={{ background: '#fff' }}
-      >
-        {columns.map(({ stage, items }) => (
-          <KanbanColumn
-            key={stage}
-            stage={stage}
-            items={items}
-            colorBy={colorBy}
-            onOpen={onOpen}
-          />
+      <div className="flex h-full gap-[14px] overflow-x-auto px-6 py-5" style={{ background: '#fff' }}>
+        {columns.map(({ name, items }) => (
+          <KanbanColumn key={name} stageName={name} items={items} colorBy={colorBy} onOpen={onOpen} />
         ))}
       </div>
       <DragOverlay>
-        {dragging && (
-          <PimTaskCard task={dragging} colorBy={colorBy} onOpen={() => {}} dragging />
-        )}
+        {dragging && <PimTaskCard task={dragging} colorBy={colorBy} onOpen={() => {}} dragging />}
       </DragOverlay>
     </DndContext>
   )
 }
 
 function KanbanColumn({
-  stage,
+  stageName,
   items,
   colorBy,
   onOpen,
 }: {
-  stage: string
+  stageName: string
   items: MockTask[]
   colorBy: ReturnType<typeof useAppState>['colorBy']
   onOpen: (t: MockTask) => void
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: stage })
-  const stageStyle = STAGE_COLORS[stage]
+  const { setNodeRef, isOver } = useDroppable({ id: stageName })
+  const colors = resolveStageColor(stageName)
 
   return (
     <div
@@ -108,14 +160,10 @@ function KanbanColumn({
       className="flex w-[296px] shrink-0 flex-col rounded-xl transition-colors"
       style={{ background: isOver ? '#E4F1FF' : '#F6F8FC' }}
     >
-      {/* Column header */}
       <div className="flex items-center gap-2 px-3 py-3">
-        <span
-          className="size-2 rounded-full shrink-0"
-          style={{ background: stageStyle?.dot ?? '#94A0B5' }}
-        />
-        <span className="text-[14px] font-bold" style={{ color: '#1B2840', letterSpacing: '-0.01em' }}>
-          {stage}
+        <span className="size-2 rounded-full shrink-0" style={{ background: colors.dot }} />
+        <span className="text-[14px] font-bold capitalize" style={{ color: '#1B2840', letterSpacing: '-0.01em' }}>
+          {stageName}
         </span>
         <span
           className="ml-1 rounded px-1.5 py-0.5 text-[11px] font-semibold"
@@ -124,8 +172,6 @@ function KanbanColumn({
           {items.length}
         </span>
       </div>
-
-      {/* Cards */}
       <div className="flex flex-col gap-[9px] overflow-y-auto px-2 pb-3 min-h-2">
         {items.map((task) => (
           <DraggableCard key={task.id} task={task} colorBy={colorBy} onOpen={onOpen} />
@@ -144,37 +190,36 @@ function DraggableCard({
   colorBy: ReturnType<typeof useAppState>['colorBy']
   onOpen: (t: MockTask) => void
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: task.id,
-    data: { task },
-  })
-
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: task.id, data: { task } })
   return (
-    <div
-      ref={setNodeRef}
-      style={{ transform: CSS.Translate.toString(transform) }}
-      {...listeners}
-      {...attributes}
-    >
+    <div ref={setNodeRef} style={{ transform: CSS.Translate.toString(transform) }} {...listeners} {...attributes}>
       <PimTaskCard task={task} colorBy={colorBy} onOpen={onOpen} dragging={isDragging} />
     </div>
   )
 }
 
-// ─── Table ─────────────────────────────────────────────────────────────────
+// ─── Table ───────────────────────────────────────────────────────────────────
 
-function TableView({ onOpen }: { onOpen: (t: MockTask) => void }) {
+function TableView({
+  tasks,
+  stageNames,
+  onOpen,
+}: {
+  tasks: MockTask[]
+  stageNames: string[]
+  onOpen: (t: MockTask) => void
+}) {
   const { groupBy, searchQuery, filterLicensors } = useAppState()
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
   const visible = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
-    return TASKS.filter((t) => {
-      if (q && !t.title.toLowerCase().includes(q)) return false
+    return tasks.filter((t) => {
+      if (q && !t.title.toLowerCase().includes(q) && !t.licensor.toLowerCase().includes(q)) return false
       if (filterLicensors.size && !filterLicensors.has(t.licensor)) return false
       return true
     })
-  }, [searchQuery, filterLicensors])
+  }, [tasks, searchQuery, filterLicensors])
 
   const groups = useMemo(() => {
     const map = new Map<string, MockTask[]>()
@@ -186,82 +231,51 @@ function TableView({ onOpen }: { onOpen: (t: MockTask) => void }) {
         t.assignees[0] ?? 'Unassigned'
       ;(map.get(key) ?? map.set(key, []).get(key)!).push(t)
     }
-    const order = groupBy === 'stage' ? STAGES : [...map.keys()].sort()
+    const order = groupBy === 'stage' ? stageNames : [...map.keys()].sort()
     return order.map((k) => ({ key: k, items: map.get(k) ?? [] })).filter((g) => g.items.length > 0)
-  }, [visible, groupBy])
-
-  function toggleCollapse(key: string) {
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-  }
+  }, [visible, groupBy, stageNames])
 
   return (
     <div className="h-full overflow-auto">
       <table className="w-full text-left">
         <thead>
           <tr style={{ borderBottom: '1px solid #EAEEF5' }}>
-            <th
-              className="sticky top-0 bg-white px-5 py-3 text-[11px] font-bold uppercase tracking-[0.04em] w-[45%]"
-              style={{ color: '#94A0B5', zIndex: 1 }}
-            >
-              Task
-            </th>
-            <th className="sticky top-0 bg-white px-4 py-3 text-[11px] font-bold uppercase tracking-[0.04em]" style={{ color: '#94A0B5', zIndex: 1 }}>
-              Stage
-            </th>
-            <th className="sticky top-0 bg-white px-4 py-3 text-[11px] font-bold uppercase tracking-[0.04em]" style={{ color: '#94A0B5', zIndex: 1 }}>
-              Licensor
-            </th>
-            <th className="sticky top-0 bg-white px-4 py-3 text-[11px] font-bold uppercase tracking-[0.04em]" style={{ color: '#94A0B5', zIndex: 1 }}>
-              Time
-            </th>
-            <th className="sticky top-0 bg-white px-4 py-3 text-[11px] font-bold uppercase tracking-[0.04em]" style={{ color: '#94A0B5', zIndex: 1 }}>
-              Responsible
-            </th>
+            {(['Task', 'Stage', 'Licensor', 'Due', 'Assignee'] as const).map((h) => (
+              <th
+                key={h}
+                className="sticky top-0 bg-white px-5 py-3 text-[11px] font-bold uppercase tracking-[0.04em]"
+                style={{ color: '#94A0B5', zIndex: 1, width: h === 'Task' ? '45%' : undefined }}
+              >
+                {h}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
           {groups.map(({ key, items }) => (
             <>
-              {/* Group header row */}
               <tr
-                key={`header-${key}`}
+                key={`h-${key}`}
                 className="cursor-pointer"
-                onClick={() => toggleCollapse(key)}
+                onClick={() => setCollapsed((p) => { const n = new Set(p); n.has(key) ? n.delete(key) : n.add(key); return n })}
                 style={{ background: '#F6F8FC', borderBottom: '1px solid #EAEEF5' }}
               >
                 <td colSpan={5} className="px-5 py-2.5">
                   <div className="flex items-center gap-2">
                     <ChevronRight
                       className="size-4 transition-transform"
-                      style={{
-                        color: '#5A6883',
-                        transform: collapsed.has(key) ? 'rotate(0deg)' : 'rotate(90deg)',
-                      }}
+                      style={{ color: '#5A6883', transform: collapsed.has(key) ? 'rotate(0deg)' : 'rotate(90deg)' }}
                     />
                     {groupBy === 'stage' && (
-                      <span
-                        className="size-2 rounded-full"
-                        style={{ background: STAGE_COLORS[key]?.dot ?? '#94A0B5' }}
-                      />
+                      <span className="size-2 rounded-full" style={{ background: resolveStageColor(key).dot }} />
                     )}
-                    <span className="text-[13px] font-bold capitalize" style={{ color: '#1B2840' }}>
-                      {key}
-                    </span>
-                    <span
-                      className="rounded px-1.5 py-0.5 text-[11px] font-semibold"
-                      style={{ background: '#EAEEF5', color: '#5A6883' }}
-                    >
+                    <span className="text-[13px] font-bold capitalize" style={{ color: '#1B2840' }}>{key}</span>
+                    <span className="rounded px-1.5 py-0.5 text-[11px] font-semibold" style={{ background: '#EAEEF5', color: '#5A6883' }}>
                       {items.length}
                     </span>
                   </div>
                 </td>
               </tr>
-              {/* Task rows */}
               {!collapsed.has(key) && items.map((task) => (
                 <TableTaskRow key={task.id} task={task} onOpen={onOpen} />
               ))}
@@ -275,10 +289,8 @@ function TableView({ onOpen }: { onOpen: (t: MockTask) => void }) {
 
 function TableTaskRow({ task, onOpen }: { task: MockTask; onOpen: (t: MockTask) => void }) {
   const licMeta = LICENSOR_META[task.licensor]
-  const stageStyle = STAGE_COLORS[task.stage]
+  const stageColors = resolveStageColor(task.stage)
   const catColors = CATEGORY_COLORS[task.category]
-  const priorityColor = PRIORITY_COLORS[task.priority]
-  const assignee = PEOPLE.find((p) => p.id === task.assignees[0])
 
   return (
     <tr
@@ -286,98 +298,62 @@ function TableTaskRow({ task, onOpen }: { task: MockTask; onOpen: (t: MockTask) 
       style={{ borderBottom: '1px solid #EAEEF5' }}
       onClick={() => onOpen(task)}
     >
-      {/* Task cell */}
+      {/* Task */}
       <td className="px-5 py-3">
         <div className="flex items-center gap-3">
-          <Checkbox
-            className="shrink-0"
-            onClick={(e) => e.stopPropagation()}
-          />
+          <Checkbox className="shrink-0" onClick={(e) => e.stopPropagation()} />
           <div
             className="flex size-[26px] shrink-0 items-center justify-center rounded-lg text-sm"
             style={{ background: catColors?.bg ?? '#F6F8FC' }}
           >
             {CATEGORY_ICONS[task.category]}
           </div>
-          <div className="min-w-0 flex-1">
-            <span className="text-[13.5px] font-semibold line-clamp-1" style={{ color: '#1B2840' }}>
-              {task.title}
-            </span>
-          </div>
+          <span className="text-[13.5px] font-semibold line-clamp-1 flex-1 min-w-0" style={{ color: '#1B2840' }}>
+            {task.title}
+          </span>
           {task.pill && (
             <span
               className="rounded-full px-2 py-0.5 text-[10.5px] font-bold shrink-0"
-              style={
-                task.pill === 'blocked' ? { background: '#F6CDBC', color: '#9E3B1C' } :
-                task.pill === 'Feedback' ? { background: '#C7E3FB', color: '#1C6BAA' } :
-                { background: '#F4BBA4', color: '#8E3315' }
-              }
+              style={{ background: '#C7E3FB', color: '#1C6BAA' }}
             >
               {task.pill}
             </span>
           )}
-          {task.checklist.total > 0 && (
-            <span className="text-[11px]" style={{ color: '#3FA85C' }}>
-              {task.checklist.done}/{task.checklist.total}
-            </span>
-          )}
         </div>
       </td>
-
-      {/* Stage cell */}
+      {/* Stage */}
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           <span
-            className="flex size-[22px] shrink-0 items-center justify-center rounded-lg text-[10px]"
-            style={{ background: stageStyle?.bg ?? '#F6F8FC' }}
+            className="flex size-[22px] shrink-0 items-center justify-center rounded-lg"
+            style={{ background: stageColors.bg }}
           >
-            <span
-              className="size-2 rounded-full"
-              style={{ background: stageStyle?.dot ?? '#94A0B5' }}
-            />
+            <span className="size-2 rounded-full" style={{ background: stageColors.dot }} />
           </span>
-          <span className="text-[13px]" style={{ color: '#1B2840' }}>{task.stage}</span>
+          <span className="text-[13px] capitalize" style={{ color: '#1B2840' }}>{task.stage}</span>
         </div>
       </td>
-
-      {/* Licensor cell */}
+      {/* Licensor */}
       <td className="px-4 py-3">
-        {licMeta && (
+        {licMeta ? (
           <div
             className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11.5px] font-bold text-white"
             style={{ background: licMeta.gradient }}
           >
             {licMeta.letter} {task.licensor}
           </div>
+        ) : (
+          <span className="text-[13px]" style={{ color: '#5A6883' }}>{task.licensor}</span>
         )}
       </td>
-
-      {/* Time cell */}
+      {/* Due */}
       <td className="px-4 py-3">
-        <div className="flex items-center gap-1.5">
-          {task.priority !== 'normal' && (
-            <svg className="size-3 shrink-0" viewBox="0 0 12 12" fill={priorityColor}>
-              <path d="M6 1L1 11h10L6 1z" />
-            </svg>
-          )}
-          <span className="text-[13px]" style={{ color: '#5A6883' }}>{task.time}</span>
-        </div>
-      </td>
-
-      {/* Responsible cell */}
-      <td className="px-4 py-3">
-        {assignee && (
-          <div className="flex items-center gap-2">
-            <div
-              className="flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
-              style={{ background: assignee.color }}
-            >
-              {assignee.initials}
-            </div>
-            <span className="text-[13px]" style={{ color: '#1B2840' }}>{assignee.name}</span>
-          </div>
+        {task.due && (
+          <span className="text-[13px]" style={{ color: task.dueOver ? '#D2502B' : '#5A6883' }}>{task.due}</span>
         )}
       </td>
+      {/* Assignee */}
+      <td className="px-4 py-3" />
     </tr>
   )
 }
