@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { MockTask } from '@/lib/mockData'
 import { CATEGORY_COLORS, CATEGORY_ICONS, LICENSOR_META, STAGE_COLORS, PRIORITY_COLORS, PEOPLE } from '@/lib/mockData'
 import type { ColorBy } from '@/lib/appState'
@@ -55,6 +56,7 @@ export function PimTaskCard({
   const pill = task.pill ? PILL_STYLES[task.pill] : null
   const priorityColor = PRIORITY_COLORS[task.priority]
   const bg = cardBg(task, colorBy)
+  const [imgOk, setImgOk] = useState(true)
 
   const assigneeObjects = task.assignees
     .map((id) => PEOPLE.find((p) => p.id === id))
@@ -79,12 +81,13 @@ export function PimTaskCard({
         ;(e.currentTarget as HTMLElement).style.transform = 'translateY(0)'
       }}
     >
-      {task.coverUrl && (
+      {task.coverUrl && imgOk && (
         <img
           src={task.coverUrl}
           alt=""
           loading="lazy"
           className="h-28 w-full object-cover"
+          onError={() => setImgOk(false)}
         />
       )}
       <div className="p-[13px_14px]">
