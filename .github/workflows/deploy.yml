@@ -107,9 +107,12 @@ jobs:
 
           # Stop then start: stop tears down the old container; start does docker compose up -d
           # with the updated config, which pulls the new SHA tag since it is never cached.
-          curl -fsS -X GET \
+          # Stop may return 400 "already stopped" if a prior run left the service down — that is
+          # fine; we unconditionally proceed to start. The curl exit-on-error flag is omitted on
+          # the stop call so we don't abort early on an "already stopped" 400.
+          curl -sS -X GET \
             "${COOLIFY_URL}/api/v1/services/${COOLIFY_APP_UUID}/stop" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" || true
 
           sleep 12
 
