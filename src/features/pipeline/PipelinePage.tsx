@@ -26,6 +26,13 @@ function resolveStageColor(name: string): { bg: string; dot: string } {
   return STAGE_COLORS[name] ?? stageColor(name)
 }
 
+function setItemParam(id: string | null) {
+  const url = new URL(window.location.href)
+  if (id) url.searchParams.set('item', id)
+  else url.searchParams.delete('item')
+  history.replaceState(null, '', url)
+}
+
 export function PipelinePage() {
   const { pipelineView } = useAppState()
   const [tasks, setTasks] = useState<MockTask[]>([])
@@ -35,15 +42,31 @@ export function PipelinePage() {
   const [activeTask, setActiveTask] = useState<MockTask | null>(null)
 
   useEffect(() => {
+    const pendingId = new URLSearchParams(window.location.search).get('item')
     Promise.all([fetchStages(), fetchPipelineProducts()])
       .then(([stages, products]) => {
+        const mapped = products.map(productToTask)
         setStageNames(orderedStageNames(stages as Stage[]))
         setStageIdMap(new Map((stages as Stage[]).map((s) => [s.name, s.id])))
-        setTasks(products.map(productToTask))
+        setTasks(mapped)
+        if (pendingId) {
+          const match = mapped.find((t) => t.id === pendingId)
+          if (match) setActiveTask(match)
+        }
       })
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])
+
+  function openTask(t: MockTask) {
+    setActiveTask(t)
+    setItemParam(t.id)
+  }
+
+  function closeTask() {
+    setActiveTask(null)
+    setItemParam(null)
+  }
 
   if (loading) {
     return (
@@ -59,7 +82,7 @@ export function PipelinePage() {
         <KanbanView
           tasks={tasks}
           stageNames={stageNames}
-          onOpen={setActiveTask}
+          onOpen={openTask}
           onMove={(taskId, toStageName) => {
             const prevStage = tasks.find((t) => t.id === taskId)?.stage ?? toStageName
             setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, stage: toStageName } : t)))
@@ -72,9 +95,9 @@ export function PipelinePage() {
           }}
         />
       ) : (
-        <TableView tasks={tasks} stageNames={stageNames} onOpen={setActiveTask} />
+        <TableView tasks={tasks} stageNames={stageNames} onOpen={openTask} />
       )}
-      <TaskDetailModal task={activeTask} onClose={() => setActiveTask(null)} />
+      <TaskDetailModal task={activeTask} onClose={closeTask} />
     </>
   )
 }
