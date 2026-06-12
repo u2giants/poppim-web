@@ -25,6 +25,17 @@ Jobs use native `needs` (`verify → publish → deploy`) — deploy never runs 
 
 The Docker build bakes the commit SHA into `index.html` via `<meta name="build-sha" content="%VITE_BUILD_GIT_SHA%">` (Vite substitutes `VITE_BUILD_GIT_SHA` at build time). The deploy job polls the live HTML and greps for that SHA to confirm the new image is running (hard fail if not confirmed within 5 min — see §QUIRK-2).
 
+### 2026-06-12 build metadata badge
+
+What changed:
+The workflow passes `VCS_REF`, `COMMIT_DATE`, and `BUILD_RUN` into the Docker build. The build stage exposes those as `VITE_BUILD_GIT_SHA`, `VITE_BUILD_COMMIT_DATE`, and `VITE_BUILD_RUN`; `vite.config.ts` supplies local git fallbacks for dev builds.
+
+Why:
+The top bar needs to show which commit is running and when that commit was made. The same build metadata also gives CI an auditable production verification target.
+
+Future sessions should:
+Keep build metadata as build-time data. The top bar formats the commit timestamp in `America/New_York`; do not move this into runtime env or Directus data.
+
 ## Branch policy (§4)
 Single-branch: `main` is the only release branch. No staging/promotion model.
 

@@ -1,41 +1,38 @@
-# HANDOFF.md — poppim-web continuation state (2026-06-11)
+# HANDOFF.md — poppim-web continuation state (2026-06-12)
 
-Required reading to continue this app without prior chat context. Read `AGENTS.md` first. Delete this file when the items below are resolved.
+Required reading to continue this app without prior chat context. Read `AGENTS.md` first. Delete this file when the open continuation items below are resolved or moved into regular issue tracking.
 
-## What's being built and why
-The PIM frontend (this repo) replacing the ClickUp board, on the shared Directus backend. Slice 1 = **Task Board + Task Detail**. Claude Design produced three specs (Prompt A tokens, B board, C task detail) — all three are applied.
+## CI/CD + Build Metadata
 
-## Fully done
-- Scaffold (React/Vite/TS/Tailwind v4/shadcn `new-york`), `@directus/sdk` client, session/cookie auth (email/password + Microsoft SSO redirect), app shell + login.
-- **Board** (`src/features/board/`): products grouped by stage columns, **`@dnd-kit` drag-to-change-stage** (optimistic + persist + revert), working **search**, stage color accents, cover images, Prompt-B header/tabs/toolbar/geometry.
-- **Task detail** (`TaskDetailSheet` + `Collaboration.tsx`): Prompt-C 720px two-column slide-over — fields + checklist + subtasks (left), activity feed + comment composer (right). Assignees (M2M), checklist, subtasks, comments all CRUD against the backend.
-- Brand theme (Prompt A OKLCH tokens) in `src/index.css`.
-- Deployed as a **temporary raw-docker preview** at `https://pm-dev.designflow.app` (TLS via Coolify's Traefik) — see `docs/deployment.md`.
+Status:
+partial
 
-## In progress (live, not finished)
-- **ClickUp image backfill** is *running* in the `directus` repo (`pm-system/migration/clickup-images.mjs`), filling `product.cover_url` with public ClickUp thumbnail URLs. Resumable; ~thousands remaining. Check progress: count `product` where `cover_url` is non-empty. This app already renders them on cards.
+Done:
+- GitHub Actions release path is `verify -> publish -> deploy`; deploy triggers Coolify service restart via `GET /api/v1/services/ysvdyj3t7d5tyh5ogrvlka4y/restart`.
+- The old `/api/v1/deploy?uuid=...` path was identified as wrong for this Coolify service; it can return HTTP 200 while doing nothing.
+- `/version.json` was found to be intercepted by Coolify's Caddy SPA fallback, so deploy verification now greps the served HTML for the `build-sha` meta tag.
+- Docker/Vite build metadata now includes commit SHA, commit date, and build run; the top bar displays short SHA + commit time in `America/New_York`.
 
-## Done since first handoff
-- **Board toolbar filters** wired (`filters.ts` + `BoardToolbar.tsx`): search + Assignee/Licensor/Due multi-select + Sort + active-filter strip — client-side over the loaded page.
-- **Production deploy:** `pm.designflow.app` cut over to this frontend. Data Studio now only at `data.designflow.app`.
-- **CI/CD pipeline LIVE:** `git push main` → GitHub Actions → GHCR (public) → Coolify service `ysvdyj3t7d5tyh5ogrvlka4y` serving `pm.designflow.app`. Legacy raw-docker removed. See `docs/cicd.md`.
+Next action:
+Push the workflow/app changes through the normal `main` pipeline and verify the GitHub Actions deploy job hard-confirms the new SHA from `https://pm.designflow.app/?_v=<sha>`.
 
-## Not started / open (exact next actions)
-1. **Server-side filtering/pagination** — filters are client-side over the loaded page; push to the API for the full dataset.
-2. **Board scale (Prompt B):** "load more past 50 cards" + "collapse columns" not implemented; board currently loads a capped page via `fetchProducts(limit)`.
-3. **List / Timeline views** — header tabs are placeholders.
-4. **URL deep-linking (Prompt C `?item=`)** — `react-router-dom` is installed but unused; the app uses a gate in `App.tsx`.
-5. **Durable images** — `cover_url` points at ClickUp's CDN (dies if ClickUp is cancelled); plan to copy into the DAM/R2.
-6. **Confirm end-to-end Microsoft SSO** from a real tenant login (redirect chain verified; full round-trip unconfirmed).
-7. **Cleanup** — delete unused Vite-template assets (`src/assets/*`, `public/icons.svg`).
+Risks / watchouts:
+- Do not reintroduce raw SSH/docker deploys.
+- Do not switch the workflow back to `/api/v1/deploy?uuid=...`; `poppim-web` is a Coolify service, not an application.
+- Do not rely on `/version.json` over the public domain for deploy verification unless Coolify routing is changed through Coolify-owned config and documented.
 
-## Decisions made (and why)
-- shadcn **`new-york` (Radix)** not the CLI default `base-nova` (Base UI) — `asChild` + docs consistency (AGENTS.md §11).
-- **Session/cookie auth** not token mode — required for cross-subdomain SSO.
-- Images stored as **ClickUp CDN URLs** (not downloaded) — fast for the preview; durability is a known tradeoff.
-- Full board *components* are custom; only the drag *engine* is a dependency (`@dnd-kit`) — deliberately avoided a full "kanban component" that would own rendering/theme.
+## Product App Work
 
-## Risks / unknowns
-- The `pm-dev` deploy is unmanaged raw-docker (not in Coolify UI) — survives reboots via `--restart unless-stopped` but isn't visible in Coolify.
-- Backend CORS/SSO env must keep this app's origin allow-listed (lives on the `directus` Coolify service).
-- Image import depends on ClickUp API availability + rate limits.
+Status:
+partial
+
+Done:
+- Scaffold, auth, app shell, board, drag-to-stage, toolbar filters, task detail, collaboration CRUD, production Coolify deploy, and CI/Coolify release path are live or implemented in repo.
+
+Next action:
+Continue the remaining product backlog as needed: server-side filtering/pagination, board scale controls, List/Timeline views, URL deep-linking, durable image storage, real-tenant Microsoft SSO confirmation, and cleanup of unused Vite-template assets.
+
+Risks / watchouts:
+- Board filters are client-side over the loaded page only.
+- `cover_url` still points at ClickUp CDN URLs.
+- `react-router-dom` is installed but the app still uses a simple auth gate rather than routes.

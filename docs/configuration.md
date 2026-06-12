@@ -6,13 +6,16 @@ See `AGENTS.md` first. The frontend has **no secrets** (browser app; auth is the
 | Variable | Purpose | Where | Notes |
 |---|---|---|---|
 | `VITE_DIRECTUS_URL` | Backend API base URL | `.env` / `.env.example` | Build-time only (baked into the static bundle). Default `https://data.designflow.app` is hardcoded in `src/lib/directus.ts`. |
+| `VITE_BUILD_GIT_SHA` | Commit SHA shown in the top bar and embedded in `index.html` as `build-sha` | CI Docker build args; local fallback in `vite.config.ts` | Build-time only. Do not set as runtime env. |
+| `VITE_BUILD_COMMIT_DATE` | Commit timestamp shown in the top bar | CI Docker build args; local fallback in `vite.config.ts` | Formatted in the UI using `America/New_York`. |
+| `VITE_BUILD_RUN` | GitHub Actions run id/debug marker | CI Docker build args; local fallback `local` | Used for traceability/debugging. |
 
 `.env` is git-ignored; `.env.example` is the template.
 
 ## Config files
 | File | Purpose |
 |---|---|
-| `vite.config.ts` | Vite + `@tailwindcss/vite` plugin + `@`→`src` alias |
+| `vite.config.ts` | Vite + `@tailwindcss/vite` plugin + `@`→`src` alias + local git fallback for build metadata |
 | `tsconfig.json` / `tsconfig.app.json` | strict TS; `paths` `@/*`→`src/*` (no `baseUrl`, deprecated in TS7) |
 | `components.json` | shadcn config — `style: new-york`, base color neutral, css `src/index.css` |
 | `eslint.config.js` | lint rules |

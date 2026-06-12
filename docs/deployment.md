@@ -9,7 +9,7 @@
 ## (Historical) the retired raw-Docker process
 The text below describes the temporary path used before the CI pipeline. It is **no longer in use.**
 
-**Why temporary:** the `gh` token on the build host lacks `write:packages`, so GHCR is unavailable, and a Coolify git-build isn't wired up. This deviates from the org standard (deploy via Coolify + GitHub Actions → registry → Coolify) and is tracked as open work (AGENTS.md §15).
+**Why it existed:** before the CI/Coolify cutover, GHCR publishing and the Coolify service were not wired up yet. This deviated from the org standard and has since been retired.
 
 ## Build + deploy the preview
 ```bash
@@ -38,10 +38,10 @@ Traefik (the `coolify-proxy` container) routes `pm-dev.designflow.app` to it and
 `VITE_*` is baked at build time (static SPA) — there is no runtime env. To change the backend URL, rebuild.
 
 ## Rollback
-Rebuild from a known-good commit and re-run, or `docker run` a previously-tagged image.
+Use the live CI/Coolify path documented in [`docs/cicd.md`](./cicd.md): point the Coolify service at a prior immutable `ghcr.io/u2giants/poppim-web:sha-<commit>` tag and redeploy through Coolify.
 
 ## SSH / direct-docker
-Raw `docker run` on the host **is** the current deploy path — **exceptional and temporary**. The standard (this org) is deploy-via-Coolify + CI; do not treat raw-docker as the permanent process.
+Raw `docker run` on the host is **not** the current deploy path. It is documented here only as historical context; do not use it for routine deploys.
 
-## Planned (open work)
-Stand up a real **Coolify app** for `poppim-web` at `pm.designflow.app`: GHCR image + GitHub Actions (build → push → trigger Coolify), or a Coolify git-build. When that lands, add `.github/workflows/` and rewrite this doc.
+## Current deploy path
+Use [`docs/cicd.md`](./cicd.md). The live path is GitHub Actions → GHCR → Coolify service restart.
