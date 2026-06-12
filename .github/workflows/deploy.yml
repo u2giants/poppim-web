@@ -96,8 +96,11 @@ jobs:
           # Build the minimal docker-compose for the service (same shape as docker_compose_raw).
           DC_RAW=$(printf 'services:\n  poppim-web:\n    image: '"'"'%s'"'"'\n    environment:\n      SERVICE_FQDN_POPPIMWEB_80: pm-ci.designflow.app\n    expose:\n      - '"'"'80'"'"'\n    restart: unless-stopped\n' "$IMAGE_TAG")
 
-          # Patch the service to reference the new SHA tag so docker compose sees a fresh image.
+          # Patch the service config to reference the new SHA-tagged image.
           # Coolify requires docker_compose_raw to be base64-encoded.
+          # After patching, /restart does docker compose pull + up -d with the new config,
+          # which fetches the SHA tag (never cached) from GHCR. This is simpler and more
+          # reliable than stop+start, which has async-stop race conditions.
           DC_B64="$(printf '%s' "$DC_RAW" | base64 -w0)"
           curl -fsS -X PATCH \
             "${COOLIFY_URL}/api/v1/services/${COOLIFY_APP_UUID}" \
@@ -105,19 +108,8 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"docker_compose_raw\": \"${DC_B64}\"}"
 
-          # Stop then start: stop tears down the old container; start does docker compose up -d
-          # with the updated config, which pulls the new SHA tag since it is never cached.
-          # Stop may return 400 "already stopped" if a prior run left the service down — that is
-          # fine; we unconditionally proceed to start. The curl exit-on-error flag is omitted on
-          # the stop call so we don't abort early on an "already stopped" 400.
-          curl -sS -X GET \
-            "${COOLIFY_URL}/api/v1/services/${COOLIFY_APP_UUID}/stop" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" || true
-
-          sleep 12
-
           curl -fsS -X GET \
-            "${COOLIFY_URL}/api/v1/services/${COOLIFY_APP_UUID}/start" \
+            "${COOLIFY_URL}/api/v1/services/${COOLIFY_APP_UUID}/restart" \
             -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"
 
       - name: Verify production is serving this commit
