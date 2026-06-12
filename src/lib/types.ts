@@ -19,6 +19,17 @@ export interface Licensor {
   name: string
 }
 
+export interface Project {
+  id: string
+  title: string | null
+  status: string | null
+  business_unit: string | null
+  retailer: string | Retailer | null
+  on_shelf_date: string | null
+  brief: string | null
+  restrictions: string | null
+}
+
 export interface Product {
   id: string
   code: string | null
@@ -27,6 +38,7 @@ export interface Product {
   stage: string | Stage | null
   retailer: string | Retailer | null
   licensor: string | Licensor | null
+  project: string | Project | null
   on_shelf_date: string | null
   pi_status: string | null
   cover_url: string | null
@@ -74,6 +86,7 @@ export interface Comment {
 
 export interface Schema {
   product: Product[]
+  project: Project[]
   stage: Stage[]
   retailer: Retailer[]
   checklist_item: ChecklistItem[]

@@ -3,6 +3,7 @@ import { AppStateProvider, useAppState } from '@/lib/appState'
 import { AppShell } from '@/components/AppShell'
 import { LoginPage } from '@/pages/LoginPage'
 import { PipelinePage } from '@/features/pipeline/PipelinePage'
+import { ProjectsPage } from '@/features/projects/ProjectsPage'
 import { SchedulePage } from '@/features/schedule/SchedulePage'
 import { NotesPage } from '@/features/notes/NotesPage'
 import { PeoplePage } from '@/features/people/PeoplePage'
@@ -14,6 +15,7 @@ function ActiveScreen() {
 
   switch (screen) {
     case 'pipeline': return <PipelinePage />
+    case 'projects': return <ProjectsPage />
     case 'schedule': return <SchedulePage />
     case 'notes':    return <NotesPage />
     case 'people':   return <PeoplePage />

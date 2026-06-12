@@ -1,6 +1,6 @@
 import { useAppState, type Screen } from '@/lib/appState'
 import {
-  CheckSquare, Calendar, FileText, Users, Settings, ChevronDown, Search, Plus, Minus,
+  CheckSquare, Calendar, FileText, Users, Settings, ChevronDown, Search, Plus, Minus, Briefcase,
 } from 'lucide-react'
 import { useState } from 'react'
 import popLogo from '@/assets/pop-logo.png'
@@ -23,7 +23,8 @@ const COLLECTIONS = [
 ]
 
 const TOOL_ICONS: { screen: Screen; icon: typeof CheckSquare; label: string }[] = [
-  { screen: 'pipeline',  icon: CheckSquare, label: 'Tasks' },
+  { screen: 'pipeline',  icon: CheckSquare, label: 'Pipeline' },
+  { screen: 'projects',  icon: Briefcase,   label: 'Projects' },
   { screen: 'schedule',  icon: Calendar,    label: 'Schedule' },
   { screen: 'notes',     icon: FileText,    label: 'Notes' },
   { screen: 'people',    icon: Users,       label: 'People' },

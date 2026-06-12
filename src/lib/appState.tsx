@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
 
-export type Screen = 'pipeline' | 'schedule' | 'notes' | 'people' | 'mywork' | 'settings'
+export type Screen = 'pipeline' | 'projects' | 'schedule' | 'notes' | 'people' | 'mywork' | 'settings'
 export type PipelineView = 'kanban' | 'table'
 export type ColorBy = 'category' | 'licensor' | 'stage' | 'priority' | 'none'
 export type GroupBy = 'stage' | 'licensor' | 'priority' | 'assignee'
