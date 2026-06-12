@@ -378,7 +378,7 @@ function TableView({
                   <tr
                     key={`h-${key}`}
                     className="cursor-pointer"
-                    onClick={() => setCollapsed((p) => { const n = new Set(p); n.has(key) ? n.delete(key) : n.add(key); return n })}
+                    onClick={() => setCollapsed((p) => { const n = new Set(p); if (n.has(key)) n.delete(key); else n.add(key); return n })}
                     style={{ background: '#F6F8FC', borderBottom: '1px solid #EAEEF5' }}
                   >
                     <td colSpan={5} className="px-5 py-2.5">
