@@ -72,9 +72,21 @@ AI/operators **may** change in Coolify directly: the service's domain binding, r
 | Resource type | Correct deploy trigger | What the wrong endpoint does |
 |---|---|---|
 | Coolify *application* | `GET /api/v1/deploy?uuid=<uuid>` | n/a |
-| Coolify *service* (compose) | `GET /api/v1/services/<uuid>/restart` | `/api/v1/deploy?uuid=` silently returns HTTP 200 and **does nothing** |
+| Coolify *service* (compose) | see §QUIRK-3 | `/api/v1/deploy?uuid=` silently returns HTTP 200 and **does nothing** |
 
-The workflow uses `GET /api/v1/services/ysvdyj3t7d5tyh5ogrvlka4y/restart`. Do **not** switch to the `/deploy` endpoint — it will no-op.
+Do **not** use the `/deploy` endpoint for this service — it will no-op.
+
+## §QUIRK-3 — Coolify service restart does NOT pull the `:main` tag
+
+`GET /api/v1/services/{uuid}/restart` does `docker compose restart`, which reuses the locally-cached image. If the `:main` tag was already pulled earlier, the container restarts with the OLD image regardless of what was just pushed to GHCR.
+
+**Correct deploy flow (what the workflow does):**
+1. `PATCH /api/v1/services/{uuid}` — update `docker_compose_raw` (base64-encoded) to reference the immutable `:sha-<commit>` tag for this exact commit. Coolify requires base64 encoding; plain text returns 422.
+2. `GET /api/v1/services/{uuid}/restart` — Coolify runs `docker compose up -d` with the updated config. Because `:sha-<commit>` is a new unique tag (never on the server), Docker **must** pull it from GHCR.
+
+**Why not stop+start?** `stop` is async ("request queued") and `start` returns HTTP 400 "Service is already running" if the stop hasn't completed — or if the prior container auto-restarted. `restart` is the correct atomic operation; it reads the updated config and pulls the new tag in one step.
+
+**API quirks:** both `stop` and `start` return HTTP 400 (not 404/409) for invalid-state requests: "Service is already stopped" and "Service is already running" respectively. `restart` returns HTTP 200 `{"message":"Service restarting request queued."}` even when the service is currently stopped — it re-raises the container from the updated config in that case too.
 
 ## §QUIRK-2 — Caddy intercepts `/version.json` (and all static paths)
 
@@ -88,7 +100,7 @@ Do **not** attempt to fix this by reconfiguring Caddy labels — the Caddy confi
 - Platform: **Coolify** at `http://178.156.180.212:8000`, server `onwp0kd7w1w74w9yeotnoihp`, project **POP PIM** (`jdq36h5dq74o6ddhich9l796`).
 - Service: **`poppim-web`** uuid **`ysvdyj3t7d5tyh5ogrvlka4y`** — a compose service running `image: ghcr.io/u2giants/poppim-web:main`, port 80.
 - Domain: `pm.designflow.app`. Bound via the Coolify sub-app `fqdn` (`service_applications.fqdn = https://<host>:80`) — the §11 quirk documented in the `directus` repo AGENTS.md.
-- Deploy trigger (in the workflow): `GET {COOLIFY_URL}/api/v1/services/ysvdyj3t7d5tyh5ogrvlka4y/restart` (see §QUIRK-1 — **not** `/api/v1/deploy?uuid=...`).
+- Deploy trigger (in the workflow): `PATCH` docker_compose_raw to `:sha-<commit>`, then `GET /restart` (see §QUIRK-1, §QUIRK-3).
 
 ## 2026-06-12 stale deploy incident
 
@@ -102,7 +114,7 @@ GitHub Actions run `27414801292` pushed `ghcr.io/u2giants/poppim-web:main` for c
 
 ## Status — live (2026-06-12)
 
-`git push` to `main` is the only release path: verify → build → push to GHCR → `GET /api/v1/services/{uuid}/restart` → Coolify pulls `:main` + runs. The GHCR package is **public**, so Coolify pulls anonymously (no registry credential needed).
+`git push` to `main` is the only release path: verify → build → push to GHCR (`:main` + `:sha-<commit>`) → patch service config to SHA tag → restart → Coolify pulls the new SHA tag + runs. The GHCR package is **public**, so Coolify pulls anonymously (no registry credential needed).
 
-- **Production:** `pm.designflow.app`, `pm-dev.designflow.app`, and `pm-ci.designflow.app` all point at Coolify service `ysvdyj3t7d5tyh5ogrvlka4y` running `ghcr.io/u2giants/poppim-web:main`.
+- **Production:** `pm.designflow.app`, `pm-dev.designflow.app`, and `pm-ci.designflow.app` all point at Coolify service `ysvdyj3t7d5tyh5ogrvlka4y`. The running image is the immutable `:sha-<current-commit>` tag.
 - **Legacy raw-docker removed:** the old hand-run `poppim-web` container (Traefik labels) was deleted at cutover (2026-06-11). Do not reintroduce raw `docker run` (§10/§23). `docs/deployment.md` documents that retired path for historical context only.
