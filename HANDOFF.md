@@ -7,19 +7,20 @@ Required reading to continue this app without prior chat context. Read `AGENTS.m
 Status:
 partial
 
-Done:
-- GitHub Actions release path is `verify -> publish -> deploy`; deploy triggers Coolify service restart via `GET /api/v1/services/ysvdyj3t7d5tyh5ogrvlka4y/restart`.
-- The old `/api/v1/deploy?uuid=...` path was identified as wrong for this Coolify service; it can return HTTP 200 while doing nothing.
-- `/version.json` was found to be intercepted by Coolify's Caddy SPA fallback, so deploy verification now greps the served HTML for the `build-sha` meta tag.
-- Docker/Vite build metadata now includes commit SHA, commit date, and build run; the top bar displays short SHA + commit time in `America/New_York`.
+Status: done (2026-06-12) — the pipeline now deploys end-to-end and production serves the pushed SHA.
 
-Next action:
-Push the workflow/app changes through the normal `main` pipeline and verify the GitHub Actions deploy job hard-confirms the new SHA from `https://pm.designflow.app/?_v=<sha>`.
+Done:
+- GitHub Actions release path is `verify -> publish -> deploy`.
+- **Deploy now PATCHes the service `docker_compose_raw` (base64) to the `:sha-<commit>` tag, then `GET /services/{uuid}/restart`** (see `docs/cicd.md §QUIRK-3`). Plain restart on `:main` reuses the *cached* image and silently serves the old bundle — this was the root cause of a full day where pushes "weren't going live."
+- A blocking ESLint error (ternary used as a statement in `PipelinePage.tsx`) had been failing every CI run at the `verify` step, so no deploy had ever succeeded; fixed.
+- The old `/api/v1/deploy?uuid=...` path was confirmed wrong for this Coolify *service* (HTTP 200, no effect).
+- `/version.json` is intercepted by Coolify's Caddy SPA fallback, so deploy verification greps the served HTML for the `build-sha` meta tag.
 
 Risks / watchouts:
 - Do not reintroduce raw SSH/docker deploys.
-- Do not switch the workflow back to `/api/v1/deploy?uuid=...`; `poppim-web` is a Coolify service, not an application.
-- Do not rely on `/version.json` over the public domain for deploy verification unless Coolify routing is changed through Coolify-owned config and documented.
+- Do not revert deploy to a plain restart on `:main` or to `/api/v1/deploy?uuid=...`.
+- `docker_compose_raw` MUST be base64-encoded in the PATCH body (plain text → HTTP 422).
+- Keep `npm run lint` clean of *errors* — `verify` gates the whole pipeline (warnings are allowed).
 
 ## Product App Work
 
@@ -27,12 +28,16 @@ Status:
 partial
 
 Done:
-- Scaffold, auth, app shell, board, drag-to-stage, toolbar filters, task detail, collaboration CRUD, production Coolify deploy, and CI/Coolify release path are live or implemented in repo.
+- Scaffold, auth, app shell, board, drag-to-stage, task detail, collaboration CRUD, production deploy, CI/Coolify release path.
+- **Server-side search/filter/pagination** (2026-06-12): the pipeline queries Directus with `_icontains`/`licensor._in` filters + a parallel `aggregate` count; there are 15,228 staged products, so the old 500-row client cap was hiding ~97%. See `src/features/pipeline/api.ts`.
+- **Projects page** added for the 651 imported ClickUp project records (`src/features/projects/`).
+- **`?item=<uuid>` deep-linking** to the pipeline task modal via `history.replaceState`.
+- **Cover images on cards**, PI Req pill fix, dead board-code cleanup.
+- **Durable images → DigitalOcean Spaces** (cross-repo; migration lives in the `directus` repo `pm-system/migration/clickup-to-spaces.mjs`). Cards load the Spaces thumbnail (`coverThumbUrl` derived in `adapter.ts`); the opened modal loads the full original. `cover_url` is being repointed from ClickUp CDN → Spaces as the migration runs.
 
 Next action:
-Continue the remaining product backlog as needed: server-side filtering/pagination, board scale controls, List/Timeline views, URL deep-linking, durable image storage, real-tenant Microsoft SSO confirmation, and cleanup of unused Vite-template assets.
+Remaining backlog: board scale controls, List/Timeline views, real-tenant Microsoft SSO round-trip confirmation, cleanup of unused Vite-template assets, and the non-blocking `react-hooks/set-state-in-effect` + `no-explicit-any` lint warnings.
 
 Risks / watchouts:
-- Board filters are client-side over the loaded page only.
-- `cover_url` still points at ClickUp CDN URLs.
+- During the image migration window, some `cover_url` values are still ClickUp CDN URLs (no thumb yet) — the card falls back to the full URL via `onError`; this self-resolves as the migration completes.
 - `react-router-dom` is installed but the app still uses a simple auth gate rather than routes.
