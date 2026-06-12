@@ -16,11 +16,14 @@ push to main
   → GitHub Actions (.github/workflows/deploy.yml)
        verify   : npm ci → lint → build (tsc + vite)   [gate]
        publish  : docker build → push ghcr.io/u2giants/poppim-web:main  + :sha-<commit>
-       deploy   : curl Coolify deploy API (needs: publish)
-  → Coolify pulls the published image and runs it
+       deploy   : GET /api/v1/services/{uuid}/restart  (Coolify service restart — see §QUIRK-1)
+       verify   : poll https://pm.designflow.app/version.json for the pushed commit SHA (see §QUIRK-2)
+  → Coolify pulls the new :main image and runs it
   → VPS runs the container
 ```
 Jobs use native `needs` (`verify → publish → deploy`) — deploy never runs unless verify + publish pass (§7/§8/§12.1). GitHub Actions **never SSHes into the server or runs docker on it** (§3/§10).
+
+The image writes `/version.json` during the Docker build from `VCS_REF=${{ github.sha }}`. After triggering Coolify, the workflow polls `https://pm.designflow.app/version.json` for the new SHA and emits a warning (not a hard failure) if it doesn't appear within 5 min (see §QUIRK-2).
 
 ## Branch policy (§4)
 Single-branch: `main` is the only release branch. No staging/promotion model.
@@ -51,15 +54,44 @@ AI/operators **may** change in Coolify directly: the service's domain binding, r
 - `paths-ignore` skips the production build for docs-only changes (`**/*.md`, `docs/**`, ignore files). Narrow on purpose — never skips runtime-relevant files.
 - Docker layer caching via `type=gha`.
 
+## §QUIRK-1 — Coolify service vs application (deploy endpoint)
+
+`poppim-web` is a Coolify **service** (a docker-compose stack), not a Coolify **application** (a Git/Dockerfile resource built by Coolify). These are different resource types with different API endpoints:
+
+| Resource type | Correct deploy trigger | What the wrong endpoint does |
+|---|---|---|
+| Coolify *application* | `GET /api/v1/deploy?uuid=<uuid>` | n/a |
+| Coolify *service* (compose) | `GET /api/v1/services/<uuid>/restart` | `/api/v1/deploy?uuid=` silently returns HTTP 200 and **does nothing** |
+
+The workflow uses `GET /api/v1/services/ysvdyj3t7d5tyh5ogrvlka4y/restart`. Do **not** switch to the `/deploy` endpoint — it will no-op.
+
+## §QUIRK-2 — Caddy intercepts `/version.json` (verify step is advisory only)
+
+Coolify's Caddy reverse-proxy layer applies `try_files={path} /index.html /index.php` in its service labels. This intercepts **all** requests — including requests for real static files — before they reach the nginx container. Even though nginx serves `version.json` correctly, Caddy rewrites the request to `/index.html` first, so `https://pm.designflow.app/version.json` always returns the SPA shell (HTTP 200, Content-Type: text/html).
+
+Consequence: the CI verify step (`poll /version.json for the new git_sha`) can never confirm a deploy. The step emits `::warning::` instead of `exit 1` — a slow or stalled Coolify pull is worth investigating in Coolify's UI, but it does not constitute a pipeline failure by itself.
+
+Do **not** attempt to fix this by reconfiguring Caddy labels or adding a separate health endpoint — the Caddy config is Coolify-managed and must not be edited directly (§20).
+
 ## Coolify topology to recreate (§17)
 - Platform: **Coolify** at `http://178.156.180.212:8000`, server `onwp0kd7w1w74w9yeotnoihp`, project **POP PIM** (`jdq36h5dq74o6ddhich9l796`).
 - Service: **`poppim-web`** uuid **`ysvdyj3t7d5tyh5ogrvlka4y`** — a compose service running `image: ghcr.io/u2giants/poppim-web:main`, port 80.
-- Domain (production target): `pm.designflow.app` (currently validating on `pm-ci.designflow.app`). Domain is bound via the Coolify sub-app `fqdn` (the §11 quirk in the `directus` repo AGENTS.md): `service_applications.fqdn = https://<host>:80`.
-- Deploy trigger: `GET {COOLIFY_URL}/api/v1/deploy?uuid=ysvdyj3t7d5tyh5ogrvlka4y` with the Coolify bearer token.
+- Domain: `pm.designflow.app`. Bound via the Coolify sub-app `fqdn` (`service_applications.fqdn = https://<host>:80`) — the §11 quirk documented in the `directus` repo AGENTS.md.
+- Deploy trigger (in the workflow): `GET {COOLIFY_URL}/api/v1/services/ysvdyj3t7d5tyh5ogrvlka4y/restart` (see §QUIRK-1 — **not** `/api/v1/deploy?uuid=...`).
 
-## ✅ Status — LIVE (2026-06-11)
-The pipeline is fully operational and serving production. `git push` to `main` is the entire deploy:
-verify → build → push to GHCR → trigger Coolify → Coolify pulls + runs. The **GHCR package `poppim-web` is public** (the bundle is served publicly anyway), so Coolify pulls anonymously — no registry credential needed.
+## 2026-06-12 stale deploy incident
 
-- **Production:** `pm.designflow.app` is served by the Coolify service `poppim-web` (`ysvdyj3t7d5tyh5ogrvlka4y`), running `ghcr.io/u2giants/poppim-web:main`. `pm-dev` (preview) and `pm-ci` (validation) point at the same service.
-- **Legacy raw-docker removed:** the old hand-run `poppim-web` container (Traefik labels) was deleted at cutover. Do not reintroduce raw `docker run` as a deploy path (§10/§23). `docs/deployment.md` documents that retired path for historical context only.
+GitHub Actions run `27414801292` pushed `ghcr.io/u2giants/poppim-web:main` for commit `727a69bc` and the Coolify call returned HTTP 200. Production still served old assets (`index-Cff-badt.js`).
+
+**Root cause:** the workflow called `GET /api/v1/deploy?uuid=ysvdyj3t7d5tyh5ogrvlka4y`. That endpoint only works for Coolify *application* resources. `poppim-web` is a *service* (docker-compose). The endpoint silently returned 200 with no effect — Coolify never restarted the container.
+
+**Recovery:** manually called `GET /api/v1/services/ysvdyj3t7d5tyh5ogrvlka4y/stop` then `/start`, forcing a fresh pull of `:main`.
+
+**Permanent fix:** workflow updated to use `GET /api/v1/services/{uuid}/restart` (see §QUIRK-1). A second discovery during this investigation: `/version.json` is intercepted by Caddy and cannot be used for deploy verification (see §QUIRK-2) — the verify step was downgraded to a warning.
+
+## Status — live (2026-06-12)
+
+`git push` to `main` is the only release path: verify → build → push to GHCR → `GET /api/v1/services/{uuid}/restart` → Coolify pulls `:main` + runs. The GHCR package is **public**, so Coolify pulls anonymously (no registry credential needed).
+
+- **Production:** `pm.designflow.app`, `pm-dev.designflow.app`, and `pm-ci.designflow.app` all point at Coolify service `ysvdyj3t7d5tyh5ogrvlka4y` running `ghcr.io/u2giants/poppim-web:main`.
+- **Legacy raw-docker removed:** the old hand-run `poppim-web` container (Traefik labels) was deleted at cutover (2026-06-11). Do not reintroduce raw `docker run` (§10/§23). `docs/deployment.md` documents that retired path for historical context only.

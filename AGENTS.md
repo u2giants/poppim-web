@@ -5,7 +5,7 @@ Canonical operating guide for **poppim-web**. Read this first; it routes you to 
 ## 1. Project summary
 `poppim-web` is the **PIM (product/project management) frontend** for POP Creations — a React single-page app that is the human UI for the product-development pipeline, replacing the ClickUp board. **Users:** internal staff (designers, sales, licensing, management). It stores **no data of its own**; every read/write goes through the **shared Directus backend** at `https://data.designflow.app` (backend repo: `u2giants/directus`). The outcome that matters: a fast, tailored Kanban + task-detail app on the company's shared "super-app" database, so PIM data interlinks with the future CRM/DAM. Sibling frontends (separate repos): `popcmr-web` (CRM), `popdam-web` (DAM).
 
-**Live in production:** `https://pm.designflow.app` (the permanent human URL; admins use `data.designflow.app` for Directus Data Studio). A preview alias `https://pm-dev.designflow.app` serves the same container. Both are still a raw-docker deploy — see §13.
+**Live in production:** `https://pm.designflow.app` (the permanent human URL; admins use `data.designflow.app` for Directus Data Studio). Preview aliases `pm-dev` and `pm-ci` serve the same Coolify service. Deploy via `git push main` — see §13 and `docs/cicd.md`.
 
 ## Multi-model AI note
 
@@ -173,10 +173,9 @@ The frontend holds **no secrets** (it's a browser app; all auth is via the backe
 - **Rollback:** redeploy a prior `:sha-<commit>` image tag via Coolify (`docs/cicd.md`).
 - **Retired:** the legacy raw-`docker run` deploy was removed at cutover (2026-06-11). `docs/deployment.md` documents it for history only — do not reintroduce raw docker.
 - Data Studio (Directus) is at `data.designflow.app`; this app is the human URL `pm.designflow.app`.
-- **No GitHub Actions / CI yet. No registry push** (the `gh` token lacks `write:packages`, so GHCR is unavailable; the image is local-only).
 - **Runtime env:** `VITE_*` is **baked at build time** (static SPA) — there is no runtime env to change; rebuild to change the backend URL.
-- **Rollback:** rebuild from a prior commit and re-run, or `docker run` a prior image tag.
-- **SSH/raw-docker:** currently raw `docker run` on the host **IS** the deploy path — this is an **exceptional, temporary** deviation from the org standard (deploy via Coolify + CI). Replacing it with a proper Coolify app at `pm.designflow.app` is open work (§15).
+- **§QUIRK-1 — service vs application:** `poppim-web` is a Coolify *service* (docker-compose), not a Coolify *application*. The workflow triggers `GET /api/v1/services/{uuid}/restart`. The alternative `/api/v1/deploy?uuid=` endpoint silently no-ops on services (returns HTTP 200, does nothing). See `docs/cicd.md §QUIRK-1`.
+- **§QUIRK-2 — Caddy intercepts `/version.json`:** Coolify's Caddy layer applies `try_files` before nginx, so `https://pm.designflow.app/version.json` always returns the SPA shell — it cannot be polled to confirm a deploy. The CI verify step is advisory (`::warning::`) for this reason. See `docs/cicd.md §QUIRK-2`.
 
 ## 14. Critical incidents
 
@@ -202,7 +201,7 @@ No production incidents (the app is preview-only so far).
 | done | CI/Coolify pipeline + cutover | `git push main` → Actions → GHCR → Coolify (`ysvdyj3t7d5tyh5ogrvlka4y`) serving `pm.designflow.app`; legacy raw-docker removed; GHCR package public; 2026-06-11. See `docs/cicd.md`. |
 | open | Server-side filtering/pagination | Filters are client-side over the loaded page (§11); push to the API for full-dataset filtering |
 | done | Wire board toolbar filters (Assignee/Licensor/Due/Sort + active-filter strip) | client-side; `filters.ts` + `BoardToolbar.tsx`; 2026-06-11 |
-| done | Production deploy at `pm.designflow.app` | live (raw-docker); SSO + cert verified; 2026-06-11 |
+| done | Production deploy at `pm.designflow.app` | live via Coolify service `ysvdyj3t7d5tyh5ogrvlka4y`; SSO + cert verified; raw-docker retired 2026-06-11 |
 | open | Board "load more past 50 / collapse columns" (Prompt B) | Not yet implemented; board loads a capped page |
 | open | List / Timeline views | Tabs exist as placeholders in the board header |
 | open | URL deep-linking (`?item=`) for the detail panel (Prompt C) | `react-router-dom` installed but unused |
