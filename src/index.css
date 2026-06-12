@@ -1,13 +1,14 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
+@import "@fontsource-variable/plus-jakarta-sans";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-heading: var(--font-sans);
-    --font-sans: "Geist Variable", sans-serif;
+    --font-sans: "Plus Jakarta Sans Variable", sans-serif;
+    --font-heading: "Plus Jakarta Sans Variable", sans-serif;
+
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -46,8 +47,23 @@
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
-    /* ── Pipeline stage chip utilities ─────────────────────────────── */
-    /* Usage: bg-stage-concept, text-stage-concept-fg, etc.           */
+
+    /* ── App-specific tokens ─────────────────────────────────────────── */
+    --color-navy: #16243F;
+    --color-azure: #0094FF;
+    --color-azure-press: #0080E0;
+    --color-azure-soft: #E4F1FF;
+    --color-nav-text: #94A3C0;
+    --color-nav-text-strong: #FFFFFF;
+    --color-text-app: #1B2840;
+    --color-text-soft: #5A6883;
+    --color-text-muted: #94A0B5;
+    --color-line: #EAEEF5;
+    --color-line-strong: #DEE4EE;
+    --color-bg-soft: #F6F8FC;
+    --color-destructive-app: #E0483A;
+
+    /* Stage chip colors */
     --color-stage-concept:       var(--stage-concept);
     --color-stage-concept-fg:    var(--stage-concept-fg);
     --color-stage-dev:           var(--stage-dev);
@@ -65,133 +81,62 @@
 }
 
 :root {
-    /* ── Surfaces ───────────────────────────────────────────────────── */
-    --background:             oklch(0.977 0.006 254);   /* barely-blue white  */
-    --foreground:             oklch(0.148 0.012 255);   /* near-black, cool   */
-    --card:                   oklch(1 0 0);
-    --card-foreground:        oklch(0.148 0.012 255);
-    --popover:                oklch(1 0 0);
-    --popover-foreground:     oklch(0.148 0.012 255);
+    --background:             #FFFFFF;
+    --foreground:             #1B2840;
+    --card:                   #FFFFFF;
+    --card-foreground:        #1B2840;
+    --popover:                #FFFFFF;
+    --popover-foreground:     #1B2840;
 
-    /* ── Brand ──────────────────────────────────────────────────────── */
-    --primary:                oklch(0.588 0.154 255);   /* #327DD6            */
-    --primary-foreground:     oklch(1 0 0);
+    --primary:                #0094FF;
+    --primary-foreground:     #FFFFFF;
 
-    /* ── UI chrome ──────────────────────────────────────────────────── */
-    --secondary:              oklch(0.930 0.012 255);
-    --secondary-foreground:   oklch(0.258 0.024 255);
-    --muted:                  oklch(0.958 0.007 254);
-    --muted-foreground:       oklch(0.520 0.018 255);
-    --accent:                 oklch(0.912 0.018 255);
-    --accent-foreground:      oklch(0.230 0.030 255);
+    --secondary:              #F6F8FC;
+    --secondary-foreground:   #1B2840;
+    --muted:                  #F6F8FC;
+    --muted-foreground:       #5A6883;
+    --accent:                 #E4F1FF;
+    --accent-foreground:      #1B2840;
 
-    /* ── Status ─────────────────────────────────────────────────────── */
-    --destructive:            oklch(0.577 0.245 27.325);
-    --destructive-foreground: oklch(1 0 0);
+    --destructive:            #E0483A;
+    --destructive-foreground: #FFFFFF;
 
-    /* ── Structure ──────────────────────────────────────────────────── */
-    --border:                 oklch(0.893 0.010 255);
-    --input:                  oklch(0.893 0.010 255);
-    --ring:                   oklch(0.588 0.154 255);
+    --border:                 #EAEEF5;
+    --input:                  #EAEEF5;
+    --ring:                   #0094FF;
 
-    /* ── Charts ─────────────────────────────────────────────────────── */
-    --chart-1:                oklch(0.588 0.154 255);   /* brand blue         */
-    --chart-2:                oklch(0.680 0.130 195);   /* teal               */
-    --chart-3:                oklch(0.660 0.148 152);   /* sage               */
-    --chart-4:                oklch(0.720 0.138 62);    /* amber              */
-    --chart-5:                oklch(0.620 0.158 305);   /* violet             */
+    --chart-1: #0094FF;
+    --chart-2: #2D7BD0;
+    --chart-3: #3F9A50;
+    --chart-4: #C8942A;
+    --chart-5: #6B54C9;
 
     --radius: 0.625rem;
 
-    /* ── Sidebar ────────────────────────────────────────────────────── */
-    --sidebar:                      oklch(0.966 0.007 254);
-    --sidebar-foreground:           oklch(0.148 0.012 255);
-    --sidebar-primary:              oklch(0.588 0.154 255);
-    --sidebar-primary-foreground:   oklch(1 0 0);
-    --sidebar-accent:               oklch(0.912 0.018 255);
-    --sidebar-accent-foreground:    oklch(0.230 0.030 255);
-    --sidebar-border:               oklch(0.893 0.010 255);
-    --sidebar-ring:                 oklch(0.588 0.154 255);
+    --sidebar:                      #16243F;
+    --sidebar-foreground:           #94A3C0;
+    --sidebar-primary:              #0094FF;
+    --sidebar-primary-foreground:   #FFFFFF;
+    --sidebar-accent:               rgba(255,255,255,0.06);
+    --sidebar-accent-foreground:    #FFFFFF;
+    --sidebar-border:               rgba(255,255,255,0.08);
+    --sidebar-ring:                 #0094FF;
 
-    /* ── Pipeline stage chips — light ───────────────────────────────── */
-    --stage-concept:          oklch(0.932 0.030 305);
-    --stage-concept-fg:       oklch(0.360 0.072 305);
-    --stage-dev:              oklch(0.920 0.038 255);
-    --stage-dev-fg:           oklch(0.355 0.085 255);
-    --stage-review:           oklch(0.934 0.058 72);
-    --stage-review-fg:        oklch(0.400 0.088 65);
-    --stage-approved:         oklch(0.920 0.060 152);
-    --stage-approved-fg:      oklch(0.340 0.080 152);
-    --stage-production:       oklch(0.932 0.060 42);
-    --stage-production-fg:    oklch(0.400 0.090 38);
-    --stage-shipped:          oklch(0.915 0.068 168);
-    --stage-shipped-fg:       oklch(0.330 0.078 168);
-    --stage-onhold:           oklch(0.932 0.055 87);
-    --stage-onhold-fg:        oklch(0.400 0.085 80);
-}
-
-.dark {
-    /* ── Surfaces ───────────────────────────────────────────────────── */
-    --background:             oklch(0.148 0.018 255);
-    --foreground:             oklch(0.930 0.010 255);
-    --card:                   oklch(0.188 0.018 255);
-    --card-foreground:        oklch(0.930 0.010 255);
-    --popover:                oklch(0.188 0.018 255);
-    --popover-foreground:     oklch(0.930 0.010 255);
-
-    /* ── Brand ──────────────────────────────────────────────────────── */
-    --primary:                oklch(0.660 0.154 255);   /* lifted for dark bg */
-    --primary-foreground:     oklch(1 0 0);
-
-    /* ── UI chrome ──────────────────────────────────────────────────── */
-    --secondary:              oklch(0.242 0.020 255);
-    --secondary-foreground:   oklch(0.820 0.012 255);
-    --muted:                  oklch(0.220 0.016 255);
-    --muted-foreground:       oklch(0.548 0.018 255);
-    --accent:                 oklch(0.258 0.020 255);
-    --accent-foreground:      oklch(0.900 0.010 255);
-
-    /* ── Status ─────────────────────────────────────────────────────── */
-    --destructive:            oklch(0.704 0.191 22.216);
-    --destructive-foreground: oklch(1 0 0);
-
-    /* ── Structure ──────────────────────────────────────────────────── */
-    --border:                 oklch(1 0 0 / 10%);
-    --input:                  oklch(1 0 0 / 15%);
-    --ring:                   oklch(0.660 0.154 255);
-
-    /* ── Charts ─────────────────────────────────────────────────────── */
-    --chart-1:                oklch(0.660 0.140 255);
-    --chart-2:                oklch(0.720 0.120 195);
-    --chart-3:                oklch(0.710 0.140 152);
-    --chart-4:                oklch(0.760 0.138 65);
-    --chart-5:                oklch(0.680 0.150 305);
-
-    /* ── Sidebar ────────────────────────────────────────────────────── */
-    --sidebar:                      oklch(0.188 0.018 255);
-    --sidebar-foreground:           oklch(0.930 0.010 255);
-    --sidebar-primary:              oklch(0.660 0.154 255);
-    --sidebar-primary-foreground:   oklch(1 0 0);
-    --sidebar-accent:               oklch(0.258 0.020 255);
-    --sidebar-accent-foreground:    oklch(0.900 0.010 255);
-    --sidebar-border:               oklch(1 0 0 / 10%);
-    --sidebar-ring:                 oklch(0.660 0.154 255);
-
-    /* ── Pipeline stage chips — dark ────────────────────────────────── */
-    --stage-concept:          oklch(0.282 0.038 305);
-    --stage-concept-fg:       oklch(0.820 0.068 305);
-    --stage-dev:              oklch(0.250 0.040 255);
-    --stage-dev-fg:           oklch(0.800 0.090 255);
-    --stage-review:           oklch(0.278 0.052 72);
-    --stage-review-fg:        oklch(0.845 0.090 72);
-    --stage-approved:         oklch(0.248 0.050 152);
-    --stage-approved-fg:      oklch(0.800 0.078 152);
-    --stage-production:       oklch(0.270 0.052 42);
-    --stage-production-fg:    oklch(0.835 0.090 42);
-    --stage-shipped:          oklch(0.248 0.058 168);
-    --stage-shipped-fg:       oklch(0.798 0.075 168);
-    --stage-onhold:           oklch(0.272 0.048 87);
-    --stage-onhold-fg:        oklch(0.840 0.088 87);
+    /* ── Pipeline stage chips ───────────────────────────────────────── */
+    --stage-concept:    #ECE2F8;
+    --stage-concept-fg: #5B3A9E;
+    --stage-dev:        #DEEBFB;
+    --stage-dev-fg:     #1C5FB0;
+    --stage-review:     #FBEBD3;
+    --stage-review-fg:  #8A5A1A;
+    --stage-approved:   #D8EFE7;
+    --stage-approved-fg:#1A6B4A;
+    --stage-production: #FBE2D8;
+    --stage-production-fg:#8B3A22;
+    --stage-shipped:    #DEF0DB;
+    --stage-shipped-fg: #2A6B35;
+    --stage-onhold:     #F6CDBC;
+    --stage-onhold-fg:  #9E3B1C;
 }
 
 @layer base {
@@ -200,8 +145,9 @@
     }
     body {
         @apply bg-background text-foreground;
+        font-family: "Plus Jakarta Sans Variable", sans-serif;
     }
     html {
-        @apply font-sans;
+        font-family: "Plus Jakarta Sans Variable", sans-serif;
     }
 }
