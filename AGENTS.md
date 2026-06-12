@@ -51,7 +51,7 @@ Then load additional docs only when relevant:
 | `index.html`, `vite.config.ts`, `tsconfig*.json`, `eslint.config.js`, `components.json` | build/tooling config | owned |
 | `Dockerfile`, `nginx.conf`, `.dockerignore` | container build (multi-stage node→nginx, SPA fallback) | owned |
 | `.env`, `.env.example` | `VITE_DIRECTUS_URL` (not secret) | owned |
-| `src/assets/` (`react.svg`, `vite.svg`, `hero.png`), `public/icons.svg` | **leftover Vite-template assets, unused** — safe to delete | dead |
+| `src/assets/pop-logo.png` | app logo used in Topbar | owned |
 | `node_modules/`, `dist/` | install / build artifacts | ignore (§10) |
 
 No third-party framework source is vendored or modified (React/Radix/etc. are npm deps).
@@ -119,7 +119,7 @@ Do not rename these identifiers casually — both repos depend on them.
 
 ## 10. What to ignore
 
-Do not load these into AI context: `node_modules/`, `dist/`, `.env`, `*.local`, `.cache/`, `coverage/`, the leftover Vite-template assets (`src/assets/react.svg`, `src/assets/vite.svg`, `src/assets/hero.png`, `public/icons.svg`). Matches `.claudeignore` / `.cursorignore`.
+Do not load these into AI context: `node_modules/`, `dist/`, `.env`, `*.local`, `.cache/`, `coverage/`. Matches `.claudeignore` / `.cursorignore`.
 
 ## 11. Intentional quirks and non-obvious decisions
 
@@ -202,14 +202,15 @@ No production incidents (the app is preview-only so far).
 | in-progress | ClickUp image backfill | Importer running in the `directus` repo (`pm-system/migration/clickup-images.mjs`); ~thousands remaining, fills `product.cover_url` |
 | done | CI/Coolify pipeline + cutover | `git push main` → Actions → GHCR → Coolify (`ysvdyj3t7d5tyh5ogrvlka4y`) serving `pm.designflow.app`; legacy raw-docker removed; GHCR package public; 2026-06-11. See `docs/cicd.md`. |
 | open | Server-side filtering/pagination | Filters are client-side over the loaded page (§11); push to the API for full-dataset filtering |
-| done | Wire board toolbar filters (Assignee/Licensor/Due/Sort + active-filter strip) | client-side; `filters.ts` + `BoardToolbar.tsx`; 2026-06-11 |
+| done | Wire PipelinePage to real Directus data | `pipeline/adapter.ts` + `pipeline/api.ts`; real products/stages/licensors; drag-to-stage with optimistic updates; 2026-06-12 |
+| done | Wire TaskDetailModal to real Directus data | Comments and assignees loaded from Directus via `board/collab.ts`; mock comments removed; 2026-06-12 |
+| done | Cover images on PimTaskCard | `cover_url` fetched and rendered as top banner when present; 2026-06-12 |
+| done | Delete leftover Vite-template assets + dead board files | `src/assets/*`, `public/icons.svg`, and 7 unreachable `features/board/` files removed; 2026-06-12 |
 | done | Production deploy at `pm.designflow.app` | live via Coolify service `ysvdyj3t7d5tyh5ogrvlka4y`; SSO + cert verified; raw-docker retired 2026-06-11 |
-| open | Board "load more past 50 / collapse columns" (Prompt B) | Not yet implemented; board loads a capped page |
-| open | List / Timeline views | Tabs exist as placeholders in the board header |
-| open | URL deep-linking (`?item=`) for the detail panel (Prompt C) | `react-router-dom` installed but unused |
+| open | List / Timeline views | Table view exists; Timeline tab is a placeholder |
+| open | URL deep-linking (`?item=`) for the detail panel | `react-router-dom` installed but unused |
 | open | Durable image storage | Move `cover_url` off ClickUp's CDN into the DAM/R2 (§11) |
 | open | Confirm end-to-end Microsoft SSO from a real tenant login | Redirect chain verified; full round-trip unconfirmed |
-| open | Delete leftover Vite-template assets | `src/assets/*`, `public/icons.svg` are unused |
 | done | Board + task detail + collaboration (assignees/checklist/subtasks/comments) | live |
 | done | Design theme (Prompt A), board layout (Prompt B), task-detail layout (Prompt C) | applied |
 | done | `@dnd-kit` drag-to-change-stage | live |
