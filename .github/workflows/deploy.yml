@@ -97,11 +97,13 @@ jobs:
           DC_RAW=$(printf 'services:\n  poppim-web:\n    image: '"'"'%s'"'"'\n    environment:\n      SERVICE_FQDN_POPPIMWEB_80: pm-ci.designflow.app\n    expose:\n      - '"'"'80'"'"'\n    restart: unless-stopped\n' "$IMAGE_TAG")
 
           # Patch the service to reference the new SHA tag so docker compose sees a fresh image.
+          # Coolify requires docker_compose_raw to be base64-encoded.
+          DC_B64="$(printf '%s' "$DC_RAW" | base64 -w0)"
           curl -fsS -X PATCH \
             "${COOLIFY_URL}/api/v1/services/${COOLIFY_APP_UUID}" \
             -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d "{\"docker_compose_raw\": $(printf '%s' "$DC_RAW" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')}"
+            -d "{\"docker_compose_raw\": \"${DC_B64}\"}"
 
           # Stop then start: stop tears down the old container; start does docker compose up -d
           # with the updated config, which pulls the new SHA tag since it is never cached.
