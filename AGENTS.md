@@ -152,8 +152,8 @@ Actually: they filter/sort the **already-loaded** products in memory (`src/featu
 Why: fast + simple for the current page size; server-side filtering/pagination is a later step (§15).
 Do not assume: filters reach products beyond the loaded page.
 
-### `react-router-dom` is installed but unused
-The app uses a simple auth gate in `App.tsx`, not routes. Router is a dep for the planned deep-link/URL routing (Prompt C `?item=` deep links). Don't assume routing exists yet.
+### No client-side router
+The app uses a simple auth gate in `App.tsx`, not routes. Deep-linking is done with `history.replaceState` + `URLSearchParams` (`?item=<uuid>`). `react-router-dom` is installed but not used — don't add route components without a clear reason.
 
 ## 12. Credentials and environment
 
@@ -208,7 +208,7 @@ No production incidents (the app is preview-only so far).
 | done | Delete leftover Vite-template assets + dead board files | `src/assets/*`, `public/icons.svg`, and 7 unreachable `features/board/` files removed; 2026-06-12 |
 | done | Production deploy at `pm.designflow.app` | live via Coolify service `ysvdyj3t7d5tyh5ogrvlka4y`; SSO + cert verified; raw-docker retired 2026-06-11 |
 | open | List / Timeline views | Table view exists; Timeline tab is a placeholder |
-| open | URL deep-linking (`?item=`) for the detail panel | `react-router-dom` installed but unused |
+| done | URL deep-linking (`?item=`) for the detail panel | `history.replaceState` + `URLSearchParams`; auto-opens on page load; 2026-06-12 |
 | open | Durable image storage | Move `cover_url` off ClickUp's CDN into the DAM/R2 (§11) |
 | open | Confirm end-to-end Microsoft SSO from a real tenant login | Redirect chain verified; full round-trip unconfirmed |
 | done | Board + task detail + collaboration (assignees/checklist/subtasks/comments) | live |
