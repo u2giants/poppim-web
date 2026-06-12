@@ -69,7 +69,6 @@ export function PimTaskCard({
         border: colorBy === 'none' ? '1px solid #EAEEF5' : `1px solid ${bg}`,
         opacity: dragging ? 0.4 : 1,
         boxShadow: '0 1px 3px rgba(20,40,80,0.06)',
-        width: 296,
       }}
       onMouseEnter={e => {
         ;(e.currentTarget as HTMLElement).style.boxShadow = '0 10px 22px -10px rgba(20,40,80,0.28)'

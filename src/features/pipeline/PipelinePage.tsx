@@ -265,7 +265,7 @@ function KanbanColumn({
           {items.length}
         </span>
       </div>
-      <div className="flex flex-col gap-[9px] overflow-y-auto px-2 pb-3 min-h-2">
+      <div className="flex flex-col gap-[9px] overflow-y-auto overflow-x-hidden px-2 pb-3 min-h-2">
         {items.map((task) => (
           <DraggableCard key={task.id} task={task} colorBy={colorBy} onOpen={onOpen} />
         ))}
