@@ -33,11 +33,10 @@ Done:
 - **Projects page** added for the 651 imported ClickUp project records (`src/features/projects/`).
 - **`?item=<uuid>` deep-linking** to the pipeline task modal via `history.replaceState`.
 - **Cover images on cards**, PI Req pill fix, dead board-code cleanup.
-- **Durable images → DigitalOcean Spaces** (cross-repo; migration lives in the `directus` repo `pm-system/migration/clickup-to-spaces.mjs`). Cards load the Spaces thumbnail (`coverThumbUrl` derived in `adapter.ts`); the opened modal loads the full original. `cover_url` is being repointed from ClickUp CDN → Spaces as the migration runs.
+- **Durable images → DigitalOcean Spaces** (cross-repo; migration in the `directus` repo `pm-system/migration/clickup-to-spaces.mjs`). **Complete:** 3,747 covers moved to Spaces (originals + thumbs), 0 ClickUp URLs remain. Cards load the Spaces thumbnail (`coverThumbUrl` derived in `adapter.ts`); the opened modal loads the full original.
 
 Next action:
 Remaining backlog: board scale controls, List/Timeline views, real-tenant Microsoft SSO round-trip confirmation, cleanup of unused Vite-template assets, and the non-blocking `react-hooks/set-state-in-effect` + `no-explicit-any` lint warnings.
 
 Risks / watchouts:
-- During the image migration window, some `cover_url` values are still ClickUp CDN URLs (no thumb yet) — the card falls back to the full URL via `onError`; this self-resolves as the migration completes.
 - `react-router-dom` is installed but the app still uses a simple auth gate rather than routes.
