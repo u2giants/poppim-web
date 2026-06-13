@@ -80,6 +80,13 @@ export interface MockTask {
   assignees: string[]
   coverUrl?: string
   coverThumbUrl?: string
+  clickupUrl?: string
+  clickupListName?: string
+  clickupCreatedAt?: string
+  clickupUpdatedAt?: string
+  clickupClosedAt?: string
+  clickupStartAt?: string
+  clickupDueAt?: string
   buyer?: string
   factory?: string
   retailer?: string

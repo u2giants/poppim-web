@@ -110,6 +110,14 @@ function piStatusPill(pi: string | null): string | null {
   return null
 }
 
+function normalisePriority(priority: string | null): MockTask['priority'] {
+  const p = (priority ?? '').toLowerCase()
+  if (p.includes('urgent')) return 'urgent'
+  if (p.includes('high')) return 'high'
+  if (p.includes('low')) return 'low'
+  return 'normal'
+}
+
 // ─── Main converter ──────────────────────────────────────────────────────────
 
 export function productToTask(product: Product): MockTask {
@@ -125,7 +133,7 @@ export function productToTask(product: Product): MockTask {
         ? product.stage
         : 'Unknown'
   const title = cleanName(product.name, product.code)
-  const { due, dueOver } = formatDue(product.on_shelf_date)
+  const { due, dueOver } = formatDue(product.clickup_due_at ?? product.on_shelf_date)
 
   return {
     id: product.id,
@@ -133,7 +141,7 @@ export function productToTask(product: Product): MockTask {
     title,
     licensor,
     category: inferCategory(title),
-    priority: 'normal',
+    priority: normalisePriority(product.priority),
     time: '',
     due,
     dueOver,
@@ -144,6 +152,14 @@ export function productToTask(product: Product): MockTask {
     assignees: [],
     coverUrl: product.cover_url ?? undefined,
     coverThumbUrl: thumbUrl(product.cover_url, product.id),
+    description: product.description ?? undefined,
+    clickupUrl: product.clickup_url ?? undefined,
+    clickupListName: product.clickup_list_name ?? undefined,
+    clickupCreatedAt: product.clickup_created_at ?? undefined,
+    clickupUpdatedAt: product.clickup_updated_at ?? undefined,
+    clickupClosedAt: product.clickup_closed_at ?? undefined,
+    clickupStartAt: product.clickup_start_at ?? undefined,
+    clickupDueAt: product.clickup_due_at ?? undefined,
   }
 }
 

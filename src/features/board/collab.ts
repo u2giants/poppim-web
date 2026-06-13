@@ -8,7 +8,18 @@ import {
   createComment,
 } from '@directus/sdk'
 import { directus } from '@/lib/directus'
-import type { ChecklistItem, Subtask, ProductAssignee, Comment, DirectusUser } from '@/lib/types'
+import type {
+  ChecklistItem,
+  Subtask,
+  ProductAssignee,
+  Comment,
+  DirectusUser,
+  ProductFile,
+  ProductUpdate,
+  ProductTag,
+  ProductField,
+  ProductActivity,
+} from '@/lib/types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const USER_FIELDS = ['id', 'first_name', 'last_name', 'email', 'avatar'] as any
@@ -82,6 +93,62 @@ export async function listComments(productId: string) {
 }
 export async function addComment(productId: string, text: string) {
   return directus.request(createComment({ collection: 'product', item: productId, comment: text }))
+}
+
+// ---- ClickUp-origin work data, now first-class Poppim data ----
+export async function listProductFiles(productId: string) {
+  return directus.request(
+    readItems('product_file', {
+      filter: { product: { _eq: productId } },
+      fields: ['id', 'title', 'file_type', 'mime_type', 'size', 'source_url', 'thumbnail_url', 'stored_url', 'uploaded_at'],
+      sort: ['uploaded_at', 'title'],
+      limit: -1,
+    }),
+  ) as Promise<ProductFile[]>
+}
+
+export async function listProductUpdates(productId: string) {
+  return directus.request(
+    readItems('product_update', {
+      filter: { product: { _eq: productId } },
+      fields: ['id', 'body', 'author_name', 'author_email', 'happened_at', 'kind'],
+      sort: ['happened_at', 'id'],
+      limit: -1,
+    }),
+  ) as Promise<ProductUpdate[]>
+}
+
+export async function listProductTags(productId: string) {
+  return directus.request(
+    readItems('product_tag', {
+      filter: { product: { _eq: productId } },
+      fields: ['id', 'name', 'color'],
+      sort: ['name'],
+      limit: -1,
+    }),
+  ) as Promise<ProductTag[]>
+}
+
+export async function listProductFields(productId: string) {
+  return directus.request(
+    readItems('product_field', {
+      filter: { product: { _eq: productId } },
+      fields: ['id', 'name', 'field_type', 'value_text', 'value_json'],
+      sort: ['name'],
+      limit: -1,
+    }),
+  ) as Promise<ProductField[]>
+}
+
+export async function listProductActivity(productId: string) {
+  return directus.request(
+    readItems('product_activity', {
+      filter: { product: { _eq: productId } },
+      fields: ['id', 'action', 'detail', 'actor_name', 'happened_at'],
+      sort: ['happened_at', 'id'],
+      limit: -1,
+    }),
+  ) as Promise<ProductActivity[]>
 }
 
 export function userName(u: DirectusUser | string | null | undefined) {

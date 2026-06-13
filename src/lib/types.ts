@@ -34,6 +34,8 @@ export interface Product {
   id: string
   code: string | null
   name: string | null
+  description: string | null
+  priority: string | null
   business_unit: string | null
   stage: string | Stage | null
   retailer: string | Retailer | null
@@ -42,6 +44,13 @@ export interface Product {
   on_shelf_date: string | null
   pi_status: string | null
   cover_url: string | null
+  clickup_url: string | null
+  clickup_list_name: string | null
+  clickup_created_at: string | null
+  clickup_updated_at: string | null
+  clickup_closed_at: string | null
+  clickup_start_at: string | null
+  clickup_due_at: string | null
 }
 
 export interface DirectusUser {
@@ -59,6 +68,9 @@ export interface ChecklistItem {
   label: string | null
   done: boolean
   sort: number | null
+  group_name: string | null
+  source_id: string | null
+  source_system: string | null
 }
 
 export interface Subtask {
@@ -84,6 +96,54 @@ export interface Comment {
   user_created: DirectusUser | string | null
 }
 
+export interface ProductFile {
+  id: string
+  product: string
+  title: string | null
+  file_type: string | null
+  mime_type: string | null
+  size: number | null
+  source_url: string | null
+  thumbnail_url: string | null
+  stored_url: string | null
+  uploaded_at: string | null
+}
+
+export interface ProductUpdate {
+  id: string
+  product: string
+  body: string | null
+  author_name: string | null
+  author_email: string | null
+  happened_at: string | null
+  kind: string | null
+}
+
+export interface ProductTag {
+  id: string
+  product: string
+  name: string | null
+  color: string | null
+}
+
+export interface ProductField {
+  id: string
+  product: string
+  name: string | null
+  field_type: string | null
+  value_text: string | null
+  value_json: unknown
+}
+
+export interface ProductActivity {
+  id: string
+  product: string
+  action: string | null
+  detail: string | null
+  actor_name: string | null
+  happened_at: string | null
+}
+
 export interface Schema {
   product: Product[]
   project: Project[]
@@ -92,4 +152,9 @@ export interface Schema {
   checklist_item: ChecklistItem[]
   subtask: Subtask[]
   product_assignee: ProductAssignee[]
+  product_file: ProductFile[]
+  product_update: ProductUpdate[]
+  product_tag: ProductTag[]
+  product_field: ProductField[]
+  product_activity: ProductActivity[]
 }
