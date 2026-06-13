@@ -144,6 +144,32 @@ export interface ProductActivity {
   happened_at: string | null
 }
 
+export interface ProductLink {
+  id: string
+  product: string
+  linked_product: string | Product | null
+  linked_external_id: string | null
+  linked_title: string | null
+  relation_type: string | null
+  direction: string | null
+  created_by: string | null
+  created_at: string | null
+}
+
+export interface ProductTimeEntry {
+  id: string
+  product: string
+  user_name: string | null
+  user_email: string | null
+  started_at: string | null
+  ended_at: string | null
+  duration_ms: number | null
+  duration_hours: string | null
+  billable: boolean | null
+  description: string | null
+  tags: string | null
+}
+
 export interface Schema {
   product: Product[]
   project: Project[]
@@ -157,4 +183,6 @@ export interface Schema {
   product_tag: ProductTag[]
   product_field: ProductField[]
   product_activity: ProductActivity[]
+  product_link: ProductLink[]
+  product_time_entry: ProductTimeEntry[]
 }

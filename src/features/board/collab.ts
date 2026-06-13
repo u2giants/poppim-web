@@ -19,6 +19,8 @@ import type {
   ProductTag,
   ProductField,
   ProductActivity,
+  ProductLink,
+  ProductTimeEntry,
 } from '@/lib/types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -149,6 +151,28 @@ export async function listProductActivity(productId: string) {
       limit: -1,
     }),
   ) as Promise<ProductActivity[]>
+}
+
+export async function listProductLinks(productId: string) {
+  return directus.request(
+    readItems('product_link', {
+      filter: { product: { _eq: productId } },
+      fields: ['id', 'linked_external_id', 'linked_title', 'relation_type', 'direction', 'created_by', 'created_at', { linked_product: ['id', 'code', 'name'] }] as any,
+      sort: ['relation_type', 'linked_title'],
+      limit: -1,
+    }),
+  ) as unknown as Promise<ProductLink[]>
+}
+
+export async function listProductTimeEntries(productId: string) {
+  return directus.request(
+    readItems('product_time_entry', {
+      filter: { product: { _eq: productId } },
+      fields: ['id', 'user_name', 'user_email', 'started_at', 'ended_at', 'duration_ms', 'duration_hours', 'billable', 'description', 'tags'],
+      sort: ['started_at', 'id'],
+      limit: -1,
+    }),
+  ) as Promise<ProductTimeEntry[]>
 }
 
 export function userName(u: DirectusUser | string | null | undefined) {

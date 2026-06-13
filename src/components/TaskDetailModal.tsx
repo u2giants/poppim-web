@@ -3,7 +3,18 @@ import type { MockTask } from '@/lib/mockData'
 import { LICENSOR_META, STAGE_COLORS, CATEGORY_ICONS } from '@/lib/mockData'
 import { stageColor } from '@/features/pipeline/adapter'
 import { ExternalLink, FileText, History, MessageSquare, Paperclip, Send, Tags, X } from 'lucide-react'
-import type { Comment, ProductActivity, ProductAssignee, ProductField, ProductFile, ProductTag, ProductUpdate } from '@/lib/types'
+import type {
+  Comment,
+  Product,
+  ProductActivity,
+  ProductAssignee,
+  ProductField,
+  ProductFile,
+  ProductLink,
+  ProductTag,
+  ProductTimeEntry,
+  ProductUpdate,
+} from '@/lib/types'
 import {
   listComments,
   addComment,
@@ -15,7 +26,9 @@ import {
   listProductActivity,
   listProductFields,
   listProductFiles,
+  listProductLinks,
   listProductTags,
+  listProductTimeEntries,
   listProductUpdates,
 } from '@/features/board/collab'
 
@@ -46,6 +59,11 @@ function fileSize(bytes: number | null): string {
   if (!bytes) return ''
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function productLabel(product: Product | string | null): string | null {
+  if (!product || typeof product === 'string') return null
+  return [product.code, product.name].filter(Boolean).join(' · ')
 }
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -447,14 +465,71 @@ function FieldsPane({ productId }: { productId: string }) {
 
 function ActivityPane({ productId }: { productId: string }) {
   const [items, setItems] = useState<ProductActivity[]>([])
+  const [links, setLinks] = useState<ProductLink[]>([])
+  const [timeEntries, setTimeEntries] = useState<ProductTimeEntry[]>([])
 
   useEffect(() => {
-    listProductActivity(productId).then(setItems).catch(() => setItems([]))
+    Promise.all([listProductActivity(productId), listProductLinks(productId), listProductTimeEntries(productId)])
+      .then(([freshItems, freshLinks, freshTimeEntries]) => {
+        setItems(freshItems)
+        setLinks(freshLinks)
+        setTimeEntries(freshTimeEntries)
+      })
+      .catch(() => {
+        setItems([])
+        setLinks([])
+        setTimeEntries([])
+      })
   }, [productId])
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
-      {items.length === 0 && <p className="text-[13px]" style={{ color: '#94A0B5' }}>No imported activity yet.</p>}
+      {items.length === 0 && links.length === 0 && timeEntries.length === 0 && (
+        <p className="text-[13px]" style={{ color: '#94A0B5' }}>No imported activity yet.</p>
+      )}
+      {links.length > 0 && (
+        <div className="mb-5">
+          <PaneHeading>Links</PaneHeading>
+          <div className="space-y-2">
+            {links.map((link) => (
+              <div key={link.id} className="rounded-lg border p-3" style={{ borderColor: '#EAEEF5' }}>
+                <div className="text-[12px] font-semibold uppercase" style={{ color: '#0094FF' }}>
+                  {[link.relation_type, link.direction].filter(Boolean).join(' · ') || 'Linked task'}
+                </div>
+                <div className="mt-1 text-[13px] font-semibold" style={{ color: '#1B2840' }}>
+                  {productLabel(link.linked_product) || link.linked_title || link.linked_external_id || 'Linked item'}
+                </div>
+                <div className="mt-1 text-[12px]" style={{ color: '#94A0B5' }}>
+                  {[link.created_by, formatDate(link.created_at)].filter(Boolean).join(' · ')}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {timeEntries.length > 0 && (
+        <div className="mb-5">
+          <PaneHeading>Time</PaneHeading>
+          <div className="space-y-2">
+            {timeEntries.map((entry) => (
+              <div key={entry.id} className="rounded-lg border p-3" style={{ borderColor: '#EAEEF5' }}>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[13px] font-semibold" style={{ color: '#1B2840' }}>
+                    {entry.user_name || entry.user_email || 'Unknown'}
+                  </span>
+                  <span className="text-[12px] font-bold" style={{ color: '#0094FF' }}>
+                    {entry.duration_hours ? `${entry.duration_hours}h` : '—'}
+                  </span>
+                </div>
+                {entry.description && <p className="mt-1 text-[13px]" style={{ color: '#5A6883' }}>{entry.description}</p>}
+                <div className="mt-1 text-[12px]" style={{ color: '#94A0B5' }}>
+                  {[formatDate(entry.started_at), entry.billable ? 'Billable' : null, entry.tags].filter(Boolean).join(' · ')}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="space-y-3">
         {items.map((item) => (
           <div key={item.id} className="flex gap-2.5">
@@ -471,6 +546,10 @@ function ActivityPane({ productId }: { productId: string }) {
       </div>
     </div>
   )
+}
+
+function PaneHeading({ children }: { children: React.ReactNode }) {
+  return <div className="mb-2 text-[12px] font-bold uppercase" style={{ color: '#5A6883' }}>{children}</div>
 }
 
 // ─── Activity feed ───────────────────────────────────────────────────────────
