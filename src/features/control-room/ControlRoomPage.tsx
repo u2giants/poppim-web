@@ -71,11 +71,11 @@ export function ControlRoomPage() {
               Control room
             </h1>
             <p className="mt-1 text-[13.5px]" style={{ color: '#5A6883' }}>
-              {businessUnit === 'All' ? 'All product work' : `${businessUnit} product work`} across projects, products, deadlines, and stage load
+              {businessUnit} work across projects, products, deadlines, and stage load
             </p>
           </div>
           <div className="flex items-center rounded-[10px] p-1" style={{ background: '#F6F8FC' }}>
-            {(['All', 'POP', 'Spruce'] as const).map((unit) => (
+            {(['Licensed', 'Generic', 'Software'] as const).map((unit) => (
               <button
                 key={unit}
                 onClick={() => setBusinessUnit(unit)}

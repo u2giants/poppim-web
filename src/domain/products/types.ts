@@ -1,6 +1,6 @@
 import type { Product } from '@/lib/types'
 
-export type BusinessUnit = 'POP' | 'Spruce' | 'Unknown'
+export type BusinessUnit = 'Licensed' | 'Generic' | 'Software' | 'Unknown'
 export type Priority = 'urgent' | 'high' | 'normal' | 'low'
 export type ProductCategory =
   | 'textiles'
@@ -79,4 +79,3 @@ export interface ProductSummary {
   coverThumbUrl?: string
   legacy: ProductLegacySource
 }
-

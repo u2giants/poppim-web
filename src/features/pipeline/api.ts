@@ -27,6 +27,12 @@ export const PRODUCT_SUMMARY_FIELDS = [
   'cover_url',
   'clickup_url',
   'clickup_list_name',
+  'clickup_parent_id',
+  'clickup_top_level_parent_id',
+  'clickup_status',
+  'clickup_status_type',
+  'clickup_status_color',
+  'clickup_status_order',
   'clickup_created_at',
   'clickup_updated_at',
   'clickup_closed_at',
@@ -41,6 +47,8 @@ export const PRODUCT_SUMMARY_FIELDS = [
   { factory: ['id', 'name'] },
 ] as const
 
+const LICENSED_PIPELINE_LIST = 'Licensing Management'
+
 function buildFilter(opts: Omit<FetchProductsOpts, 'limit'> = {}): Record<string, unknown> {
   const { search, licensorIds, businessUnit, lifecycleStates } = opts
   const and: unknown[] = [{ stage: { _nnull: true } }]
@@ -48,8 +56,14 @@ function buildFilter(opts: Omit<FetchProductsOpts, 'limit'> = {}): Record<string
     and.push({ _or: [{ name: { _icontains: search.trim() } }, { code: { _icontains: search.trim() } }] })
   }
   if (licensorIds?.length) and.push({ licensor: { id: { _in: licensorIds } } })
-  if (businessUnit === 'POP') and.push({ business_unit: { _in: ['POP', 'POP Creations'] } })
-  if (businessUnit === 'Spruce') and.push({ business_unit: { _in: ['Spruce', 'Spruce Line'] } })
+  if (businessUnit === 'Licensed') {
+    and.push({ business_unit: { _in: ['POP', 'POP Creations'] } })
+    and.push({ clickup_list_name: { _eq: LICENSED_PIPELINE_LIST } })
+    and.push({ clickup_status_type: { _in: ['open', 'custom'] } })
+    and.push({ clickup_parent_id: { _null: true } })
+  }
+  if (businessUnit === 'Generic') and.push({ business_unit: { _in: ['Spruce', 'Spruce Line'] } })
+  if (businessUnit === 'Software') and.push({ business_unit: { _eq: 'Software' } })
   void lifecycleStates
   return { _and: and }
 }
@@ -57,7 +71,7 @@ function buildFilter(opts: Omit<FetchProductsOpts, 'limit'> = {}): Record<string
 export interface FetchProductsOpts {
   search?: string
   licensorIds?: string[]
-  businessUnit?: BusinessUnit | 'All'
+  businessUnit?: BusinessUnit
   lifecycleStates?: string[]
   limit?: number
 }
@@ -68,6 +82,7 @@ export async function fetchPipelineProducts(opts: FetchProductsOpts = {}): Promi
     readItems('product', {
       fields: PRODUCT_SUMMARY_FIELDS,
       filter: buildFilter(opts) as never,
+      sort: ['-clickup_updated_at', 'name'],
       limit,
     }),
   ) as Promise<Product[]>

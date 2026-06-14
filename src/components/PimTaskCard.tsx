@@ -103,7 +103,7 @@ export function PimTaskCard({
       <div className="mb-2 flex items-center gap-1.5">
         <span
           className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase"
-          style={{ background: product.businessUnit === 'POP' ? '#E4F1FF' : '#EAF8EF', color: '#1B2840' }}
+          style={{ background: product.businessUnit === 'Licensed' ? '#E4F1FF' : product.businessUnit === 'Generic' ? '#EAF8EF' : '#F3E8FF', color: '#1B2840' }}
         >
           {product.businessUnit}
         </span>

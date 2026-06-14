@@ -16,7 +16,9 @@ function formatDate(iso: string | null): string {
 
 function businessUnitLabel(raw: string | null) {
   if (!raw) return 'Unknown'
-  if (raw === 'Spruce Line') return 'Spruce'
+  if (raw === 'POP Creations' || raw === 'POP') return 'Licensed'
+  if (raw === 'Spruce Line' || raw === 'Spruce') return 'Generic'
+  if (raw === 'Software') return 'Software'
   return raw
 }
 

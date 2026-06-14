@@ -21,7 +21,7 @@ export type Screen =
 export type PipelineView = 'kanban' | 'table'
 export type ColorBy = 'category' | 'licensor' | 'stage' | 'priority' | 'none'
 export type GroupBy = 'stage' | 'licensor' | 'priority' | 'assignee'
-export type BusinessUnitFilter = BusinessUnit | 'All'
+export type BusinessUnitFilter = Exclude<BusinessUnit, 'Unknown'>
 
 interface AppState {
   screen: Screen
@@ -47,7 +47,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [pipelineView, setPipelineView] = useState<PipelineView>('kanban')
   const [colorBy, setColorBy] = useState<ColorBy>('category')
   const [groupBy, setGroupBy] = useState<GroupBy>('stage')
-  const [businessUnit, setBusinessUnit] = useState<BusinessUnitFilter>('All')
+  const [businessUnit, setBusinessUnit] = useState<BusinessUnitFilter>('Licensed')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterLicensorIds, setFilterLicensorIds] = useState<Set<string>>(new Set())
 

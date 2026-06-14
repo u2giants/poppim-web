@@ -166,7 +166,7 @@ export function TaskDetailModal({ task, onClose }: Props) {
               style={{ background: '#F6F8FC', color: '#5A6883' }}
             >
               <span>{CATEGORY_ICONS[task.category] ?? 'PRD'}</span>
-              {task.businessUnit === 'Spruce' ? 'Style-numbered product' : 'Product / SKU'}
+              {task.businessUnit === 'Generic' ? 'Style-numbered product' : 'Product / SKU'}
             </span>
           </div>
 

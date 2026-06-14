@@ -30,14 +30,15 @@ export const DESIGN_COLLECTION_FIELDS = [
 
 export interface FetchDesignOpts {
   search?: string
-  businessUnit?: BusinessUnit | 'All'
+  businessUnit?: BusinessUnit
   limit?: number
 }
 
-function businessUnitClause(businessUnit: BusinessUnit | 'All' | undefined): unknown[] {
-  if (!businessUnit || businessUnit === 'All' || businessUnit === 'Unknown') return []
-  if (businessUnit === 'POP') return [{ business_unit: { _in: ['POP', 'POP Creations'] } }]
-  return [{ business_unit: { _in: ['Spruce', 'Spruce Line'] } }]
+function businessUnitClause(businessUnit: BusinessUnit | undefined): unknown[] {
+  if (!businessUnit || businessUnit === 'Unknown') return []
+  if (businessUnit === 'Licensed') return [{ business_unit: { _in: ['POP', 'POP Creations'] } }]
+  if (businessUnit === 'Generic') return [{ business_unit: { _in: ['Spruce', 'Spruce Line'] } }]
+  return [{ business_unit: { _eq: 'Software' } }]
 }
 
 function searchClause(search: string | undefined): unknown[] {

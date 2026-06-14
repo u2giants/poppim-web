@@ -149,6 +149,12 @@ export interface Product extends WorkflowFields {
   cover_url: string | null
   clickup_url: string | null
   clickup_list_name: string | null
+  clickup_parent_id: string | null
+  clickup_top_level_parent_id: string | null
+  clickup_status: string | null
+  clickup_status_type: string | null
+  clickup_status_color: string | null
+  clickup_status_order: number | string | null
   clickup_created_at: string | null
   clickup_updated_at: string | null
   clickup_closed_at: string | null

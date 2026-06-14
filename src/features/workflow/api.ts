@@ -6,25 +6,26 @@ import { PRODUCT_SUMMARY_FIELDS } from '@/features/pipeline/api'
 
 export interface WorkflowFetchOpts {
   search?: string
-  businessUnit?: BusinessUnit | 'All'
+  businessUnit?: BusinessUnit
   limit?: number
 }
 
 const USER_FIELDS = ['id', 'first_name', 'last_name', 'email', 'avatar'] as const
 const FILE_FIELDS = ['id', 'filename_download', 'title', 'type'] as const
 
-function unitValues(unit?: BusinessUnit | 'All'): string[] | null {
-  if (!unit || unit === 'All' || unit === 'Unknown') return null
-  if (unit === 'POP') return ['POP', 'POP Creations']
-  return ['Spruce', 'Spruce Line']
+function unitValues(unit?: BusinessUnit): string[] | null {
+  if (!unit || unit === 'Unknown') return null
+  if (unit === 'Licensed') return ['POP', 'POP Creations']
+  if (unit === 'Generic') return ['Spruce', 'Spruce Line']
+  return ['Software']
 }
 
-function productUnitFilter(unit?: BusinessUnit | 'All') {
+function productUnitFilter(unit?: BusinessUnit) {
   const values = unitValues(unit)
   return values ? [{ product: { business_unit: { _in: values } } }] : []
 }
 
-function directUnitFilter(unit?: BusinessUnit | 'All') {
+function directUnitFilter(unit?: BusinessUnit) {
   const values = unitValues(unit)
   return values ? [{ business_unit: { _in: values } }] : []
 }
@@ -244,8 +245,9 @@ function relationId(value: unknown): string | null {
 }
 
 function businessUnitValue(product: Product): string | null {
-  if (product.business_unit === 'POP') return 'POP Creations'
-  if (product.business_unit === 'Spruce') return 'Spruce Line'
+  if (product.business_unit === 'Licensed') return 'POP Creations'
+  if (product.business_unit === 'Generic') return 'Spruce Line'
+  if (product.business_unit === 'Software') return 'Software'
   return product.business_unit ?? null
 }
 

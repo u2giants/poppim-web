@@ -41,13 +41,14 @@ function countOf(row: { count?: { '*'?: string; id?: string } } | undefined): nu
   return parseInt(row?.count?.['*'] ?? row?.count?.id ?? '0', 10)
 }
 
-function businessUnitClause(businessUnit: BusinessUnit | 'All'): unknown[] {
-  if (businessUnit === 'All' || businessUnit === 'Unknown') return []
-  if (businessUnit === 'POP') return [{ business_unit: { _in: ['POP', 'POP Creations'] } }]
-  return [{ business_unit: { _in: ['Spruce', 'Spruce Line'] } }]
+function businessUnitClause(businessUnit: BusinessUnit): unknown[] {
+  if (businessUnit === 'Unknown') return []
+  if (businessUnit === 'Licensed') return [{ business_unit: { _in: ['POP', 'POP Creations'] } }]
+  if (businessUnit === 'Generic') return [{ business_unit: { _in: ['Spruce', 'Spruce Line'] } }]
+  return [{ business_unit: { _eq: 'Software' } }]
 }
 
-function productBaseFilter(businessUnit: BusinessUnit | 'All') {
+function productBaseFilter(businessUnit: BusinessUnit) {
   return {
     _and: [
       { stage: { _nnull: true } },
@@ -56,7 +57,7 @@ function productBaseFilter(businessUnit: BusinessUnit | 'All') {
   }
 }
 
-function projectBaseFilter(businessUnit: BusinessUnit | 'All') {
+function projectBaseFilter(businessUnit: BusinessUnit) {
   return {
     _and: [
       { status: { _eq: 'active' } },
@@ -69,7 +70,7 @@ function stageName(stageId: string, stages: Stage[]): string {
   return stages.find((stage) => stage.id === stageId)?.name ?? 'No stage'
 }
 
-export async function fetchControlRoomData(businessUnit: BusinessUnit | 'All'): Promise<ControlRoomData> {
+export async function fetchControlRoomData(businessUnit: BusinessUnit): Promise<ControlRoomData> {
   const today = dateOnly(new Date())
   const horizon = dateOnly(addDays(new Date(), 21))
 

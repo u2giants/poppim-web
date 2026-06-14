@@ -83,12 +83,12 @@ export function PipelinePage() {
       ? new URLSearchParams(window.location.search).get('item')
       : null
 
-    const hasFilter = debouncedSearch.trim() || filterLicensorIds.size > 0 || businessUnit !== 'All'
+    const hasFilter = debouncedSearch.trim() || filterLicensorIds.size > 0
     const opts: FetchProductsOpts = {
       search: debouncedSearch.trim() || undefined,
       licensorIds: filterLicensorIds.size > 0 ? [...filterLicensorIds] : undefined,
       businessUnit,
-      limit: hasFilter ? 500 : 300,
+      limit: hasFilter ? 5000 : 5000,
     }
 
     const v = ++fetchVersion.current

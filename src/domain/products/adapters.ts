@@ -49,8 +49,9 @@ function relationName<T extends { name?: string | null; title?: string | null }>
 
 function normaliseBusinessUnit(raw: string | null | undefined): BusinessUnit {
   const v = (raw ?? '').trim().toLowerCase()
-  if (v === 'pop' || v === 'pop creations') return 'POP'
-  if (v === 'spruce' || v === 'spruce line') return 'Spruce'
+  if (v === 'licensed' || v === 'pop' || v === 'pop creations') return 'Licensed'
+  if (v === 'generic' || v === 'spruce' || v === 'spruce line') return 'Generic'
+  if (v === 'software') return 'Software'
   return 'Unknown'
 }
 
@@ -200,8 +201,8 @@ export function productToSummary(product: Product): ProductSummary {
   }
 }
 
-export function orderedStageNames(stages: Stage[], businessUnit?: BusinessUnit | 'All'): string[] {
-  const filtered = businessUnit && businessUnit !== 'All'
+export function orderedStageNames(stages: Stage[], businessUnit?: BusinessUnit): string[] {
+  const filtered = businessUnit
     ? stages.filter((s) => normaliseBusinessUnit(s.business_unit) === businessUnit || normaliseBusinessUnit(s.business_unit) === 'Unknown')
     : stages
   const sorted = [...filtered].sort((a, b) => (a.stage_order ?? 0) - (b.stage_order ?? 0))

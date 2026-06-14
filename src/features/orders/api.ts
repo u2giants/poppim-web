@@ -5,14 +5,15 @@ import type { BusinessUnit } from '@/domain/products/types'
 
 export interface FetchOrdersOpts {
   search?: string
-  businessUnit?: BusinessUnit | 'All'
+  businessUnit?: BusinessUnit
   limit?: number
 }
 
-function businessUnitClause(businessUnit: BusinessUnit | 'All' | undefined): unknown[] {
-  if (!businessUnit || businessUnit === 'All' || businessUnit === 'Unknown') return []
-  if (businessUnit === 'POP') return [{ product: { business_unit: { _in: ['POP', 'POP Creations'] } } }]
-  return [{ product: { business_unit: { _in: ['Spruce', 'Spruce Line'] } } }]
+function businessUnitClause(businessUnit: BusinessUnit | undefined): unknown[] {
+  if (!businessUnit || businessUnit === 'Unknown') return []
+  if (businessUnit === 'Licensed') return [{ product: { business_unit: { _in: ['POP', 'POP Creations'] } } }]
+  if (businessUnit === 'Generic') return [{ product: { business_unit: { _in: ['Spruce', 'Spruce Line'] } } }]
+  return [{ product: { business_unit: { _eq: 'Software' } } }]
 }
 
 function searchClause(search: string | undefined): unknown[] {

@@ -73,7 +73,7 @@ export function ReportsPage() {
             </p>
           </div>
           <div className="flex items-center rounded-[10px] p-1" style={{ background: '#F6F8FC' }}>
-            {(['All', 'POP', 'Spruce'] as const).map((unit) => (
+            {(['Licensed', 'Generic', 'Software'] as const).map((unit) => (
               <button
                 key={unit}
                 onClick={() => setBusinessUnit(unit)}

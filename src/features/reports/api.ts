@@ -25,10 +25,11 @@ function countValue(row: { count?: { id?: string; '*'?: string } } | undefined):
   return parseInt(row?.count?.id ?? row?.count?.['*'] ?? '0', 10)
 }
 
-function businessUnitClause(businessUnit: BusinessUnit | 'All'): unknown[] {
-  if (businessUnit === 'All' || businessUnit === 'Unknown') return []
-  if (businessUnit === 'POP') return [{ business_unit: { _in: ['POP', 'POP Creations'] } }]
-  return [{ business_unit: { _in: ['Spruce', 'Spruce Line'] } }]
+function businessUnitClause(businessUnit: BusinessUnit): unknown[] {
+  if (businessUnit === 'Unknown') return []
+  if (businessUnit === 'Licensed') return [{ business_unit: { _in: ['POP', 'POP Creations'] } }]
+  if (businessUnit === 'Generic') return [{ business_unit: { _in: ['Spruce', 'Spruce Line'] } }]
+  return [{ business_unit: { _eq: 'Software' } }]
 }
 
 function stageName(value: unknown): string {
@@ -38,7 +39,7 @@ function stageName(value: unknown): string {
   return 'No stage'
 }
 
-export async function fetchReportsData(businessUnit: BusinessUnit | 'All'): Promise<ReportsData> {
+export async function fetchReportsData(businessUnit: BusinessUnit): Promise<ReportsData> {
   const productFilter = { _and: businessUnitClause(businessUnit) }
   const projectFilter = { _and: businessUnitClause(businessUnit) }
 
@@ -106,9 +107,9 @@ export async function fetchReportsData(businessUnit: BusinessUnit | 'All'): Prom
             ],
           },
         ],
-        filter: businessUnit === 'All' || businessUnit === 'Unknown'
+        filter: businessUnit === 'Unknown'
           ? undefined
-          : { product: { business_unit: { _in: businessUnit === 'POP' ? ['POP', 'POP Creations'] : ['Spruce', 'Spruce Line'] } } } as never,
+          : { product: { business_unit: businessUnit === 'Licensed' ? { _in: ['POP', 'POP Creations'] } : businessUnit === 'Generic' ? { _in: ['Spruce', 'Spruce Line'] } : { _eq: 'Software' } } } as never,
         sort: ['-changed_at'],
         limit: 30,
       }),

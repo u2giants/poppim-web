@@ -27,9 +27,9 @@ const GROUP_OPTIONS: { value: GroupBy; label: string }[] = [
 ]
 
 const BUSINESS_UNITS: { value: BusinessUnitFilter; label: string }[] = [
-  { value: 'All', label: 'All' },
-  { value: 'POP', label: 'POP' },
-  { value: 'Spruce', label: 'Spruce' },
+  { value: 'Licensed', label: 'Licensed' },
+  { value: 'Generic', label: 'Generic' },
+  { value: 'Software', label: 'Software' },
 ]
 
 export function Topbar() {
