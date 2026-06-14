@@ -175,7 +175,7 @@ export function TaskDetailModal({ task, onClose }: Props) {
             className="px-6 pt-3 font-extrabold leading-tight"
             style={{ fontSize: 25, color: '#1B2840', letterSpacing: '-0.02em' }}
           >
-            {[task.code, task.title].filter(Boolean).join(' · ')}
+            {task.title}
           </h2>
 
           <div className="px-6 pt-4">
@@ -209,18 +209,7 @@ export function TaskDetailModal({ task, onClose }: Props) {
             )}
           </div>
 
-          {/* Full-size cover (the board shows a thumbnail; here we load the original) */}
-          {task.coverUrl && coverFailedFor !== task.id && (
-            <div className="px-6 pt-5">
-              <img
-                src={task.coverUrl}
-                alt=""
-                className="max-h-[420px] w-full rounded-xl object-contain"
-                style={{ background: '#F6F8FC' }}
-                onError={() => setCoverFailedFor(task.id)}
-              />
-            </div>
-          )}
+          <AttachmentGallery productId={task.id} fallbackCoverUrl={coverFailedFor === task.id ? undefined : task.coverUrl} onCoverError={() => setCoverFailedFor(task.id)} />
 
           {/* Fields grid */}
           <div className="grid grid-cols-2 gap-x-6 gap-y-4 px-6 pt-5">
@@ -326,9 +315,7 @@ export function TaskDetailModal({ task, onClose }: Props) {
           {task.description && (
             <div className="px-6 pt-5">
               <div className="mb-2 text-[12px] font-medium" style={{ color: '#0094FF' }}>Description</div>
-              <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed" style={{ color: '#5A6883' }}>
-                {task.description}
-              </p>
+              <RichDescription text={task.description} />
             </div>
           )}
 
@@ -433,6 +420,105 @@ function WorkflowActionButton({
       {loading ? 'Saving...' : label}
     </button>
   )
+}
+
+function fileHref(file: ProductFile): string | null {
+  return file.stored_url || file.source_url || null
+}
+
+function filePreviewUrl(file: ProductFile): string | null {
+  if (file.thumbnail_url) return file.thumbnail_url
+  if (file.mime_type?.startsWith('image/')) return fileHref(file)
+  return null
+}
+
+function AttachmentGallery({
+  productId,
+  fallbackCoverUrl,
+  onCoverError,
+}: {
+  productId: string
+  fallbackCoverUrl?: string
+  onCoverError: () => void
+}) {
+  const [files, setFiles] = useState<ProductFile[]>([])
+
+  useEffect(() => {
+    listProductFiles(productId).then(setFiles).catch(() => setFiles([]))
+  }, [productId])
+
+  const previewFiles = files.filter(filePreviewUrl)
+
+  if (previewFiles.length === 0 && !fallbackCoverUrl) return null
+
+  return (
+    <div className="grid grid-cols-2 gap-3 px-6 pt-5">
+      {previewFiles.length > 0 ? previewFiles.map((file) => {
+        const href = fileHref(file)
+        const preview = filePreviewUrl(file)
+        return (
+          <a key={file.id} href={href || undefined} target="_blank" rel="noreferrer" className="group overflow-hidden rounded-xl border" style={{ borderColor: '#EAEEF5', background: '#F6F8FC' }}>
+            <img src={preview || ''} alt="" className="h-48 w-full object-contain transition-transform group-hover:scale-[1.02]" />
+            <div className="border-t px-3 py-2" style={{ borderColor: '#EAEEF5', background: '#fff' }}>
+              <div className="truncate text-[12.5px] font-semibold" style={{ color: '#1B2840' }}>{file.title || 'Untitled file'}</div>
+            </div>
+          </a>
+        )
+      }) : (
+        <img
+          src={fallbackCoverUrl}
+          alt=""
+          className="col-span-2 max-h-[420px] w-full rounded-xl object-contain"
+          style={{ background: '#F6F8FC' }}
+          onError={onCoverError}
+        />
+      )}
+    </div>
+  )
+}
+
+function RichDescription({ text }: { text: string }) {
+  const lines = text.replace(/\r\n/g, '\n').split('\n')
+  const rendered = lines.map((raw, index) => {
+    const line = raw.trim()
+    if (!line) return <div key={index} className="h-3" />
+
+    const bullet = /^[-*•]\s+/.test(line)
+    const checked = /^[☑✓]\s+/.test(line)
+    const struck = /^~~.*~~$/.test(line)
+    const heading = /:$/.test(line) && line.length < 80
+    const important = /\b(please|need|top priority|asap|urgent|must|done)\b/i.test(line)
+    const clean = line
+      .replace(/^[-*•]\s+/, '')
+      .replace(/^[☑✓]\s+/, '')
+      .replace(/^~~|~~$/g, '')
+
+    if (heading) {
+      return (
+        <div key={index} className="mt-3 text-[13px] font-bold uppercase" style={{ color: '#1B2840' }}>
+          {clean}
+        </div>
+      )
+    }
+
+    return (
+      <div key={index} className="flex gap-2 text-[13.5px] leading-relaxed" style={{ color: struck || checked ? '#94A0B5' : '#5A6883' }}>
+        <span className="mt-[0.65em] size-1.5 shrink-0 rounded-full" style={{ background: bullet || important ? '#1B2840' : 'transparent' }} />
+        <span
+          className={important ? 'rounded px-1 font-semibold' : undefined}
+          style={{
+            background: important ? '#FFCB32' : 'transparent',
+            color: important ? '#1B2840' : undefined,
+            textDecoration: struck || checked ? 'line-through' : 'none',
+          }}
+        >
+          {clean}
+        </span>
+      </div>
+    )
+  })
+
+  return <div>{rendered}</div>
 }
 
 // ─── Assignees ───────────────────────────────────────────────────────────────
@@ -602,7 +688,8 @@ function FilesPane({ productId }: { productId: string }) {
       {files.length === 0 && <p className="text-[13px]" style={{ color: '#94A0B5' }}>No files yet.</p>}
       <div className="space-y-2">
         {files.map((file) => {
-          const href = file.stored_url || file.source_url
+          const href = fileHref(file)
+          const preview = filePreviewUrl(file)
           return (
             <a
               key={file.id}
@@ -612,9 +699,13 @@ function FilesPane({ productId }: { productId: string }) {
               className="flex min-h-14 items-center gap-3 rounded-lg border px-3 py-2 transition-colors hover:bg-[#F6F8FC]"
               style={{ borderColor: '#EAEEF5' }}
             >
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg" style={{ background: '#F6F8FC', color: '#5A6883' }}>
-                <Paperclip className="size-4" />
-              </div>
+              {preview ? (
+                <img src={preview} alt="" className="size-14 shrink-0 rounded-lg object-cover" style={{ background: '#F6F8FC' }} />
+              ) : (
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg" style={{ background: '#F6F8FC', color: '#5A6883' }}>
+                  <Paperclip className="size-4" />
+                </div>
+              )}
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[13px] font-semibold" style={{ color: '#1B2840' }}>{file.title || 'Untitled file'}</div>
                 <div className="mt-0.5 text-[12px]" style={{ color: '#94A0B5' }}>
