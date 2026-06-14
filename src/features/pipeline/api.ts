@@ -1,17 +1,29 @@
 import { readItems, aggregate } from '@directus/sdk'
 import { directus } from '@/lib/directus'
 import type { Product, Stage } from '@/lib/types'
-import { LICENSOR_DISPLAY } from './adapter'
-export { fetchStages, setProductStage, stageId } from '../board/api'
+import type { BusinessUnit } from '@/domain/products/types'
+export { fetchStages } from '@/domain/reference/api'
+export { setProductStage, stageId } from '../board/api'
 
-const PIPELINE_FIELDS = [
+export const PRODUCT_SUMMARY_FIELDS = [
   'id',
   'code',
   'name',
   'description',
   'priority',
+  'business_unit',
+  'lifecycle_state',
+  'next_action',
+  'waiting_on',
+  'blocker_reason',
+  'risk_level',
+  'blocked_since',
+  'last_meaningful_update_at',
   'on_shelf_date',
+  'pps_requested_date',
   'pi_status',
+  'brand_assurance_number',
+  'closure_reason',
   'cover_url',
   'clickup_url',
   'clickup_list_name',
@@ -22,37 +34,40 @@ const PIPELINE_FIELDS = [
   'clickup_due_at',
   { stage: ['id', 'name'] },
   { licensor: ['id', 'name'] },
+  { property: ['id', 'name'] },
+  { product_type: ['id', 'name'] },
+  { project: ['id', 'title', 'status', 'business_unit', 'on_shelf_date', { retailer: ['id', 'name'] }, { buyer: ['id', 'name', 'samples_required'] }] },
+  { design: ['id', 'name', 'status', 'theme', 'thumbnail_url'] },
+  { factory: ['id', 'name'] },
 ] as const
 
-// Maps display-name licensors (e.g. "Disney") back to the raw names stored in Directus ("disney")
-function toRawLicensors(displayNames: string[]): string[] {
-  return Object.entries(LICENSOR_DISPLAY)
-    .filter(([, display]) => displayNames.includes(display))
-    .map(([raw]) => raw)
-}
-
-function buildFilter(search?: string, licensors?: string[]): Record<string, unknown> {
-  const raw = licensors?.length ? toRawLicensors(licensors) : []
+function buildFilter(opts: Omit<FetchProductsOpts, 'limit'> = {}): Record<string, unknown> {
+  const { search, licensorIds, businessUnit, lifecycleStates } = opts
   const and: unknown[] = [{ stage: { _nnull: true } }]
   if (search?.trim()) {
     and.push({ _or: [{ name: { _icontains: search.trim() } }, { code: { _icontains: search.trim() } }] })
   }
-  if (raw.length) and.push({ licensor: { name: { _in: raw } } })
+  if (licensorIds?.length) and.push({ licensor: { id: { _in: licensorIds } } })
+  if (businessUnit === 'POP') and.push({ business_unit: { _in: ['POP', 'POP Creations'] } })
+  if (businessUnit === 'Spruce') and.push({ business_unit: { _in: ['Spruce', 'Spruce Line'] } })
+  void lifecycleStates
   return { _and: and }
 }
 
 export interface FetchProductsOpts {
   search?: string
-  licensors?: string[]
+  licensorIds?: string[]
+  businessUnit?: BusinessUnit | 'All'
+  lifecycleStates?: string[]
   limit?: number
 }
 
 export async function fetchPipelineProducts(opts: FetchProductsOpts = {}): Promise<Product[]> {
-  const { search, licensors, limit = 300 } = opts
+  const { limit = 300 } = opts
   return directus.request(
     readItems('product', {
-      fields: PIPELINE_FIELDS,
-      filter: buildFilter(search, licensors) as never,
+      fields: PRODUCT_SUMMARY_FIELDS,
+      filter: buildFilter(opts) as never,
       limit,
     }),
   ) as Promise<Product[]>
@@ -62,7 +77,7 @@ export async function countPipelineProducts(opts: Omit<FetchProductsOpts, 'limit
   const result = await directus.request(
     aggregate('product', {
       aggregate: { count: '*' },
-      filter: buildFilter(opts.search, opts.licensors) as never,
+      filter: buildFilter(opts) as never,
     }),
   ) as Array<{ count: { '*': string } }>
   return parseInt(result[0]?.count?.['*'] ?? '0', 10)

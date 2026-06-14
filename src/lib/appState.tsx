@@ -1,9 +1,27 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
+import type { BusinessUnit } from '@/domain/products/types'
 
-export type Screen = 'pipeline' | 'projects' | 'schedule' | 'notes' | 'people' | 'mywork' | 'settings'
+export type Screen =
+  | 'home'
+  | 'pipeline'
+  | 'projects'
+  | 'designs'
+  | 'collections'
+  | 'orders'
+  | 'accounts'
+  | 'reports'
+  | 'submissions'
+  | 'samples'
+  | 'revisions'
+  | 'schedule'
+  | 'notes'
+  | 'people'
+  | 'mywork'
+  | 'settings'
 export type PipelineView = 'kanban' | 'table'
 export type ColorBy = 'category' | 'licensor' | 'stage' | 'priority' | 'none'
 export type GroupBy = 'stage' | 'licensor' | 'priority' | 'assignee'
+export type BusinessUnitFilter = BusinessUnit | 'All'
 
 interface AppState {
   screen: Screen
@@ -14,21 +32,24 @@ interface AppState {
   setColorBy: (c: ColorBy) => void
   groupBy: GroupBy
   setGroupBy: (g: GroupBy) => void
+  businessUnit: BusinessUnitFilter
+  setBusinessUnit: (b: BusinessUnitFilter) => void
   searchQuery: string
   setSearchQuery: (q: string) => void
-  filterLicensors: Set<string>
-  setFilterLicensors: (s: Set<string>) => void
+  filterLicensorIds: Set<string>
+  setFilterLicensorIds: (s: Set<string>) => void
 }
 
 const AppStateCtx = createContext<AppState | null>(null)
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
-  const [screen, setScreen] = useState<Screen>('pipeline')
+  const [screen, setScreen] = useState<Screen>('home')
   const [pipelineView, setPipelineView] = useState<PipelineView>('kanban')
   const [colorBy, setColorBy] = useState<ColorBy>('category')
   const [groupBy, setGroupBy] = useState<GroupBy>('stage')
+  const [businessUnit, setBusinessUnit] = useState<BusinessUnitFilter>('All')
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterLicensors, setFilterLicensors] = useState<Set<string>>(new Set())
+  const [filterLicensorIds, setFilterLicensorIds] = useState<Set<string>>(new Set())
 
   return (
     <AppStateCtx.Provider value={{
@@ -36,8 +57,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       pipelineView, setPipelineView,
       colorBy, setColorBy,
       groupBy, setGroupBy,
+      businessUnit, setBusinessUnit,
       searchQuery, setSearchQuery,
-      filterLicensors, setFilterLicensors,
+      filterLicensorIds, setFilterLicensorIds,
     }}>
       {children}
     </AppStateCtx.Provider>

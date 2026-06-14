@@ -23,8 +23,7 @@ import type {
   ProductTimeEntry,
 } from '@/lib/types'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const USER_FIELDS = ['id', 'first_name', 'last_name', 'email', 'avatar'] as any
+const USER_FIELDS = ['id', 'first_name', 'last_name', 'email', 'avatar'] as const
 
 // ---- Checklist ----
 export async function listChecklist(productId: string) {
@@ -47,7 +46,7 @@ export async function listSubtasks(productId: string) {
   return directus.request(
     readItems('subtask', {
       filter: { product: { _eq: productId } },
-      fields: ['id', 'title', 'done', 'due_date', { assignee: USER_FIELDS }] as any,
+      fields: ['id', 'title', 'done', 'due_date', { assignee: USER_FIELDS }] as never,
       sort: ['sort', 'id'],
       limit: -1,
     }),
@@ -65,7 +64,7 @@ export async function listAssignees(productId: string) {
   return directus.request(
     readItems('product_assignee', {
       filter: { product: { _eq: productId } },
-      fields: ['id', { directus_user: USER_FIELDS }] as any,
+      fields: ['id', { directus_user: USER_FIELDS }] as never,
       limit: -1,
     }),
   ) as unknown as Promise<ProductAssignee[]>
@@ -87,7 +86,7 @@ export async function listComments(productId: string) {
   return directus.request(
     readComments({
       filter: { collection: { _eq: 'product' }, item: { _eq: productId } },
-      fields: ['id', 'comment', 'date_created', { user_created: USER_FIELDS }] as any,
+      fields: ['id', 'comment', 'date_created', { user_created: USER_FIELDS }] as never,
       sort: ['date_created'],
       limit: -1,
     }),
@@ -157,7 +156,7 @@ export async function listProductLinks(productId: string) {
   return directus.request(
     readItems('product_link', {
       filter: { product: { _eq: productId } },
-      fields: ['id', 'linked_external_id', 'linked_title', 'relation_type', 'direction', 'created_by', 'created_at', { linked_product: ['id', 'code', 'name'] }] as any,
+      fields: ['id', 'linked_external_id', 'linked_title', 'relation_type', 'direction', 'created_by', 'created_at', { linked_product: ['id', 'code', 'name'] }] as never,
       sort: ['relation_type', 'linked_title'],
       limit: -1,
     }),

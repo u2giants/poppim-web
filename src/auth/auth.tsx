@@ -14,45 +14,53 @@ interface AuthState {
 const AuthContext = createContext<AuthState | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<DirectusUser | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [state, setState] = useState<{ user: DirectusUser | null; loading: boolean }>({ user: null, loading: true })
 
-  async function refresh() {
+  async function fetchMe(): Promise<DirectusUser | null> {
     try {
       const me = await directus.request(
         readMe({ fields: ['id', 'first_name', 'last_name', 'email', 'avatar', { role: ['id', 'name'] }] }),
       )
-      setUser(me as unknown as DirectusUser)
+      return me as unknown as DirectusUser
     } catch {
-      setUser(null)
+      return null
     }
   }
 
   useEffect(() => {
-    refresh().finally(() => setLoading(false))
+    let active = true
+    fetchMe().then((user) => {
+      if (active) setState({ user, loading: false })
+    })
+    return () => { active = false }
   }, [])
+
+  async function refresh() {
+    const user = await fetchMe()
+    setState((prev) => ({ ...prev, user }))
+  }
 
   async function login(email: string, password: string) {
     await directus.login(email, password)
-    await refresh()
+    const user = await fetchMe()
+    setState({ user, loading: false })
   }
 
   async function logout() {
     try {
       await directus.logout()
     } finally {
-      setUser(null)
+      setState({ user: null, loading: false })
     }
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refresh }}>
+    <AuthContext.Provider value={{ user: state.user, loading: state.loading, login, logout, refresh }}>
       {children}
     </AuthContext.Provider>
   )
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const ctx = useContext(AuthContext)
   if (!ctx) throw new Error('useAuth must be used within AuthProvider')

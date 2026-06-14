@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import type { MockTask } from '@/lib/mockData'
-import { LICENSOR_META, STAGE_COLORS, CATEGORY_ICONS } from '@/lib/mockData'
-import { stageColor } from '@/features/pipeline/adapter'
-import { ExternalLink, FileText, History, MessageSquare, Paperclip, Send, Tags, X } from 'lucide-react'
+import type { ProductSummary } from '@/domain/products/types'
+import { CATEGORY_ICONS, LICENSOR_META, STAGE_COLORS, stageColor } from '@/domain/products/presentation'
+import { ClipboardCheck, ExternalLink, FilePenLine, FileText, FlaskConical, History, MessageSquare, Paperclip, Send, Tags, X } from 'lucide-react'
 import type {
   Comment,
   Product,
@@ -11,6 +10,7 @@ import type {
   ProductField,
   ProductFile,
   ProductLink,
+  Subtask,
   ProductTag,
   ProductTimeEntry,
   ProductUpdate,
@@ -20,7 +20,9 @@ import {
   addComment,
   listAssignees,
   listChecklist,
+  listSubtasks,
   setChecklistDone,
+  setSubtaskDone,
   userName,
   userInitials,
   listProductActivity,
@@ -31,6 +33,11 @@ import {
   listProductTimeEntries,
   listProductUpdates,
 } from '@/features/board/collab'
+import {
+  createRevisionForProduct,
+  createSampleForProduct,
+  createSubmissionForProduct,
+} from '@/features/workflow/api'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -69,7 +76,7 @@ function productLabel(product: Product | string | null): string | null {
 // ─── Props ───────────────────────────────────────────────────────────────────
 
 interface Props {
-  task: MockTask | null
+  task: ProductSummary | null
   onClose: () => void
 }
 
@@ -77,8 +84,10 @@ interface Props {
 
 export function TaskDetailModal({ task, onClose }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null)
-  const [coverOk, setCoverOk] = useState(true)
+  const [coverFailedFor, setCoverFailedFor] = useState<string | null>(null)
   const [tab, setTab] = useState<'updates' | 'files' | 'fields' | 'activity'>('updates')
+  const [actionBusy, setActionBusy] = useState<string | null>(null)
+  const [actionMessage, setActionMessage] = useState<string | null>(null)
 
   useEffect(() => {
     if (!task) return
@@ -87,13 +96,34 @@ export function TaskDetailModal({ task, onClose }: Props) {
     return () => window.removeEventListener('keydown', onKey)
   }, [task, onClose])
 
-  // Reset the cover error flag when a different card is opened.
-  useEffect(() => { setCoverOk(true) }, [task?.id])
-
   if (!task) return null
 
-  const licMeta = LICENSOR_META[task.licensor]
-  const resolvedStageColors = STAGE_COLORS[task.stage] ?? stageColor(task.stage)
+  const licMeta = task.licensorName ? LICENSOR_META[task.licensorName] : null
+  const resolvedStageColors = STAGE_COLORS[task.stageName] ?? stageColor(task.stageName)
+  const product = task.raw
+
+  async function runWorkflowAction(kind: 'submission' | 'sample' | 'revision') {
+    if (actionBusy) return
+    setActionBusy(kind)
+    setActionMessage(null)
+    try {
+      if (kind === 'submission') {
+        await createSubmissionForProduct(product)
+        setActionMessage('Submission record created.')
+      } else if (kind === 'sample') {
+        await createSampleForProduct(product)
+        setActionMessage('Sample request created.')
+      } else {
+        await createRevisionForProduct(product)
+        setActionMessage('Revision request created.')
+      }
+    } catch (error) {
+      console.error(error)
+      setActionMessage('Action could not be saved.')
+    } finally {
+      setActionBusy(null)
+    }
+  }
 
   return (
     <div
@@ -117,7 +147,7 @@ export function TaskDetailModal({ task, onClose }: Props) {
           {/* Top bar */}
           <div className="flex shrink-0 items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #EAEEF5' }}>
             <span className="text-[13px]" style={{ color: '#5A6883' }}>
-              {task.licensor} / {task.stage}
+              {[task.businessUnit, task.retailerName, task.buyerName].filter(Boolean).join(' / ') || 'Product'}
             </span>
             <div className="flex items-center gap-3">
               <button
@@ -135,8 +165,8 @@ export function TaskDetailModal({ task, onClose }: Props) {
               className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[12px] font-semibold"
               style={{ background: '#F6F8FC', color: '#5A6883' }}
             >
-              <span>{CATEGORY_ICONS[task.category] ?? '📦'}</span>
-              Product
+              <span>{CATEGORY_ICONS[task.category] ?? 'PRD'}</span>
+              {task.businessUnit === 'Spruce' ? 'Style-numbered product' : 'Product / SKU'}
             </span>
           </div>
 
@@ -145,18 +175,49 @@ export function TaskDetailModal({ task, onClose }: Props) {
             className="px-6 pt-3 font-extrabold leading-tight"
             style={{ fontSize: 25, color: '#1B2840', letterSpacing: '-0.02em' }}
           >
-            {task.title}
+            {[task.code, task.title].filter(Boolean).join(' · ')}
           </h2>
 
+          <div className="px-6 pt-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <WorkflowActionButton
+                icon={<ClipboardCheck className="size-3.5" />}
+                label="Create submission"
+                loading={actionBusy === 'submission'}
+                disabled={Boolean(actionBusy)}
+                onClick={() => runWorkflowAction('submission')}
+              />
+              <WorkflowActionButton
+                icon={<FlaskConical className="size-3.5" />}
+                label="Request sample"
+                loading={actionBusy === 'sample'}
+                disabled={Boolean(actionBusy)}
+                onClick={() => runWorkflowAction('sample')}
+              />
+              <WorkflowActionButton
+                icon={<FilePenLine className="size-3.5" />}
+                label="Add revision"
+                loading={actionBusy === 'revision'}
+                disabled={Boolean(actionBusy)}
+                onClick={() => runWorkflowAction('revision')}
+              />
+            </div>
+            {actionMessage && (
+              <p className="mt-2 text-[12.5px] font-semibold" style={{ color: actionMessage.includes('could not') ? '#D2502B' : '#14745D' }}>
+                {actionMessage}
+              </p>
+            )}
+          </div>
+
           {/* Full-size cover (the board shows a thumbnail; here we load the original) */}
-          {task.coverUrl && coverOk && (
+          {task.coverUrl && coverFailedFor !== task.id && (
             <div className="px-6 pt-5">
               <img
                 src={task.coverUrl}
                 alt=""
                 className="max-h-[420px] w-full rounded-xl object-contain"
                 style={{ background: '#F6F8FC' }}
-                onError={() => setCoverOk(false)}
+                onError={() => setCoverFailedFor(task.id)}
               />
             </div>
           )}
@@ -169,7 +230,7 @@ export function TaskDetailModal({ task, onClose }: Props) {
                 style={{ background: resolvedStageColors.bg, color: '#1B2840' }}
               >
                 <span className="size-2 rounded-full shrink-0" style={{ background: resolvedStageColors.dot }} />
-                {task.stage}
+                {task.stageName}
               </span>
             </ModalField>
 
@@ -179,10 +240,10 @@ export function TaskDetailModal({ task, onClose }: Props) {
                   className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12.5px] font-bold text-white"
                   style={{ background: licMeta.gradient }}
                 >
-                  {licMeta.letter} {task.licensor}
+                  {licMeta.letter} {task.licensorName}
                 </div>
               ) : (
-                <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{task.licensor}</span>
+                <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{task.licensorName ?? '—'}</span>
               )}
             </ModalField>
 
@@ -192,9 +253,59 @@ export function TaskDetailModal({ task, onClose }: Props) {
               </span>
             </ModalField>
 
-            <ModalField label="Category">
+            <ModalField label="Product type">
               <span className="text-[13.5px] font-semibold capitalize" style={{ color: '#1B2840' }}>
-                {task.category}
+                {task.productTypeName ?? task.category}
+              </span>
+            </ModalField>
+          </div>
+
+          <div className="grid grid-cols-2 gap-x-6 gap-y-4 px-6 pt-5">
+            <ModalField label="Lifecycle">
+              <span className="text-[13.5px] font-semibold capitalize" style={{ color: '#1B2840' }}>
+                {task.lifecycleState ?? '—'}
+              </span>
+            </ModalField>
+            <ModalField label="Next action">
+              <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>
+                {task.nextAction ?? '—'}
+              </span>
+            </ModalField>
+            <ModalField label="Waiting on">
+              <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>
+                {task.waitingOn ?? '—'}
+              </span>
+            </ModalField>
+            <ModalField label="Risk">
+              <span className="text-[13.5px] font-semibold capitalize" style={{ color: task.riskLevel ? '#D2502B' : '#1B2840' }}>
+                {task.riskLevel ?? '—'}
+              </span>
+            </ModalField>
+          </div>
+
+          <div className="grid grid-cols-2 gap-x-6 gap-y-4 px-6 pt-5">
+            <ModalField label="Project / offer">
+              <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{task.projectTitle ?? '—'}</span>
+            </ModalField>
+            <ModalField label="Retailer / buyer">
+              <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>
+                {[task.retailerName, task.buyerName].filter(Boolean).join(' / ') || '—'}
+              </span>
+            </ModalField>
+            <ModalField label="Property">
+              <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{task.propertyName ?? '—'}</span>
+            </ModalField>
+            <ModalField label="Factory">
+              <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{task.factoryName ?? '—'}</span>
+            </ModalField>
+            <ModalField label="Design source">
+              <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>
+                {[task.designName, task.designCollectionName].filter(Boolean).join(' / ') || '—'}
+              </span>
+            </ModalField>
+            <ModalField label="Brand Assurance / PI">
+              <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>
+                {[task.brandAssuranceNumber ? `BA ${task.brandAssuranceNumber}` : null, task.piStatus ? `PI ${task.piStatus}` : null].filter(Boolean).join(' · ') || '—'}
               </span>
             </ModalField>
           </div>
@@ -206,6 +317,10 @@ export function TaskDetailModal({ task, onClose }: Props) {
 
           <div className="px-6 pt-5">
             <ChecklistPanel productId={task.id} />
+          </div>
+
+          <div className="px-6 pt-5">
+            <SubtasksPanel productId={task.id} />
           </div>
 
           {task.description && (
@@ -221,25 +336,28 @@ export function TaskDetailModal({ task, onClose }: Props) {
             <ProductTags productId={task.id} />
           </div>
 
-          <div className="grid grid-cols-2 gap-x-6 gap-y-4 px-6 pt-5">
-            <ModalField label="ClickUp list">
-              <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{task.clickupListName ?? '—'}</span>
-            </ModalField>
-            <ModalField label="Created in ClickUp">
-              <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{formatDate(task.clickupCreatedAt)}</span>
-            </ModalField>
-            <ModalField label="Updated in ClickUp">
-              <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{formatDate(task.clickupUpdatedAt)}</span>
-            </ModalField>
-            <ModalField label="ClickUp due">
-              <span className="text-[13.5px] font-semibold" style={{ color: task.dueOver ? '#D2502B' : '#1B2840' }}>{formatDate(task.clickupDueAt)}</span>
-            </ModalField>
-          </div>
-
-          {task.clickupUrl && (
-            <div className="px-6 pt-5">
+          <details className="mx-6 mt-5 rounded-xl border px-4 py-3" style={{ borderColor: '#EAEEF5' }}>
+            <summary className="cursor-pointer text-[12px] font-bold uppercase" style={{ color: '#5A6883' }}>
+              Legacy source
+            </summary>
+            <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-4">
+              <ModalField label="ClickUp list">
+                <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{task.legacy.clickupListName ?? '—'}</span>
+              </ModalField>
+              <ModalField label="Created in ClickUp">
+                <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{formatDate(task.legacy.clickupCreatedAt)}</span>
+              </ModalField>
+              <ModalField label="Updated in ClickUp">
+                <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{formatDate(task.legacy.clickupUpdatedAt)}</span>
+              </ModalField>
+              <ModalField label="ClickUp due">
+                <span className="text-[13.5px] font-semibold" style={{ color: task.dueOver ? '#D2502B' : '#1B2840' }}>{formatDate(task.legacy.clickupDueAt)}</span>
+              </ModalField>
+            </div>
+            {task.legacy.clickupUrl && (
+              <div className="mt-3">
               <a
-                href={task.clickupUrl}
+                href={task.legacy.clickupUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[13px] font-semibold transition-colors hover:bg-[#F6F8FC]"
@@ -248,8 +366,9 @@ export function TaskDetailModal({ task, onClose }: Props) {
                 <ExternalLink className="size-3.5" />
                 Open original ClickUp task
               </a>
-            </div>
-          )}
+              </div>
+            )}
+          </details>
 
           {/* Spacer */}
           <div className="flex-1 px-6 pb-6" />
@@ -285,6 +404,33 @@ function PaneTab({ active, icon, onClick }: { active: boolean; icon: React.React
       style={{ background: active ? '#fff' : 'transparent', color: active ? '#1B2840' : '#5A6883', boxShadow: active ? '0 1px 2px rgba(20,40,80,0.08)' : 'none' }}
     >
       {icon}
+    </button>
+  )
+}
+
+function WorkflowActionButton({
+  icon,
+  label,
+  loading,
+  disabled,
+  onClick,
+}: {
+  icon: React.ReactNode
+  label: string
+  loading: boolean
+  disabled: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-[12.5px] font-bold transition-colors hover:bg-[#F6F8FC] disabled:cursor-not-allowed disabled:opacity-50"
+      style={{ borderColor: '#EAEEF5', color: '#1B2840' }}
+    >
+      {icon}
+      {loading ? 'Saving...' : label}
     </button>
   )
 }
@@ -360,6 +506,50 @@ function ChecklistPanel({ productId }: { productId: string }) {
             />
             <span className="min-w-0 flex-1 text-[13px] leading-relaxed" style={{ color: item.done ? '#94A0B5' : '#1B2840', textDecoration: item.done ? 'line-through' : 'none' }}>
               {item.group_name ? `${item.group_name}: ` : ''}{item.label}
+            </span>
+          </label>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SubtasksPanel({ productId }: { productId: string }) {
+  const [items, setItems] = useState<Subtask[]>([])
+
+  useEffect(() => {
+    listSubtasks(productId).then(setItems).catch(() => setItems([]))
+  }, [productId])
+
+  if (items.length === 0) return null
+
+  async function toggle(id: string, done: boolean) {
+    setItems((prev) => prev.map((item) => item.id === id ? { ...item, done } : item))
+    try { await setSubtaskDone(id, done) }
+    catch { setItems((prev) => prev.map((item) => item.id === id ? { ...item, done: !done } : item)) }
+  }
+
+  return (
+    <div>
+      <div className="mb-2 text-[12px] font-medium" style={{ color: '#0094FF' }}>Subtasks</div>
+      <div className="space-y-2">
+        {items.map((item) => (
+          <label key={item.id} className="flex items-start gap-2 rounded-lg border px-3 py-2" style={{ borderColor: '#EAEEF5' }}>
+            <input
+              type="checkbox"
+              checked={item.done}
+              onChange={(e) => toggle(item.id, e.target.checked)}
+              className="mt-0.5 size-4"
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13px] leading-relaxed" style={{ color: item.done ? '#94A0B5' : '#1B2840', textDecoration: item.done ? 'line-through' : 'none' }}>
+                {item.title}
+              </span>
+              {(item.assignee || item.due_date) && (
+                <span className="mt-0.5 block text-[12px]" style={{ color: '#94A0B5' }}>
+                  {[userName(item.assignee), formatDate(item.due_date)].filter((value) => value && value !== 'Unknown' && value !== '—').join(' · ')}
+                </span>
+              )}
             </span>
           </label>
         ))}

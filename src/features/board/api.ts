@@ -37,7 +37,7 @@ export async function fetchProducts(limit = 500): Promise<Product[]> {
 export async function fetchAssigneeMap() {
   const rows = (await directus.request(
     readItems('product_assignee', {
-      fields: ['product', { directus_user: ['id'] }] as any,
+      fields: ['product', { directus_user: ['id'] }] as never,
       limit: -1,
     }),
   )) as unknown as Array<{ product: string; directus_user: { id: string } | string }>

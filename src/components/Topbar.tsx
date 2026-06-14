@@ -3,9 +3,13 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuTrigger,
   DropdownMenuCheckboxItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
-import { Bell, Search, Plus } from 'lucide-react'
-import { LICENSORS, PEOPLE } from '@/lib/mockData'
+import { Search } from 'lucide-react'
 import { buildInfo, formatCommitDateInNewYork } from '@/lib/buildInfo'
+import { useEffect, useState } from 'react'
+import { fetchLicensors } from '@/domain/reference/api'
+import type { Licensor } from '@/lib/types'
+import { useAuth } from '@/auth/auth'
+import type { BusinessUnitFilter } from '@/lib/appState'
 
 const COLOR_OPTIONS: { value: ColorBy; label: string }[] = [
   { value: 'category',  label: 'Category' },
@@ -22,67 +26,97 @@ const GROUP_OPTIONS: { value: GroupBy; label: string }[] = [
   { value: 'assignee', label: 'Assignee' },
 ]
 
-const AVATAR_COLORS = ['#4F9DF7', '#6B54C9', '#3F9A50', '#D24B83', '#DB6645']
+const BUSINESS_UNITS: { value: BusinessUnitFilter; label: string }[] = [
+  { value: 'All', label: 'All' },
+  { value: 'POP', label: 'POP' },
+  { value: 'Spruce', label: 'Spruce' },
+]
 
 export function Topbar() {
   const {
     screen, pipelineView, setPipelineView,
     colorBy, setColorBy,
     groupBy, setGroupBy,
-    searchQuery,
-    filterLicensors, setFilterLicensors,
+    businessUnit, setBusinessUnit,
+    filterLicensorIds, setFilterLicensorIds,
   } = useAppState()
+  const { user } = useAuth()
+  const [licensors, setLicensors] = useState<Licensor[]>([])
 
   const isPipeline = screen === 'pipeline'
+  const showsBusinessUnit = screen === 'home'
+    || screen === 'pipeline'
+    || screen === 'designs'
+    || screen === 'collections'
+    || screen === 'orders'
+    || screen === 'reports'
+    || screen === 'submissions'
+    || screen === 'samples'
+    || screen === 'revisions'
   const commitDate = formatCommitDateInNewYork(buildInfo.commitDateIso)
 
-  function toggleLicensor(name: string) {
-    const next = new Set(filterLicensors)
-    if (next.has(name)) next.delete(name)
-    else next.add(name)
-    setFilterLicensors(next)
+  useEffect(() => {
+    if (!isPipeline) return
+    fetchLicensors().then(setLicensors).catch(() => setLicensors([]))
+  }, [isPipeline])
+
+  function toggleLicensor(id: string) {
+    const next = new Set(filterLicensorIds)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setFilterLicensorIds(next)
   }
+
+  const initials = [user?.first_name, user?.last_name]
+    .filter(Boolean)
+    .map((part) => part?.[0]?.toUpperCase())
+    .join('') || user?.email?.[0]?.toUpperCase() || 'U'
 
   return (
     <header
       className="flex h-[72px] shrink-0 items-center gap-3 px-6"
       style={{ borderBottom: '1px solid #EAEEF5', background: '#fff' }}
     >
-      {/* Add new button */}
-      <button
-        className="flex items-center gap-1.5 rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold text-white transition-colors"
-        style={{
-          background: '#0094FF',
-          boxShadow: '0 6px 16px -6px rgba(0,148,255,0.6)',
-        }}
-        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#0080E0' }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#0094FF' }}
-      >
-        <Plus className="size-4" />
-        Add new
-      </button>
-
-      {/* Pipeline-only controls: segmented view toggle */}
+      {/* Business unit + pipeline controls */}
+      {showsBusinessUnit && (
+        <>
+          <div className="flex items-center rounded-[10px] p-1" style={{ background: '#F6F8FC' }}>
+            {BUSINESS_UNITS.map((b) => (
+              <button
+                key={b.value}
+                onClick={() => setBusinessUnit(b.value)}
+                className="rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all"
+                style={
+                  businessUnit === b.value
+                    ? { background: '#fff', color: '#1B2840', boxShadow: '0 1px 4px rgba(20,40,80,0.10)' }
+                    : { color: '#5A6883' }
+                }
+              >
+                {b.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
       {isPipeline && (
-        <div
-          className="flex items-center rounded-[10px] p-1"
-          style={{ background: '#F6F8FC' }}
-        >
-          {(['table', 'kanban'] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => setPipelineView(v)}
-              className="rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all"
-              style={
-                pipelineView === v
-                  ? { background: '#fff', color: '#1B2840', boxShadow: '0 1px 4px rgba(20,40,80,0.10)' }
-                  : { color: '#5A6883' }
-              }
-            >
-              {v === 'table' ? 'Table view' : 'Kanban board'}
-            </button>
-          ))}
-        </div>
+        <>
+          <div className="flex items-center rounded-[10px] p-1" style={{ background: '#F6F8FC' }}>
+            {(['table', 'kanban'] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setPipelineView(v)}
+                className="rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all"
+                style={
+                  pipelineView === v
+                    ? { background: '#fff', color: '#1B2840', boxShadow: '0 1px 4px rgba(20,40,80,0.10)' }
+                    : { color: '#5A6883' }
+                }
+              >
+                {v === 'table' ? 'Table view' : 'Kanban board'}
+              </button>
+            ))}
+          </div>
+        </>
       )}
 
       <div className="flex-1" />
@@ -149,28 +183,33 @@ export function Topbar() {
                   <path d="M1 3h12M3 7h8M5 11h4" strokeLinecap="round" />
                 </svg>
                 Filter
-                {filterLicensors.size > 0 && (
+                {filterLicensorIds.size > 0 && (
                   <span
                     className="flex size-4 items-center justify-center rounded-full text-[10px] font-bold text-white"
                     style={{ background: '#0094FF' }}
                   >
-                    {filterLicensors.size}
+                    {filterLicensorIds.size}
                   </span>
                 )}
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
               <DropdownMenuLabel>Licensor</DropdownMenuLabel>
-              {LICENSORS.map((l) => (
+              {licensors.map((l) => (
                 <DropdownMenuCheckboxItem
-                  key={l}
-                  checked={filterLicensors.has(l)}
-                  onCheckedChange={() => toggleLicensor(l)}
+                  key={l.id}
+                  checked={filterLicensorIds.has(l.id)}
+                  onCheckedChange={() => toggleLicensor(l.id)}
                   onSelect={(e) => e.preventDefault()}
                 >
-                  {l}
+                  {l.name}
                 </DropdownMenuCheckboxItem>
               ))}
+              {licensors.length === 0 && (
+                <div className="px-2 py-1.5 text-[12px]" style={{ color: '#94A0B5' }}>
+                  No licensors loaded
+                </div>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -202,53 +241,13 @@ export function Topbar() {
         </>
       )}
 
-      {/* Avatar stack */}
-      <div className="flex items-center">
-        {PEOPLE.slice(0, 5).map((p, i) => (
-          <div
-            key={p.id}
-            className="flex size-8 shrink-0 items-center justify-center rounded-full border-2 border-white text-[11px] font-bold text-white"
-            style={{
-              background: AVATAR_COLORS[i % AVATAR_COLORS.length],
-              marginLeft: i === 0 ? 0 : -8,
-              zIndex: 5 - i,
-              position: 'relative',
-            }}
-            title={p.name}
-          >
-            {p.initials}
-          </div>
-        ))}
-        <div
-          className="flex size-8 shrink-0 items-center justify-center rounded-full border-2 border-white text-[10px] font-bold"
-          style={{
-            background: '#F6F8FC',
-            color: '#5A6883',
-            marginLeft: -8,
-            position: 'relative',
-          }}
-        >
-          +3
-        </div>
-      </div>
-
-      {/* Notification bell */}
-      <button className="relative p-1.5">
-        <Bell className="size-[18px]" style={{ color: '#5A6883' }} />
-        <span
-          className="absolute right-0.5 top-0.5 flex size-4 items-center justify-center rounded-full text-[9px] font-bold text-white"
-          style={{ background: '#FF4D4F' }}
-        >
-          12
-        </span>
-      </button>
-
       {/* User avatar */}
       <button
         className="flex size-9 shrink-0 items-center justify-center rounded-full text-[13px] font-bold text-white"
         style={{ background: 'linear-gradient(135deg,#FF9F43,#F47B20)' }}
+        title={user?.email ?? undefined}
       >
-        {searchQuery ? 'U' : 'U'}
+        {initials}
       </button>
     </header>
   )

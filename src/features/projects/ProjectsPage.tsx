@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { X, ChevronRight } from 'lucide-react'
+import { Briefcase, X, ChevronRight } from 'lucide-react'
 import type { Project, Product } from '@/lib/types'
 import { fetchProjects, fetchProjectProductCounts, fetchProjectProducts } from './api'
-import { productToTask, stageColor } from '@/features/pipeline/adapter'
-import { STAGE_COLORS, LICENSOR_META, CATEGORY_ICONS, CATEGORY_COLORS } from '@/lib/mockData'
+import { productToSummary } from '@/domain/products/adapters'
+import { CATEGORY_COLORS, CATEGORY_ICONS, LICENSOR_META, STAGE_COLORS, stageColor } from '@/domain/products/presentation'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -12,6 +12,16 @@ function resolveStageColor(name: string) { return STAGE_COLORS[name] ?? stageCol
 function retailerName(r: Project['retailer']): string {
   if (!r) return '—'
   return typeof r === 'object' ? r.name : r
+}
+
+function buyerName(b: Project['buyer']): string {
+  if (!b) return '—'
+  return typeof b === 'object' ? b.name ?? '—' : b
+}
+
+function designCollectionName(c: Project['design_collection']): string {
+  if (!c) return '—'
+  return typeof c === 'object' ? [c.name, c.theme].filter(Boolean).join(' · ') || '—' : c
 }
 
 function formatDate(iso: string | null): string {
@@ -53,7 +63,12 @@ export function ProjectsPage() {
     const q = debouncedSearch.trim().toLowerCase()
     return projects.filter((p) => {
       if (statusFilter !== 'all' && p.status !== statusFilter) return false
-      if (q && !p.title?.toLowerCase().includes(q) && !retailerName(p.retailer).toLowerCase().includes(q)) return false
+      if (q && ![
+        p.title,
+        retailerName(p.retailer),
+        buyerName(p.buyer),
+        designCollectionName(p.design_collection),
+      ].some((value) => value?.toLowerCase().includes(q))) return false
       return true
     })
   }, [projects, debouncedSearch, statusFilter])
@@ -110,11 +125,11 @@ export function ProjectsPage() {
         <table className="w-full text-left">
           <thead>
             <tr style={{ borderBottom: '1px solid #EAEEF5' }}>
-              {(['Project', 'Status', 'Business Unit', 'Retailer', 'Shelf Date', 'SKUs'] as const).map((h) => (
+              {(['Project', 'Status', 'Business Unit', 'Retailer', 'Buyer', 'PPS', 'Shelf Date', 'SKUs'] as const).map((h) => (
                 <th
                   key={h}
                   className="sticky top-0 bg-white px-5 py-3 text-[11px] font-bold uppercase tracking-[0.04em]"
-                  style={{ color: '#94A0B5', zIndex: 1, width: h === 'Project' ? '40%' : undefined }}
+                  style={{ color: '#94A0B5', zIndex: 1, width: h === 'Project' ? '32%' : undefined }}
                 >
                   {h}
                 </th>
@@ -154,6 +169,12 @@ export function ProjectsPage() {
                   </td>
                   <td className="px-4 py-3 text-[13px]" style={{ color: '#5A6883' }}>
                     {retailerName(project.retailer)}
+                  </td>
+                  <td className="px-4 py-3 text-[13px]" style={{ color: '#5A6883' }}>
+                    {buyerName(project.buyer)}
+                  </td>
+                  <td className="px-4 py-3 text-[13px]" style={{ color: '#5A6883' }}>
+                    {formatDate(project.pps_requested_date ?? null)}
                   </td>
                   <td className="px-4 py-3 text-[13px]" style={{ color: '#5A6883' }}>
                     {formatDate(project.on_shelf_date)}
@@ -249,7 +270,8 @@ function ProjectDetailModal({ project, onClose }: { project: Project; onClose: (
               className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[12px] font-semibold"
               style={{ background: '#F6F8FC', color: '#5A6883' }}
             >
-              📁 Project
+              <Briefcase className="size-3.5" />
+              Project
             </span>
           </div>
 
@@ -276,15 +298,33 @@ function ProjectDetailModal({ project, onClose }: { project: Project; onClose: (
               </span>
             </ModalField>
 
+            <ModalField label="Buyer">
+              <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>
+                {buyerName(project.buyer)}
+              </span>
+            </ModalField>
+
             <ModalField label="On Shelf">
               <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>
                 {formatDate(project.on_shelf_date)}
               </span>
             </ModalField>
 
+            <ModalField label="PPS Requested">
+              <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>
+                {formatDate(project.pps_requested_date ?? null)}
+              </span>
+            </ModalField>
+
             <ModalField label="Business Unit">
               <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>
                 {project.business_unit ?? '—'}
+              </span>
+            </ModalField>
+
+            <ModalField label="Design Collection">
+              <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>
+                {designCollectionName(project.design_collection)}
               </span>
             </ModalField>
           </div>
@@ -335,10 +375,10 @@ function ProjectDetailModal({ project, onClose }: { project: Project; onClose: (
               <p className="text-[13px]" style={{ color: '#94A0B5' }}>No SKUs linked to this project.</p>
             )}
             {products.map((p) => {
-              const task = productToTask(p)
+              const task = productToSummary(p)
               const catColors = CATEGORY_COLORS[task.category]
-              const stageColors = resolveStageColor(task.stage)
-              const licMeta = LICENSOR_META[task.licensor]
+              const stageColors = resolveStageColor(task.stageName)
+              const licMeta = task.licensorName ? LICENSOR_META[task.licensorName] : null
               return (
                 <div
                   key={p.id}
@@ -348,11 +388,13 @@ function ProjectDetailModal({ project, onClose }: { project: Project; onClose: (
                     className="flex size-[26px] shrink-0 items-center justify-center rounded-lg text-sm mt-0.5"
                     style={{ background: catColors?.bg ?? '#F6F8FC' }}
                   >
-                    {CATEGORY_ICONS[task.category] ?? '📦'}
+                    <span className="text-[8px] font-black" style={{ color: catColors?.accent ?? '#5A6883' }}>
+                      {CATEGORY_ICONS[task.category] ?? 'PRD'}
+                    </span>
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="line-clamp-1 text-[12.5px] font-semibold" style={{ color: '#1B2840' }}>
-                      {task.title}
+                      {[task.code, task.title].filter(Boolean).join(' · ')}
                     </p>
                     <div className="mt-0.5 flex items-center gap-2">
                       <span
@@ -360,14 +402,14 @@ function ProjectDetailModal({ project, onClose }: { project: Project; onClose: (
                         style={{ background: stageColors.bg, color: '#5A6883' }}
                       >
                         <span className="size-1.5 rounded-full shrink-0" style={{ background: stageColors.dot }} />
-                        {task.stage}
+                        {task.stageName}
                       </span>
                       {licMeta && (
                         <span
                           className="rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white"
                           style={{ background: licMeta.gradient }}
                         >
-                          {task.licensor}
+                          {task.licensorName}
                         </span>
                       )}
                     </div>

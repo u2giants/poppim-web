@@ -14,11 +14,14 @@ import { CSS } from '@dnd-kit/utilities'
 import { ChevronRight } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useAppState } from '@/lib/appState'
-import { STAGE_COLORS, LICENSOR_META, CATEGORY_ICONS, CATEGORY_COLORS, type MockTask } from '@/lib/mockData'
+import { CATEGORY_COLORS, CATEGORY_ICONS, LICENSOR_META, STAGE_COLORS } from '@/domain/products/presentation'
 import { PimTaskCard } from '@/components/PimTaskCard'
 import { TaskDetailModal } from '@/components/TaskDetailModal'
 import { fetchStages, fetchPipelineProducts, setProductStage, countPipelineProducts } from './api'
-import { productToTask, orderedStageNames, stageColor } from './adapter'
+import { orderedStageNames, productToSummary } from '@/domain/products/adapters'
+import { hydrateProductSummaryRollups } from '@/domain/products/rollups'
+import { stageColor } from '@/domain/products/presentation'
+import type { ProductSummary } from '@/domain/products/types'
 import type { Stage } from '@/lib/types'
 import type { FetchProductsOpts } from './api'
 
@@ -47,26 +50,29 @@ function setItemParam(id: string | null) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function PipelinePage() {
-  const { pipelineView, searchQuery, filterLicensors } = useAppState()
-  const [tasks, setTasks] = useState<MockTask[]>([])
-  const [stageNames, setStageNames] = useState<string[]>([])
-  const [stageIdMap, setStageIdMap] = useState<Map<string, string>>(new Map())
+  const { pipelineView, searchQuery, filterLicensorIds, businessUnit } = useAppState()
+  const [tasks, setTasks] = useState<ProductSummary[]>([])
+  const [stages, setStages] = useState<Stage[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [fetching, setFetching] = useState(false)
-  const [activeTask, setActiveTask] = useState<MockTask | null>(null)
+  const [activeTask, setActiveTask] = useState<ProductSummary | null>(null)
 
   const fetchVersion = useRef(0)
   const isFirstProducts = useRef(true)
 
   const debouncedSearch = useDebounce(searchQuery, 300)
+  const stageNames = useMemo(() => orderedStageNames(stages, businessUnit), [stages, businessUnit])
+  const stageIdMap = useMemo(
+    () => new Map(stages.filter((s) => stageNames.includes(s.name)).map((s) => [s.name, s.id])),
+    [stages, stageNames],
+  )
 
   // Stages load once.
   useEffect(() => {
     fetchStages()
       .then((stages) => {
-        setStageNames(orderedStageNames(stages as Stage[]))
-        setStageIdMap(new Map((stages as Stage[]).map((s) => [s.name, s.id])))
+        setStages(stages as Stage[])
       })
       .catch(console.error)
   }, [])
@@ -77,10 +83,11 @@ export function PipelinePage() {
       ? new URLSearchParams(window.location.search).get('item')
       : null
 
-    const hasFilter = debouncedSearch.trim() || filterLicensors.size > 0
+    const hasFilter = debouncedSearch.trim() || filterLicensorIds.size > 0 || businessUnit !== 'All'
     const opts: FetchProductsOpts = {
       search: debouncedSearch.trim() || undefined,
-      licensors: filterLicensors.size > 0 ? [...filterLicensors] : undefined,
+      licensorIds: filterLicensorIds.size > 0 ? [...filterLicensorIds] : undefined,
+      businessUnit,
       limit: hasFilter ? 500 : 300,
     }
 
@@ -88,9 +95,10 @@ export function PipelinePage() {
     if (!isFirstProducts.current) setFetching(true)
 
     Promise.all([fetchPipelineProducts(opts), countPipelineProducts(opts)])
-      .then(([products, total]) => {
+      .then(async ([products, total]) => {
         if (v !== fetchVersion.current) return
-        const mapped = products.map(productToTask)
+        const mapped = await hydrateProductSummaryRollups(products.map(productToSummary))
+        if (v !== fetchVersion.current) return
         setTasks(mapped)
         setTotalCount(total)
         if (pendingId) {
@@ -105,10 +113,9 @@ export function PipelinePage() {
         setFetching(false)
         isFirstProducts.current = false
       })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch, filterLicensors])
+  }, [debouncedSearch, filterLicensorIds, businessUnit])
 
-  function openTask(t: MockTask) {
+  function openTask(t: ProductSummary) {
     setActiveTask(t)
     setItemParam(t.id)
   }
@@ -140,12 +147,12 @@ export function PipelinePage() {
           fetching={fetching}
           onOpen={openTask}
           onMove={(taskId, toStageName) => {
-            const prevStage = tasks.find((t) => t.id === taskId)?.stage ?? toStageName
-            setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, stage: toStageName } : t)))
+            const prevStage = tasks.find((t) => t.id === taskId)?.stageName ?? toStageName
+            setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, stageName: toStageName } : t)))
             const toStageId = stageIdMap.get(toStageName)
             if (toStageId) {
               setProductStage(taskId, toStageId).catch(() => {
-                setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, stage: prevStage } : t)))
+                setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, stageName: prevStage } : t)))
               })
             }
           }}
@@ -183,23 +190,23 @@ function KanbanView({
   onOpen,
   onMove,
 }: {
-  tasks: MockTask[]
+  tasks: ProductSummary[]
   stageNames: string[]
   shown: number
   total: number
   fetching: boolean
-  onOpen: (t: MockTask) => void
+  onOpen: (t: ProductSummary) => void
   onMove: (taskId: string, toStage: string) => void
 }) {
   const { colorBy } = useAppState()
-  const [dragging, setDragging] = useState<MockTask | null>(null)
+  const [dragging, setDragging] = useState<ProductSummary | null>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
   const columns = useMemo(() =>
     stageNames.map((name) => ({
       name,
-      items: tasks.filter((t) => t.stage === name),
+      items: tasks.filter((t) => t.stageName === name),
     })), [tasks, stageNames])
 
   function onDragStart(e: DragStartEvent) {
@@ -240,9 +247,9 @@ function KanbanColumn({
   onOpen,
 }: {
   stageName: string
-  items: MockTask[]
+  items: ProductSummary[]
   colorBy: ReturnType<typeof useAppState>['colorBy']
-  onOpen: (t: MockTask) => void
+  onOpen: (t: ProductSummary) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stageName })
   const colors = resolveStageColor(stageName)
@@ -279,9 +286,9 @@ function DraggableCard({
   colorBy,
   onOpen,
 }: {
-  task: MockTask
+  task: ProductSummary
   colorBy: ReturnType<typeof useAppState>['colorBy']
-  onOpen: (t: MockTask) => void
+  onOpen: (t: ProductSummary) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: task.id, data: { task } })
   return (
@@ -303,28 +310,25 @@ function TableView({
   fetching,
   onOpen,
 }: {
-  tasks: MockTask[]
+  tasks: ProductSummary[]
   stageNames: string[]
   shown: number
   total: number
   fetching: boolean
-  onOpen: (t: MockTask) => void
+  onOpen: (t: ProductSummary) => void
 }) {
   const { groupBy } = useAppState()
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [page, setPage] = useState(0)
 
-  // Reset page when tasks change (new filter/search).
-  useEffect(() => { setPage(0) }, [tasks])
-
   const groups = useMemo(() => {
-    const map = new Map<string, MockTask[]>()
+    const map = new Map<string, ProductSummary[]>()
     for (const t of tasks) {
       const key =
-        groupBy === 'stage'    ? t.stage :
-        groupBy === 'licensor' ? t.licensor :
+        groupBy === 'stage'    ? t.stageName :
+        groupBy === 'licensor' ? t.licensorName ?? 'No licensor' :
         groupBy === 'priority' ? t.priority :
-        t.assignees[0] ?? 'Unassigned'
+        t.assignees[0]?.name ?? 'Unassigned'
       ;(map.get(key) ?? map.set(key, []).get(key)!).push(t)
     }
     const order = groupBy === 'stage' ? stageNames : [...map.keys()].sort()
@@ -336,9 +340,10 @@ function TableView({
     groups.flatMap((g) => g.items.map((t) => ({ ...t, _group: g.key }))),
     [groups])
   const totalPages = Math.ceil(allRows.length / TABLE_PAGE_SIZE)
+  const safePage = Math.min(page, Math.max(totalPages - 1, 0))
   const pageRows = useMemo(
-    () => allRows.slice(page * TABLE_PAGE_SIZE, (page + 1) * TABLE_PAGE_SIZE),
-    [allRows, page])
+    () => allRows.slice(safePage * TABLE_PAGE_SIZE, (safePage + 1) * TABLE_PAGE_SIZE),
+    [allRows, safePage])
 
   // Determine which groups appear on this page (to render headers)
   const visibleGroups = useMemo(() => {
@@ -420,7 +425,7 @@ function TableView({
         {totalPages > 1 && (
           <div className="flex items-center gap-2">
             <button
-              disabled={page === 0}
+              disabled={safePage === 0}
               onClick={() => setPage((p) => p - 1)}
               className="rounded px-2.5 py-1 text-[12px] font-medium transition-colors disabled:opacity-30 hover:bg-[#F6F8FC]"
               style={{ color: '#5A6883' }}
@@ -428,10 +433,10 @@ function TableView({
               ← Prev
             </button>
             <span style={{ color: '#1B2840' }}>
-              {page + 1} / {totalPages}
+              {safePage + 1} / {totalPages}
             </span>
             <button
-              disabled={page >= totalPages - 1}
+              disabled={safePage >= totalPages - 1}
               onClick={() => setPage((p) => p + 1)}
               className="rounded px-2.5 py-1 text-[12px] font-medium transition-colors disabled:opacity-30 hover:bg-[#F6F8FC]"
               style={{ color: '#5A6883' }}
@@ -445,9 +450,9 @@ function TableView({
   )
 }
 
-function TableTaskRow({ task, onOpen }: { task: MockTask; onOpen: (t: MockTask) => void }) {
-  const licMeta = LICENSOR_META[task.licensor]
-  const stageColors = resolveStageColor(task.stage)
+function TableTaskRow({ task, onOpen }: { task: ProductSummary; onOpen: (t: ProductSummary) => void }) {
+  const licMeta = task.licensorName ? LICENSOR_META[task.licensorName] : null
+  const stageColors = resolveStageColor(task.stageName)
   const catColors = CATEGORY_COLORS[task.category]
 
   return (
@@ -464,10 +469,10 @@ function TableTaskRow({ task, onOpen }: { task: MockTask; onOpen: (t: MockTask) 
             className="flex size-[26px] shrink-0 items-center justify-center rounded-lg text-sm"
             style={{ background: catColors?.bg ?? '#F6F8FC' }}
           >
-            {CATEGORY_ICONS[task.category]}
+            <span className="text-[8px] font-black" style={{ color: catColors?.accent ?? '#5A6883' }}>{CATEGORY_ICONS[task.category]}</span>
           </div>
           <span className="text-[13.5px] font-semibold line-clamp-1 flex-1 min-w-0" style={{ color: '#1B2840' }}>
-            {task.title}
+            {[task.code, task.title].filter(Boolean).join(' · ')}
           </span>
           {task.pill && (
             <span
@@ -488,7 +493,7 @@ function TableTaskRow({ task, onOpen }: { task: MockTask; onOpen: (t: MockTask) 
           >
             <span className="size-2 rounded-full" style={{ background: stageColors.dot }} />
           </span>
-          <span className="text-[13px] capitalize" style={{ color: '#1B2840' }}>{task.stage}</span>
+          <span className="text-[13px] capitalize" style={{ color: '#1B2840' }}>{task.stageName}</span>
         </div>
       </td>
       {/* Licensor */}
@@ -498,10 +503,10 @@ function TableTaskRow({ task, onOpen }: { task: MockTask; onOpen: (t: MockTask) 
             className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11.5px] font-bold text-white"
             style={{ background: licMeta.gradient }}
           >
-            {licMeta.letter} {task.licensor}
+            {licMeta.letter} {task.licensorName}
           </div>
         ) : (
-          <span className="text-[13px]" style={{ color: '#5A6883' }}>{task.licensor}</span>
+          <span className="text-[13px]" style={{ color: '#5A6883' }}>{task.licensorName ?? '—'}</span>
         )}
       </td>
       {/* Due */}
@@ -511,7 +516,9 @@ function TableTaskRow({ task, onOpen }: { task: MockTask; onOpen: (t: MockTask) 
         )}
       </td>
       {/* Assignee */}
-      <td className="px-4 py-3" />
+      <td className="px-4 py-3 text-[13px]" style={{ color: '#5A6883' }}>
+        {task.assignees.map((a) => a.name).join(', ') || task.waitingOn || '—'}
+      </td>
     </tr>
   )
 }
