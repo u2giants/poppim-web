@@ -110,6 +110,7 @@ This app only **reads/writes** the backend; the schema is defined in the `direct
 | Backend collections read | `product`, `project`, `design`, `design_collection`, `product_submission`, `product_sample`, `revision_request`, `order`, lookup collections | `directus` repo `pm-system/apply-schema.mjs` + `pm-system/add-workflow-model.mjs` | business screens |
 | Collaboration collections | `checklist_item`, `subtask`, `product_assignee` (M2M), native `directus_comments` | `directus` repo `pm-system/add-collaboration-model.mjs` | task-detail |
 | Image field | `product.cover_url` | `directus` repo `pm-system/migration/clickup-to-spaces.mjs` | DigitalOcean Spaces original; thumbnail derived in `src/domain/products/adapters.ts` |
+| ClickUp board mirror fields | `product.clickup_list_name`, `clickup_parent_id`, `clickup_status_type`, `clickup_updated_at` | `directus` repo `pm-system/add-clickup-work-model.mjs` + `pm-system/migration/clickup-work-import.mjs` | Used by the Licensed pipeline to mirror ClickUp top-level open board cards |
 
 Do not rename these identifiers casually — both repos depend on them.
 
@@ -170,8 +171,28 @@ Future sessions should:
 When adding fields to search, confirm the field exists on that collection or relation before adding it to the `_or` filter.
 
 ### Pipeline filters are server-side (Directus API)
-Search and licensor filters are pushed to Directus via `_icontains` / `name._in`. The pipeline loads 300 products unfiltered, 500 when any filter is active. A parallel `aggregate` count query surfaces the true total; a toast / table footer shows "Showing first N of M" when truncated. Search is debounced 300 ms; stale fetch results are discarded via an incrementing ref.
+Search and licensor filters are pushed to Directus via `_icontains` / `name._in`. The pipeline loads up to 5,000 products for the active department. A parallel `aggregate` count query surfaces the true total; a toast / table footer shows "Showing first N of M" when truncated. Search is debounced 300 ms; stale fetch results are discarded via an incrementing ref.
 Do not assume: all 15K+ products are loaded at once — they aren't.
+
+### Departments are hard-separated, not optional filters
+What changed:
+The app-level departments are `Licensed`, `Generic`, and `Software`. `Licensed` maps to legacy backend values `POP` / `POP Creations`; `Generic` maps to `Spruce` / `Spruce Line`; `Software` maps to `Software`.
+
+Why:
+The user explicitly rejected a mixed `All` board/filter model. These departments should never mix in the live app.
+
+Future sessions should:
+Do not reintroduce an `All` department tab or treat department as a casual filter. If backend values are renamed later, update the alias logic in `src/domain/products/adapters.ts` and each feature API's department clause.
+
+### Licensed pipeline mirrors ClickUp's top-level open board
+What changed:
+The Licensed product pipeline is scoped to ClickUp list `Licensing Management`, excludes ClickUp subtasks via `clickup_parent_id _null`, excludes closed/done ClickUp statuses via `clickup_status_type _in ['open', 'custom']`, and sorts by `-clickup_updated_at`.
+
+Why:
+ClickUp's Board view showed top-level open tasks sorted by "Date updated"; Poppim was previously mixing departments, subtasks, closed/done historical records, and unsorted rows.
+
+Future sessions should:
+If cards or counts drift from ClickUp, first verify `clickup_parent_id`, `clickup_status_type`, `clickup_list_name`, and `clickup_updated_at` in Directus before changing frontend grouping.
 
 ### No client-side router
 The app uses a simple auth gate in `App.tsx`, not routes. Deep-linking is done with `history.replaceState` + `URLSearchParams` (`?item=<uuid>`). `react-router-dom` is installed but not used — don't add route components without a clear reason.
@@ -237,5 +258,6 @@ No production incidents since the app moved to `pm.designflow.app`.
 | done | Board + task detail + collaboration (assignees/checklist/subtasks/comments) | live |
 | done | Design theme (Prompt A), board layout (Prompt B), task-detail layout (Prompt C) | applied |
 | done | `@dnd-kit` drag-to-change-stage | live |
+| partial | ClickUp work-data import | Running in the `directus` repo via `pm-system/migration/clickup-work-import.mjs`; see `HANDOFF.md` while present. |
 
-Create `HANDOFF.md` only for an active, unresolved continuation item; none is required after the 2026-06-14 workflow slice.
+Create `HANDOFF.md` only for an active, unresolved continuation item.
