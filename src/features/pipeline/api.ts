@@ -47,8 +47,6 @@ export const PRODUCT_SUMMARY_FIELDS = [
   { factory: ['id', 'name'] },
 ] as const
 
-const LICENSED_PIPELINE_LIST = 'Licensing Management'
-
 function buildFilter(opts: Omit<FetchProductsOpts, 'limit'> = {}): Record<string, unknown> {
   const { search, licensorIds, businessUnit, lifecycleStates } = opts
   const and: unknown[] = [{ stage: { _nnull: true } }]
@@ -58,12 +56,19 @@ function buildFilter(opts: Omit<FetchProductsOpts, 'limit'> = {}): Record<string
   if (licensorIds?.length) and.push({ licensor: { id: { _in: licensorIds } } })
   if (businessUnit === 'Licensed') {
     and.push({ business_unit: { _in: ['POP', 'POP Creations'] } })
-    and.push({ clickup_list_name: { _eq: LICENSED_PIPELINE_LIST } })
     and.push({ clickup_status_type: { _in: ['open', 'custom'] } })
     and.push({ clickup_parent_id: { _null: true } })
   }
-  if (businessUnit === 'Generic') and.push({ business_unit: { _in: ['Spruce', 'Spruce Line'] } })
-  if (businessUnit === 'Software') and.push({ business_unit: { _eq: 'Software' } })
+  if (businessUnit === 'Generic') {
+    and.push({ business_unit: { _in: ['Spruce', 'Spruce Line'] } })
+    and.push({ clickup_status_type: { _in: ['open', 'custom'] } })
+    and.push({ clickup_parent_id: { _null: true } })
+  }
+  if (businessUnit === 'Software') {
+    and.push({ business_unit: { _eq: 'Software' } })
+    and.push({ clickup_status_type: { _in: ['open', 'custom'] } })
+    and.push({ clickup_parent_id: { _null: true } })
+  }
   void lifecycleStates
   return { _and: and }
 }

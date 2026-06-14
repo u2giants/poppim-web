@@ -184,15 +184,15 @@ The user explicitly rejected a mixed `All` board/filter model. These departments
 Future sessions should:
 Do not reintroduce an `All` department tab or treat department as a casual filter. If backend values are renamed later, update the alias logic in `src/domain/products/adapters.ts` and each feature API's department clause.
 
-### Licensed pipeline mirrors ClickUp's top-level open board
+### Pipeline departments mirror live ClickUp top-level open cards
 What changed:
-The Licensed product pipeline is scoped to ClickUp list `Licensing Management`, excludes ClickUp subtasks via `clickup_parent_id _null`, excludes closed/done ClickUp statuses via `clickup_status_type _in ['open', 'custom']`, and sorts by `-clickup_updated_at`.
+The product pipeline has three hard-separated departments: `Licensed`, `Generic`, and `Software`. Each department excludes ClickUp subtasks via `clickup_parent_id _null`, excludes closed/done ClickUp statuses via `clickup_status_type _in ['open', 'custom']`, and sorts by `-clickup_updated_at`. It is intentionally not limited to the old `Licensing Management` list because the backend parity pass imports all live ClickUp lists into department-specific product rows.
 
 Why:
-ClickUp's Board view showed top-level open tasks sorted by "Date updated"; Poppim was previously mixing departments, subtasks, closed/done historical records, and unsorted rows.
+ClickUp's Board views showed top-level open tasks sorted by "Date updated"; Poppim was previously mixing departments, hiding non-`Licensing Management` lists, subtasks, closed/done historical records, and unsorted rows.
 
 Future sessions should:
-If cards or counts drift from ClickUp, first verify `clickup_parent_id`, `clickup_status_type`, `clickup_list_name`, and `clickup_updated_at` in Directus before changing frontend grouping.
+If cards or counts drift from ClickUp, first verify `business_unit`, `clickup_parent_id`, `clickup_status_type`, `clickup_list_name`, and `clickup_updated_at` in Directus before changing frontend grouping. A 2026-06-14 backend audit matched 17,859 live ClickUp task ids to 17,859 Poppim external ids with 0 missing and 0 extra.
 
 ### No client-side router
 The app uses a simple auth gate in `App.tsx`, not routes. Deep-linking is done with `history.replaceState` + `URLSearchParams` (`?item=<uuid>`). `react-router-dom` is installed but not used — don't add route components without a clear reason.
@@ -254,10 +254,11 @@ No production incidents since the app moved to `pm.designflow.app`.
 | open | List / Timeline views | Table view exists; Timeline tab is a placeholder |
 | done | URL deep-linking (`?item=`) for the detail panel | `history.replaceState` + `URLSearchParams`; auto-opens on page load; 2026-06-12 |
 | done | Durable image storage for product covers | DigitalOcean Spaces originals + thumbs; future DAM can supersede this, but ClickUp CDN is no longer the source. |
+| partial | Durable storage for product-file attachments | Backend copied 20,234 / 20,281 imported `product_file` rows to Spaces on 2026-06-14. Remaining 47 ClickUp source URLs return 404 or 0 bytes even with token; recover those source bytes from old exports/NAS/user uploads if required. |
 | open | Confirm end-to-end Microsoft SSO from a real tenant login | Redirect chain verified; full round-trip unconfirmed |
 | done | Board + task detail + collaboration (assignees/checklist/subtasks/comments) | live |
 | done | Design theme (Prompt A), board layout (Prompt B), task-detail layout (Prompt C) | applied |
 | done | `@dnd-kit` drag-to-change-stage | live |
-| partial | ClickUp work-data import | Running in the `directus` repo via `pm-system/migration/clickup-work-import.mjs`; see `HANDOFF.md` while present. |
+| done | ClickUp work-data import | 2026-06-14: backend importer hydrated live ClickUp files/comments/custom fields/checklists/tags/links for 17,859 product external ids; ClickUp activity/time APIs still returned 0 records and are tracked in `HANDOFF.md`. |
 
 Create `HANDOFF.md` only for an active, unresolved continuation item.

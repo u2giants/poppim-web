@@ -427,6 +427,8 @@ function fileHref(file: ProductFile): string | null {
 }
 
 function filePreviewUrl(file: ProductFile): string | null {
+  if (file.thumbnail_url?.includes('digitaloceanspaces.com')) return file.thumbnail_url
+  if (file.mime_type?.startsWith('image/') && file.stored_url) return file.stored_url
   if (file.thumbnail_url) return file.thumbnail_url
   if (file.mime_type?.startsWith('image/')) return fileHref(file)
   return null
