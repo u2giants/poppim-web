@@ -15,6 +15,17 @@ It is intentionally detailed. Future engineering sessions should be able to use 
 
 **Core thesis.** The application must stop being organized around generic tasks and become organized around the company's real business objects: projects/offers, products/SKUs/style numbers, designs, design collections, submissions, samples, pricing/factory requests, orders, revisions, stage history, and lifecycle state.
 
+### 2026-06-14 Implementation Note
+
+What changed:
+The first large implementation slice of this plan was committed in `0f1cc5a`. Runtime code now uses Directus-backed product/domain adapters instead of `MockTask`, and the app includes real-data screens for Control Room, My Work, projects/offers, designs, design collections, submissions, samples, revisions, orders, accounts, reports, and settings.
+
+Why:
+The backend workflow model was added and backfilled in the `directus` repo, so the frontend could move from a ClickUp-board replacement toward the business-object PM system described below.
+
+Future sessions should:
+Treat this document as the broader target architecture, not a claim that every planned capability is complete. Verify current implementation in `src/domain/`, `src/features/workflow/api.ts`, and the feature screen folders before starting the next slice.
+
 ---
 
 ## 1. Target Product Shape
@@ -2652,4 +2663,3 @@ If choosing one immediate sprint, do this:
 7. Add the first role queue: Liz review queue or Jessica stuck-work queue.
 
 This sprint would not finish the ideal system, but it would turn the app decisively away from a generic ClickUp clone and toward the real business architecture.
-

@@ -41,12 +41,14 @@ Then load additional docs only when relevant:
 
 | Path | What | Ownership |
 |---|---|---|
-| `src/lib/` | `directus.ts` (SDK client + SSO helper), `types.ts` (typed slice of backend schema), `utils.ts` (`cn`, shadcn-generated) | owned (`utils.ts` generated) |
+| `src/lib/` | `directus.ts` (SDK client + SSO helper), `types.ts` (typed slice of backend schema), `appState.tsx` (screen/filter/view state), `buildInfo.ts`, `utils.ts` (`cn`, shadcn-generated) | owned (`utils.ts` generated) |
+| `src/domain/` | frontend domain adapters/presentation/rollups; converts raw Directus records into business UI models such as `ProductSummary` | owned |
 | `src/auth/auth.tsx` | `AuthProvider` + `useAuth()` — session check, login, SSO redirect, logout | owned |
 | `src/pages/LoginPage.tsx` | login screen | owned |
-| `src/components/AppShell.tsx` | top bar + user menu | owned |
+| `src/components/Sidebar.tsx`, `src/components/Topbar.tsx`, `src/components/PimTaskCard.tsx`, `src/components/TaskDetailModal.tsx` | core app shell, product card, and product detail/workflow modal | owned |
 | `src/components/ui/` | **shadcn/ui components — GENERATED** (Radix/new-york). Re-add/update via `npx shadcn@latest add <name>`; hand-edits get overwritten | generated (vendored) |
-| `src/features/board/` | the app's substance: `BoardPage`, `TaskCard`, `TaskDetailSheet`, `Collaboration.tsx`, `api.ts`, `collab.ts`, `stageColor.ts` | owned |
+| `src/features/pipeline/`, `src/features/control-room/`, `src/features/mywork/`, `src/features/projects/`, `src/features/designs/`, `src/features/submissions/`, `src/features/samples/`, `src/features/revisions/`, `src/features/orders/`, `src/features/accounts/`, `src/features/reports/`, `src/features/settings/` | business screens over real Directus data | owned |
+| `src/features/board/` | lower-level product/collaboration API helpers (`api.ts`, `collab.ts`) kept for product cards/details | owned |
 | `src/App.tsx`, `src/main.tsx`, `src/index.css` | root gate/providers, entry, theme tokens (`index.css` holds the Design-provided OKLCH theme) | owned |
 | `index.html`, `vite.config.ts`, `tsconfig*.json`, `eslint.config.js`, `components.json` | build/tooling config | owned |
 | `Dockerfile`, `nginx.conf`, `.dockerignore` | container build (multi-stage node→nginx, SPA fallback) | owned |
@@ -60,7 +62,8 @@ No third-party framework source is vendored or modified (React/Radix/etc. are np
 
 Our custom code lives here:
 
-- `src/features/` — app features (the board + task detail)
+- `src/features/` — app features and business workflow screens
+- `src/domain/` — business-facing adapters and presentation logic
 - `src/auth/`, `src/pages/`, `src/components/AppShell.tsx` — app shell + auth
 - `src/lib/directus.ts`, `src/lib/types.ts` — backend access
 - `src/index.css` — theme tokens (from Claude Design)
@@ -83,9 +86,10 @@ No files **outside project-owned areas** were modified — no third-party/framew
 
 | Task | Files to touch | Files not to touch |
 |---|---|---|
-| Change the board (columns, cards, drag) | `src/features/board/BoardPage.tsx`, `TaskCard.tsx`, `stageColor.ts` | `src/components/ui/*` by hand |
-| Change the task-detail panel | `src/features/board/TaskDetailSheet.tsx`, `Collaboration.tsx` | — |
-| Change what data is fetched/written | `src/features/board/api.ts`, `collab.ts`, `src/lib/types.ts` | the backend schema (edit in the `directus` repo) |
+| Change the product pipeline board | `src/features/pipeline/PipelinePage.tsx`, `src/components/PimTaskCard.tsx`, `src/features/pipeline/api.ts`, `src/domain/products/*` | `src/components/ui/*` by hand |
+| Change the product-detail modal | `src/components/TaskDetailModal.tsx`, `src/features/board/collab.ts`, `src/features/workflow/api.ts` | — |
+| Change workflow screens/actions | `src/features/workflow/api.ts`, `src/features/submissions/`, `src/features/samples/`, `src/features/revisions/`, `src/features/mywork/` | backend schema in the `directus` repo |
+| Change what data is fetched/written | feature `api.ts` files, `src/domain/products/*`, `src/lib/types.ts` | the backend schema (edit in the `directus` repo) |
 | Change auth/login | `src/auth/auth.tsx`, `src/pages/LoginPage.tsx`, `src/lib/directus.ts` | — |
 | Add a shadcn component | `npx shadcn@latest add <name>` (writes `src/components/ui/`) | hand-writing UI primitives |
 | Change brand theme/tokens | `src/index.css` (`:root`/`.dark` OKLCH blocks) | component files for colors |
@@ -103,10 +107,9 @@ This app only **reads/writes** the backend; the schema is defined in the `direct
 | This app (aliases) | `https://pm-dev.designflow.app`, `https://pm-ci.designflow.app` | same Coolify service | preview / CI-validation |
 | GHCR image | `ghcr.io/u2giants/poppim-web` | GitHub Actions | **public** package; tags `:main` + `:sha-<commit>` |
 | Repo | `u2giants/poppim-web` | GitHub | |
-| Container | `poppim-web` | raw `docker run` on the `coolify` network | §9 |
-| Backend collections read | `product`, `stage`, `retailer` | `directus` repo `pm-system/apply-schema.mjs` | board data |
+| Backend collections read | `product`, `project`, `design`, `design_collection`, `product_submission`, `product_sample`, `revision_request`, `order`, lookup collections | `directus` repo `pm-system/apply-schema.mjs` + `pm-system/add-workflow-model.mjs` | business screens |
 | Collaboration collections | `checklist_item`, `subtask`, `product_assignee` (M2M), native `directus_comments` | `directus` repo `pm-system/add-collaboration-model.mjs` | task-detail |
-| Image field | `product.cover_url` | `directus` repo `pm-system/migration/clickup-images.mjs` | public ClickUp CDN URL (see §11) |
+| Image field | `product.cover_url` | `directus` repo `pm-system/migration/clickup-to-spaces.mjs` | DigitalOcean Spaces original; thumbnail derived in `src/domain/products/adapters.ts` |
 
 Do not rename these identifiers casually — both repos depend on them.
 
@@ -135,16 +138,36 @@ Actually: the frontend (`pm-dev`/`pm`) and API (`data`) are sibling subdomains, 
 Why: cross-subdomain SSO needs the cookie domain + CORS credentials set on the backend (see `directus` repo AGENTS.md §11).
 Do not change because: switching to token/`json` mode breaks SSO return and the cross-subdomain session.
 
-### `TaskCard` needs `shrink-0`
+### `PimTaskCard` needs `shrink-0`
 Looks like: a stray `shrink-0` on the card.
 Actually: cards are flex children in a fixed-height column; without `shrink-0` they get squeezed by flex-shrink to ~2px and the column won't scroll.
 Why/Do not change: removing it collapses every card (this exact bug shipped once — see §14).
 
-### `cover_url` points at ClickUp's CDN (not our storage)
-Looks like: product images load from `*.clickup-attachments.com`.
-Actually: the importer stores ClickUp's public thumbnail URL directly on `product.cover_url` (no download/storage).
-Why: fast, no storage volume needed for the preview.
-Do not change without: knowing these URLs die if ClickUp is cancelled — durable storage (copy to DAM/R2) is a planned follow-up (§15).
+### `cover_url` points at Spaces originals; thumbnails are derived
+Looks like: the frontend only reads `product.cover_url`, but cards show a smaller thumbnail.
+Actually: `cover_url` is the DigitalOcean Spaces original uploaded by the backend migration. `src/domain/products/adapters.ts` derives `covers/<product-id>_thumb.webp` for cards when the original URL is in the Spaces `covers/` prefix; `TaskDetailModal` opens the original.
+Why: the user explicitly wanted originals stored without resizing, while cards need fast thumbnails.
+Do not change because: replacing `cover_url` with a resized file would lose the original. If a thumb 404s, `PimTaskCard` falls back to the original once.
+
+### Runtime app code no longer uses mock tasks
+What changed:
+The generic `MockTask` layer and `src/lib/mockData.ts` were removed from runtime code. `ProductSummary` in `src/domain/products/types.ts` is now the board/detail view model, and raw Directus data is adapted in `src/domain/products/adapters.ts`.
+
+Why:
+The app is no longer a ClickUp-board demo; it now works from real business objects and workflow collections in Directus.
+
+Future sessions should:
+Do not reintroduce generic task-shaped mock data into real screens. Use Directus-backed feature APIs and add isolated fixtures only for tests/stories if those are introduced later.
+
+### Workflow search filters must be collection-specific
+What changed:
+`src/features/workflow/api.ts` uses separate search filters for submissions, samples, and revisions.
+
+Why:
+Directus rejects filters on fields that do not exist on the target collection. A shared workflow search filter looked convenient but queried fields like `body` on samples and `portal_reference` on revisions.
+
+Future sessions should:
+When adding fields to search, confirm the field exists on that collection or relation before adding it to the `_or` filter.
 
 ### Pipeline filters are server-side (Directus API)
 Search and licensor filters are pushed to Directus via `_icontains` / `name._in`. The pipeline loads 300 products unfiltered, 500 when any filter is active. A parallel `aggregate` count query surfaces the true total; a toast / table footer shows "Showing first N of M" when truncated. Search is debounced 300 ms; stale fetch results are discarded via an incrementing ref.
@@ -184,34 +207,35 @@ The frontend holds **no secrets** (it's a browser app; all auth is via the backe
 What happened: after the Prompt-B board rework, all task cards rendered ~2px tall (only the border), content hidden.
 Impact: board unusable (caught in preview before anyone relied on it).
 Root cause: cards are flex children in a fixed-height, scrollable column; default `flex-shrink:1` compressed them to fit instead of overflowing.
-Recovery: added `shrink-0` to `TaskCard` so cards keep natural height and the column scrolls.
-Rule added: see §11 "TaskCard needs `shrink-0`" — don't remove it.
+Recovery: added `shrink-0` to the product card so cards keep natural height and the column scrolls.
+Rule added: see §11 "`PimTaskCard` needs `shrink-0`" — don't remove it.
 
 ### 2026-06-11 — Image importer crashed (backend, but affected this app's images)
 What happened: the ClickUp image importer (in the `directus` repo) died at ~800 products; image counts stalled.
 Root cause: its periodic re-login sent the already-expired token, so the re-login itself 401'd.
 Recovery: fixed to clear the token before re-login + retry; documented here because this app surfaces those images.
 
-No production incidents (the app is preview-only so far).
+No production incidents since the app moved to `pm.designflow.app`.
 
 ## 15. Pending work
 
 | Status | Item | Owner/next action |
 |---|---|---|
-| in-progress | ClickUp image backfill | Importer running in the `directus` repo (`pm-system/migration/clickup-images.mjs`); ~thousands remaining, fills `product.cover_url` |
+| done | ClickUp image backfill | Complete in the `directus` repo via `pm-system/migration/clickup-to-spaces.mjs`; 3,747 covers moved to Spaces originals + thumbs, 0 ClickUp URLs remain. |
 | done | CI/Coolify pipeline + cutover | `git push main` → Actions → GHCR → Coolify (`ysvdyj3t7d5tyh5ogrvlka4y`) serving `pm.designflow.app`; legacy raw-docker removed; GHCR package public; 2026-06-11. See `docs/cicd.md`. |
 | done | Server-side filtering/pagination | Search + licensor pushed to Directus `_icontains`/`_in`; parallel count query; debounced 300ms; table prev/next pagination; truncation badge; 2026-06-12 |
-| done | Wire PipelinePage to real Directus data | `pipeline/adapter.ts` + `pipeline/api.ts`; real products/stages/licensors; drag-to-stage with optimistic updates; 2026-06-12 |
-| done | Wire TaskDetailModal to real Directus data | Comments and assignees loaded from Directus via `board/collab.ts`; mock comments removed; 2026-06-12 |
+| done | Wire PipelinePage to real Directus data | `src/domain/products/adapters.ts` + `pipeline/api.ts`; real products/stages/licensors; drag-to-stage with optimistic updates; 2026-06-14 |
+| done | Wire TaskDetailModal to real Directus data | Comments, assignees, checklist, subtasks, files, imported fields, activity, and create-submission/sample/revision actions load/write through Directus; mock comments removed; 2026-06-14 |
 | done | Cover images on PimTaskCard | `cover_url` fetched and rendered as top banner when present; 2026-06-12 |
+| done | Business workflow screens | Control Room, My Work, Projects/Offers, Design Library, Design Collections, Submissions, Samples, Reviews/Revisions, Orders, Accounts, Reports, and Settings now use Directus data; 2026-06-14 |
 | done | Delete leftover Vite-template assets + dead board files | `src/assets/*`, `public/icons.svg`, and 7 unreachable `features/board/` files removed; 2026-06-12 |
 | done | Production deploy at `pm.designflow.app` | live via Coolify service `ysvdyj3t7d5tyh5ogrvlka4y`; SSO + cert verified; raw-docker retired 2026-06-11 |
 | open | List / Timeline views | Table view exists; Timeline tab is a placeholder |
 | done | URL deep-linking (`?item=`) for the detail panel | `history.replaceState` + `URLSearchParams`; auto-opens on page load; 2026-06-12 |
-| open | Durable image storage | Move `cover_url` off ClickUp's CDN into the DAM/R2 (§11) |
+| done | Durable image storage for product covers | DigitalOcean Spaces originals + thumbs; future DAM can supersede this, but ClickUp CDN is no longer the source. |
 | open | Confirm end-to-end Microsoft SSO from a real tenant login | Redirect chain verified; full round-trip unconfirmed |
 | done | Board + task detail + collaboration (assignees/checklist/subtasks/comments) | live |
 | done | Design theme (Prompt A), board layout (Prompt B), task-detail layout (Prompt C) | applied |
 | done | `@dnd-kit` drag-to-change-stage | live |
 
-See `HANDOFF.md` (when present) for the live continuation state.
+Create `HANDOFF.md` only for an active, unresolved continuation item; none is required after the 2026-06-14 workflow slice.
