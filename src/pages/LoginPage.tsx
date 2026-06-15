@@ -33,6 +33,7 @@ export function LoginPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <Button variant="outline" className="w-full" onClick={() => (window.location.href = microsoftLoginUrl())}>
+            <MicrosoftIcon />
             Log in with Microsoft
           </Button>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -49,5 +50,16 @@ export function LoginPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+function MicrosoftIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 21 21" fill="none" className="shrink-0" aria-hidden="true">
+      <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+      <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+      <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+      <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+    </svg>
   )
 }
