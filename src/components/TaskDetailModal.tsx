@@ -114,10 +114,14 @@ export function TaskDetailModal({ task, onClose }: Props) {
   const [stages, setStages] = useState<Stage[]>([])
   const [licensors, setLicensors] = useState<Licensor[]>([])
   const [productTypes, setProductTypes] = useState<ProductType[]>([])
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; coverUrl: string | null; previewUrl: string | null } | null>(null)
 
   useEffect(() => {
     if (!task) return
     setLocal({})
+    setLightboxUrl(null)
+    setContextMenu(null)
     fetchStages().then(setStages).catch(() => {})
     fetchLicensors().then(setLicensors).catch(() => {})
     fetchProductTypes().then(setProductTypes).catch(() => {})
@@ -125,10 +129,23 @@ export function TaskDetailModal({ task, onClose }: Props) {
 
   useEffect(() => {
     if (!task) return
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        if (lightboxUrl) { setLightboxUrl(null); return }
+        if (contextMenu) { setContextMenu(null); return }
+        onClose()
+      }
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [task, onClose])
+  }, [task, onClose, lightboxUrl, contextMenu])
+
+  useEffect(() => {
+    if (!contextMenu) return
+    function dismiss() { setContextMenu(null) }
+    document.addEventListener('click', dismiss)
+    return () => document.removeEventListener('click', dismiss)
+  }, [contextMenu])
 
   if (!task) return null
 
@@ -162,6 +179,16 @@ export function TaskDetailModal({ task, onClose }: Props) {
   void displayStageId
   void displayLicensorId
 
+  function openContextMenu(e: React.MouseEvent, coverUrl: string | null, previewUrl: string | null) {
+    e.preventDefault()
+    e.stopPropagation()
+    setContextMenu({ x: e.clientX, y: e.clientY, coverUrl, previewUrl })
+  }
+
+  function setCoverFromUrl(url: string) {
+    applyLocal({}, { cover_url: url })
+  }
+
   async function runWorkflowAction(kind: 'submission' | 'sample' | 'revision') {
     if (actionBusy) return
     setActionBusy(kind)
@@ -186,6 +213,7 @@ export function TaskDetailModal({ task, onClose }: Props) {
   }
 
   return (
+    <>
     <div
       ref={overlayRef}
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -271,7 +299,13 @@ export function TaskDetailModal({ task, onClose }: Props) {
             )}
           </div>
 
-          <AttachmentGallery productId={task.id} fallbackCoverUrl={coverFailedFor === task.id ? undefined : task.coverUrl} onCoverError={() => setCoverFailedFor(task.id)} />
+          <AttachmentGallery
+            productId={task.id}
+            fallbackCoverUrl={coverFailedFor === task.id ? undefined : task.coverUrl}
+            onCoverError={() => setCoverFailedFor(task.id)}
+            onLightbox={setLightboxUrl}
+            onContextMenu={openContextMenu}
+          />
 
           {/* Fields grid */}
           <div className="grid grid-cols-2 gap-x-6 gap-y-4 px-6 pt-5">
@@ -502,12 +536,63 @@ export function TaskDetailModal({ task, onClose }: Props) {
             </div>
           </div>
           {tab === 'updates' && <ActivityFeed productId={task.id} />}
-          {tab === 'files' && <FilesPane productId={task.id} />}
+          {tab === 'files' && <FilesPane productId={task.id} onLightbox={setLightboxUrl} onContextMenu={openContextMenu} />}
           {tab === 'fields' && <FieldsPane productId={task.id} />}
           {tab === 'activity' && <ActivityPane productId={task.id} />}
         </div>
       </div>
     </div>
+
+    {/* Lightbox */}
+    {lightboxUrl && (
+      <div
+        className="fixed inset-0 z-[60] flex items-center justify-center"
+        style={{ background: 'rgba(0,0,0,0.88)' }}
+        onClick={() => setLightboxUrl(null)}
+      >
+        <button
+          className="absolute right-5 top-5 flex size-9 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <X className="size-5" />
+        </button>
+        <img
+          src={lightboxUrl}
+          alt=""
+          className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        />
+      </div>
+    )}
+
+    {/* Context menu */}
+    {contextMenu && (
+      <div
+        className="fixed z-[60] min-w-[180px] overflow-hidden rounded-xl border py-1 shadow-xl"
+        style={{ left: contextMenu.x, top: contextMenu.y, background: '#fff', borderColor: '#EAEEF5' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {contextMenu.previewUrl && (
+          <button
+            className="flex w-full items-center gap-2 px-4 py-2 text-left text-[13px] font-medium transition-colors hover:bg-[#F6F8FC]"
+            style={{ color: '#1B2840' }}
+            onClick={() => { setLightboxUrl(contextMenu.previewUrl); setContextMenu(null) }}
+          >
+            View full size
+          </button>
+        )}
+        {contextMenu.coverUrl && (
+          <button
+            className="flex w-full items-center gap-2 px-4 py-2 text-left text-[13px] font-medium transition-colors hover:bg-[#F6F8FC]"
+            style={{ color: '#1B2840' }}
+            onClick={() => { setCoverFromUrl(contextMenu.coverUrl!); setContextMenu(null) }}
+          >
+            Set as cover image
+          </button>
+        )}
+      </div>
+    )}
+    </>
   )
 }
 
@@ -567,10 +652,14 @@ function AttachmentGallery({
   productId,
   fallbackCoverUrl,
   onCoverError,
+  onLightbox,
+  onContextMenu,
 }: {
   productId: string
   fallbackCoverUrl?: string
   onCoverError: () => void
+  onLightbox: (url: string) => void
+  onContextMenu: (e: React.MouseEvent, coverUrl: string | null, previewUrl: string | null) => void
 }) {
   const [files, setFiles] = useState<ProductFile[]>([])
 
@@ -588,20 +677,28 @@ function AttachmentGallery({
         const href = fileHref(file)
         const preview = filePreviewUrl(file)
         return (
-          <a key={file.id} href={href || undefined} target="_blank" rel="noreferrer" className="group overflow-hidden rounded-xl border" style={{ borderColor: '#EAEEF5', background: '#F6F8FC' }}>
+          <div
+            key={file.id}
+            className="group cursor-pointer overflow-hidden rounded-xl border"
+            style={{ borderColor: '#EAEEF5', background: '#F6F8FC' }}
+            onClick={() => preview && onLightbox(preview)}
+            onContextMenu={(e) => onContextMenu(e, href, preview)}
+          >
             <img src={preview || ''} alt="" className="h-48 w-full object-contain transition-transform group-hover:scale-[1.02]" />
             <div className="border-t px-3 py-2" style={{ borderColor: '#EAEEF5', background: '#fff' }}>
               <div className="truncate text-[12.5px] font-semibold" style={{ color: '#1B2840' }}>{file.title || 'Untitled file'}</div>
             </div>
-          </a>
+          </div>
         )
       }) : (
         <img
           src={fallbackCoverUrl}
           alt=""
-          className="col-span-2 max-h-[420px] w-full rounded-xl object-contain"
+          className="col-span-2 max-h-[420px] w-full cursor-pointer rounded-xl object-contain transition-transform hover:scale-[1.01]"
           style={{ background: '#F6F8FC' }}
           onError={onCoverError}
+          onClick={() => fallbackCoverUrl && onLightbox(fallbackCoverUrl)}
+          onContextMenu={(e) => onContextMenu(e, fallbackCoverUrl ?? null, fallbackCoverUrl ?? null)}
         />
       )}
     </div>
@@ -807,7 +904,15 @@ function ProductTags({ productId }: { productId: string }) {
   )
 }
 
-function FilesPane({ productId }: { productId: string }) {
+function FilesPane({
+  productId,
+  onLightbox,
+  onContextMenu,
+}: {
+  productId: string
+  onLightbox: (url: string) => void
+  onContextMenu: (e: React.MouseEvent, coverUrl: string | null, previewUrl: string | null) => void
+}) {
   const [files, setFiles] = useState<ProductFile[]>([])
 
   useEffect(() => {
@@ -821,15 +926,9 @@ function FilesPane({ productId }: { productId: string }) {
         {files.map((file) => {
           const href = fileHref(file)
           const preview = filePreviewUrl(file)
-          return (
-            <a
-              key={file.id}
-              href={href || undefined}
-              target="_blank"
-              rel="noreferrer"
-              className="flex min-h-14 items-center gap-3 rounded-lg border px-3 py-2 transition-colors hover:bg-[#F6F8FC]"
-              style={{ borderColor: '#EAEEF5' }}
-            >
+          const isImage = Boolean(preview)
+          const inner = (
+            <>
               {preview ? (
                 <img src={preview} alt="" className="size-14 shrink-0 rounded-lg object-cover" style={{ background: '#F6F8FC' }} />
               ) : (
@@ -843,6 +942,31 @@ function FilesPane({ productId }: { productId: string }) {
                   {[file.file_type?.toUpperCase(), fileSize(file.size), formatDate(file.uploaded_at)].filter(Boolean).join(' · ')}
                 </div>
               </div>
+            </>
+          )
+          if (isImage) {
+            return (
+              <div
+                key={file.id}
+                className="flex min-h-14 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition-colors hover:bg-[#F6F8FC]"
+                style={{ borderColor: '#EAEEF5' }}
+                onClick={() => preview && onLightbox(preview)}
+                onContextMenu={(e) => onContextMenu(e, href, preview)}
+              >
+                {inner}
+              </div>
+            )
+          }
+          return (
+            <a
+              key={file.id}
+              href={href || undefined}
+              target="_blank"
+              rel="noreferrer"
+              className="flex min-h-14 items-center gap-3 rounded-lg border px-3 py-2 transition-colors hover:bg-[#F6F8FC]"
+              style={{ borderColor: '#EAEEF5' }}
+            >
+              {inner}
             </a>
           )
         })}

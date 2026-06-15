@@ -3,9 +3,9 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuTrigger,
   DropdownMenuCheckboxItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
-import { Search } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 import { buildInfo, formatCommitDateInNewYork } from '@/lib/buildInfo'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { fetchLicensors } from '@/domain/reference/api'
 import type { Licensor } from '@/lib/types'
 import { useAuth } from '@/auth/auth'
@@ -39,9 +39,17 @@ export function Topbar() {
     groupBy, setGroupBy,
     businessUnit, setBusinessUnit,
     filterLicensorIds, setFilterLicensorIds,
+    searchQuery, setSearchQuery,
   } = useAppState()
   const { user } = useAuth()
   const [licensors, setLicensors] = useState<Licensor[]>([])
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { if (searchOpen) searchInputRef.current?.focus() }, [searchOpen])
+
+  function openSearch() { setSearchOpen(true) }
+  function closeSearch() { setSearchOpen(false); setSearchQuery('') }
 
   const isPipeline = screen === 'pipeline'
   const showsBusinessUnit = screen === 'home'
@@ -132,17 +140,36 @@ export function Topbar() {
         <span className="truncate">{commitDate}</span>
       </div>
 
-      {/* Search icon */}
-      <button
-        className="flex items-center justify-center rounded-lg p-2 transition-colors hover:bg-[#F6F8FC]"
-        title="Search"
-        onClick={() => {
-          const el = document.querySelector<HTMLInputElement>('aside input')
-          el?.focus()
-        }}
-      >
-        <Search className="size-[18px]" style={{ color: '#5A6883' }} />
-      </button>
+      {/* Search */}
+      {searchOpen ? (
+        <div
+          className="flex items-center gap-2 rounded-[10px] border px-3 py-1.5"
+          style={{ borderColor: '#0094FF', background: '#fff', minWidth: 220 }}
+        >
+          <Search className="size-4 shrink-0" style={{ color: '#0094FF' }} />
+          <input
+            ref={searchInputRef}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape') closeSearch() }}
+            onBlur={() => { if (!searchQuery) setSearchOpen(false) }}
+            placeholder="Search products…"
+            className="w-full bg-transparent text-[13.5px] outline-none"
+            style={{ color: '#1B2840' }}
+          />
+          <button onClick={closeSearch} className="shrink-0 transition-colors hover:text-[#1B2840]" style={{ color: '#94A0B5' }}>
+            <X className="size-3.5" />
+          </button>
+        </div>
+      ) : (
+        <button
+          className="flex items-center justify-center rounded-lg p-2 transition-colors hover:bg-[#F6F8FC]"
+          title="Search (⌘F)"
+          onClick={openSearch}
+        >
+          <Search className="size-[18px]" style={{ color: '#5A6883' }} />
+        </button>
+      )}
 
       {/* Pipeline-only controls: Group, Filter, Color */}
       {isPipeline && (
