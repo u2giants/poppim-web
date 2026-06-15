@@ -7,6 +7,7 @@ import {
   readComments,
   createComment,
 } from '@directus/sdk'
+import type { Licensor, ProductType } from '@/lib/types'
 import { directus } from '@/lib/directus'
 import type {
   ChecklistItem,
@@ -172,6 +173,18 @@ export async function listProductTimeEntries(productId: string) {
       limit: -1,
     }),
   ) as Promise<ProductTimeEntry[]>
+}
+
+export async function updateProduct(id: string, patch: Record<string, unknown>) {
+  return directus.request(updateItem('product', id, patch as never))
+}
+
+export async function fetchLicensors(): Promise<Licensor[]> {
+  return directus.request(readItems('licensor', { sort: ['name'], limit: -1 })) as Promise<Licensor[]>
+}
+
+export async function fetchProductTypes(): Promise<ProductType[]> {
+  return directus.request(readItems('product_type', { sort: ['name'], limit: -1 })) as Promise<ProductType[]>
 }
 
 export function userName(u: DirectusUser | string | null | undefined) {

@@ -4,12 +4,15 @@ import { CATEGORY_ICONS, LICENSOR_META, STAGE_COLORS, stageColor } from '@/domai
 import { ClipboardCheck, ExternalLink, FilePenLine, FileText, FlaskConical, History, MessageSquare, Paperclip, Send, Tags, X } from 'lucide-react'
 import type {
   Comment,
+  Licensor,
   Product,
   ProductActivity,
   ProductAssignee,
   ProductField,
   ProductFile,
   ProductLink,
+  ProductType,
+  Stage,
   Subtask,
   ProductTag,
   ProductTimeEntry,
@@ -23,6 +26,9 @@ import {
   listSubtasks,
   setChecklistDone,
   setSubtaskDone,
+  updateProduct,
+  fetchLicensors,
+  fetchProductTypes,
   userName,
   userInitials,
   listProductActivity,
@@ -33,6 +39,7 @@ import {
   listProductTimeEntries,
   listProductUpdates,
 } from '@/features/board/collab'
+import { fetchStages } from '@/features/board/api'
 import {
   createRevisionForProduct,
   createSampleForProduct,
@@ -89,6 +96,33 @@ export function TaskDetailModal({ task, onClose }: Props) {
   const [actionBusy, setActionBusy] = useState<string | null>(null)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
 
+  // Local edits layered on top of the task prop (optimistic updates)
+  const [local, setLocal] = useState<{
+    name?: string
+    lifecycle_state?: string | null
+    next_action?: string | null
+    waiting_on?: string | null
+    risk_level?: string | null
+    stage?: string | null
+    stageName?: string
+    licensor?: string | null
+    licensorName?: string | null
+    product_type?: string | null
+    productTypeName?: string | null
+    pps_requested_date?: string | null
+  }>({})
+  const [stages, setStages] = useState<Stage[]>([])
+  const [licensors, setLicensors] = useState<Licensor[]>([])
+  const [productTypes, setProductTypes] = useState<ProductType[]>([])
+
+  useEffect(() => {
+    if (!task) return
+    setLocal({})
+    fetchStages().then(setStages).catch(() => {})
+    fetchLicensors().then(setLicensors).catch(() => {})
+    fetchProductTypes().then(setProductTypes).catch(() => {})
+  }, [task?.id])
+
   useEffect(() => {
     if (!task) return
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
@@ -98,9 +132,35 @@ export function TaskDetailModal({ task, onClose }: Props) {
 
   if (!task) return null
 
-  const licMeta = task.licensorName ? LICENSOR_META[task.licensorName] : null
-  const resolvedStageColors = STAGE_COLORS[task.stageName] ?? stageColor(task.stageName)
+  function applyLocal(overrides: typeof local, patch: Record<string, unknown>) {
+    setLocal(prev => ({ ...prev, ...overrides }))
+    updateProduct(task!.id, patch).catch(() => {
+      setLocal(prev => {
+        const next = { ...prev }
+        for (const key of Object.keys(overrides)) delete next[key as keyof typeof local]
+        return next
+      })
+    })
+  }
+
+  const displayTitle = 'name' in local ? (local.name ?? task.title) : task.title
+  const displayLifecycle = 'lifecycle_state' in local ? local.lifecycle_state : task.lifecycleState
+  const displayNextAction = 'next_action' in local ? local.next_action : task.nextAction
+  const displayWaitingOn = 'waiting_on' in local ? local.waiting_on : task.waitingOn
+  const displayRisk = 'risk_level' in local ? local.risk_level : task.riskLevel
+  const displayStageName = local.stageName ?? task.stageName
+  const displayStageId = 'stage' in local ? local.stage : task.stageId
+  const displayLicensorId = 'licensor' in local ? local.licensor : task.licensorId
+  const displayLicensorName = 'licensorName' in local ? local.licensorName : task.licensorName
+  const displayProductTypeId = 'product_type' in local ? local.product_type : (typeof task.raw.product_type === 'object' ? task.raw.product_type?.id : task.raw.product_type as string | null | undefined)
+  const displayProductTypeName = 'productTypeName' in local ? local.productTypeName : task.productTypeName
+  const editableDueDate = 'pps_requested_date' in local ? (local.pps_requested_date ?? '') : (task.ppsRequestedDate ?? task.raw.on_shelf_date ?? '')
+
+  const licMeta = displayLicensorName ? LICENSOR_META[displayLicensorName] : null
+  const resolvedStageColors = STAGE_COLORS[displayStageName] ?? stageColor(displayStageName)
   const product = task.raw
+  void displayStageId
+  void displayLicensorId
 
   async function runWorkflowAction(kind: 'submission' | 'sample' | 'revision') {
     if (actionBusy) return
@@ -171,12 +231,14 @@ export function TaskDetailModal({ task, onClose }: Props) {
           </div>
 
           {/* Title */}
-          <h2
-            className="px-6 pt-3 font-extrabold leading-tight"
-            style={{ fontSize: 25, color: '#1B2840', letterSpacing: '-0.02em' }}
-          >
-            {task.title}
-          </h2>
+          <div className="px-6 pt-3">
+            <EditText
+              value={displayTitle}
+              onSave={(v) => applyLocal({ name: v }, { name: v })}
+              multiline
+              textStyle={{ fontSize: 25, color: '#1B2840', letterSpacing: '-0.02em', fontWeight: 800, lineHeight: 1.25 }}
+            />
+          </div>
 
           <div className="px-6 pt-4">
             <div className="flex flex-wrap items-center gap-2">
@@ -214,61 +276,128 @@ export function TaskDetailModal({ task, onClose }: Props) {
           {/* Fields grid */}
           <div className="grid grid-cols-2 gap-x-6 gap-y-4 px-6 pt-5">
             <ModalField label="Status">
-              <span
-                className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12.5px] font-semibold capitalize"
-                style={{ background: resolvedStageColors.bg, color: '#1B2840' }}
-              >
-                <span className="size-2 rounded-full shrink-0" style={{ background: resolvedStageColors.dot }} />
-                {task.stageName}
-              </span>
+              {stages.length > 0 ? (
+                <EditSelect
+                  value={displayStageName}
+                  options={stages.map(s => ({ value: s.name, label: s.name }))}
+                  onSave={(name) => {
+                    const s = stages.find(st => st.name === name)
+                    if (s) applyLocal({ stage: s.id, stageName: s.name }, { stage: s.id })
+                  }}
+                  renderValue={(v) => (
+                    <span className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12.5px] font-semibold capitalize" style={{ background: resolvedStageColors.bg, color: '#1B2840' }}>
+                      <span className="size-2 rounded-full shrink-0" style={{ background: resolvedStageColors.dot }} />
+                      {v}
+                    </span>
+                  )}
+                />
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12.5px] font-semibold capitalize" style={{ background: resolvedStageColors.bg, color: '#1B2840' }}>
+                  <span className="size-2 rounded-full shrink-0" style={{ background: resolvedStageColors.dot }} />
+                  {displayStageName}
+                </span>
+              )}
             </ModalField>
 
             <ModalField label="Licensor">
-              {licMeta ? (
-                <div
-                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12.5px] font-bold text-white"
-                  style={{ background: licMeta.gradient }}
-                >
-                  {licMeta.letter} {task.licensorName}
-                </div>
+              {licensors.length > 0 ? (
+                <EditSelect
+                  value={displayLicensorId ?? ''}
+                  options={[{ value: '', label: '—' }, ...licensors.map(l => ({ value: l.id, label: l.name }))]}
+                  onSave={(id) => {
+                    const l = id ? licensors.find(x => x.id === id) : null
+                    applyLocal({ licensor: id || null, licensorName: l?.name ?? null }, { licensor: id || null })
+                  }}
+                  renderValue={() => licMeta ? (
+                    <div className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12.5px] font-bold text-white" style={{ background: licMeta.gradient }}>
+                      {licMeta.letter} {displayLicensorName}
+                    </div>
+                  ) : (
+                    <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{displayLicensorName ?? '—'}</span>
+                  )}
+                />
               ) : (
-                <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{task.licensorName ?? '—'}</span>
+                licMeta ? (
+                  <div className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12.5px] font-bold text-white" style={{ background: licMeta.gradient }}>
+                    {licMeta.letter} {displayLicensorName}
+                  </div>
+                ) : (
+                  <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{displayLicensorName ?? '—'}</span>
+                )
               )}
             </ModalField>
 
             <ModalField label="Due">
-              <span className="text-[13.5px] font-semibold" style={{ color: task.dueOver ? '#D2502B' : '#1B2840' }}>
-                {task.due ?? '—'}
-              </span>
+              <EditDate
+                value={editableDueDate}
+                onSave={(v) => applyLocal({ pps_requested_date: v || null }, { pps_requested_date: v || null })}
+                displayValue={task.due ?? '—'}
+                overdue={task.dueOver}
+              />
             </ModalField>
 
             <ModalField label="Product type">
-              <span className="text-[13.5px] font-semibold capitalize" style={{ color: '#1B2840' }}>
-                {task.productTypeName ?? task.category}
-              </span>
+              {productTypes.length > 0 ? (
+                <EditSelect
+                  value={displayProductTypeId ?? ''}
+                  options={[{ value: '', label: '—' }, ...productTypes.map(t => ({ value: t.id, label: t.name ?? '' }))]}
+                  onSave={(id) => {
+                    const t = id ? productTypes.find(x => x.id === id) : null
+                    applyLocal({ product_type: id || null, productTypeName: t?.name ?? null }, { product_type: id || null })
+                  }}
+                  renderValue={() => (
+                    <span className="text-[13.5px] font-semibold capitalize" style={{ color: '#1B2840' }}>
+                      {displayProductTypeName ?? task.category}
+                    </span>
+                  )}
+                />
+              ) : (
+                <span className="text-[13.5px] font-semibold capitalize" style={{ color: '#1B2840' }}>
+                  {displayProductTypeName ?? task.category}
+                </span>
+              )}
             </ModalField>
           </div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-4 px-6 pt-5">
             <ModalField label="Lifecycle">
-              <span className="text-[13.5px] font-semibold capitalize" style={{ color: '#1B2840' }}>
-                {task.lifecycleState ?? '—'}
-              </span>
+              <EditText
+                value={displayLifecycle}
+                onSave={(v) => applyLocal({ lifecycle_state: v || null }, { lifecycle_state: v || null })}
+                placeholder="—"
+              />
             </ModalField>
             <ModalField label="Next action">
-              <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>
-                {task.nextAction ?? '—'}
-              </span>
+              <EditText
+                value={displayNextAction}
+                onSave={(v) => applyLocal({ next_action: v || null }, { next_action: v || null })}
+                placeholder="—"
+              />
             </ModalField>
             <ModalField label="Waiting on">
-              <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>
-                {task.waitingOn ?? '—'}
-              </span>
+              <EditText
+                value={displayWaitingOn}
+                onSave={(v) => applyLocal({ waiting_on: v || null }, { waiting_on: v || null })}
+                placeholder="—"
+              />
             </ModalField>
             <ModalField label="Risk">
-              <span className="text-[13.5px] font-semibold capitalize" style={{ color: task.riskLevel ? '#D2502B' : '#1B2840' }}>
-                {task.riskLevel ?? '—'}
-              </span>
+              <EditSelect
+                value={displayRisk ?? ''}
+                options={[
+                  { value: '', label: '—' },
+                  { value: 'low', label: 'Low' },
+                  { value: 'medium', label: 'Medium' },
+                  { value: 'high', label: 'High' },
+                  { value: 'critical', label: 'Critical' },
+                ]}
+                onSave={(v) => applyLocal({ risk_level: v || null }, { risk_level: v || null })}
+                renderValue={(v) => (
+                  <span className="text-[13.5px] font-semibold capitalize" style={{ color: v ? '#D2502B' : '#1B2840' }}>
+                    {v || '—'}
+                  </span>
+                )}
+              />
             </ModalField>
           </div>
 
@@ -947,6 +1076,185 @@ function ActivityFeed({ productId }: { productId: string }) {
         </div>
       </div>
     </>
+  )
+}
+
+// ─── Editable field helpers ───────────────────────────────────────────────────
+
+const EDIT_INPUT_STYLE = {
+  fontSize: 13.5,
+  color: '#1B2840',
+  fontWeight: 600,
+  background: '#F6F8FC',
+  border: '1px solid #0094FF',
+  borderRadius: 6,
+  padding: '2px 6px',
+  outline: 'none',
+  width: '100%',
+}
+
+function EditText({
+  value,
+  onSave,
+  placeholder = '—',
+  multiline = false,
+  textStyle,
+}: {
+  value: string | null | undefined
+  onSave: (v: string) => void
+  placeholder?: string
+  multiline?: boolean
+  textStyle?: React.CSSProperties
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value ?? '')
+  const ref = useRef<HTMLInputElement & HTMLTextAreaElement>(null)
+
+  useEffect(() => { if (editing) ref.current?.focus() }, [editing])
+  // sync if external value changes while not editing
+  useEffect(() => { if (!editing) setDraft(value ?? '') }, [value, editing])
+
+  function commit() {
+    setEditing(false)
+    if (draft !== (value ?? '')) onSave(draft)
+  }
+  function cancel() { setEditing(false); setDraft(value ?? '') }
+
+  if (editing) {
+    const sharedProps = {
+      value: draft,
+      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setDraft(e.target.value),
+      onBlur: commit,
+      style: { ...EDIT_INPUT_STYLE, resize: 'none' as const },
+    }
+    if (multiline) {
+      return (
+        <textarea
+          ref={ref}
+          rows={3}
+          onKeyDown={(e) => { if (e.key === 'Escape') cancel() }}
+          {...sharedProps}
+        />
+      )
+    }
+    return (
+      <input
+        ref={ref}
+        type="text"
+        onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') cancel() }}
+        {...sharedProps}
+      />
+    )
+  }
+
+  return (
+    <span
+      onClick={() => { setDraft(value ?? ''); setEditing(true) }}
+      className="group cursor-text rounded px-1 -ml-1 hover:bg-[#F6F8FC] transition-colors inline-block"
+      title="Click to edit"
+      style={textStyle ?? { fontSize: 13.5, color: value ? '#1B2840' : '#94A0B5', fontWeight: 600 }}
+    >
+      {value || placeholder}
+    </span>
+  )
+}
+
+function EditSelect({
+  value,
+  options,
+  onSave,
+  renderValue,
+}: {
+  value: string
+  options: Array<{ value: string; label: string }>
+  onSave: (v: string) => void
+  renderValue: (v: string) => React.ReactNode
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+  const ref = useRef<HTMLSelectElement>(null)
+
+  useEffect(() => { if (editing) ref.current?.focus() }, [editing])
+  useEffect(() => { if (!editing) setDraft(value) }, [value, editing])
+
+  function commit(v: string) {
+    setEditing(false)
+    if (v !== value) onSave(v)
+  }
+
+  if (editing) {
+    return (
+      <select
+        ref={ref}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => commit(draft)}
+        onKeyDown={(e) => { if (e.key === 'Enter') commit(draft); if (e.key === 'Escape') { setEditing(false); setDraft(value) } }}
+        style={{ ...EDIT_INPUT_STYLE, fontWeight: 600 }}
+        autoFocus
+      >
+        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    )
+  }
+
+  return (
+    <span
+      onClick={() => { setDraft(value); setEditing(true) }}
+      className="cursor-pointer rounded px-1 -ml-1 hover:bg-[#F6F8FC] transition-colors inline-block"
+      title="Click to edit"
+    >
+      {renderValue(value)}
+    </span>
+  )
+}
+
+function EditDate({
+  value,
+  onSave,
+  displayValue,
+  overdue,
+}: {
+  value: string
+  onSave: (v: string) => void
+  displayValue: string
+  overdue?: boolean
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+  const ref = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { if (editing) ref.current?.focus() }, [editing])
+  useEffect(() => { if (!editing) setDraft(value) }, [value, editing])
+
+  function commit() {
+    setEditing(false)
+    if (draft !== value) onSave(draft)
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={ref}
+        type="date"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setEditing(false); setDraft(value) } }}
+        style={{ ...EDIT_INPUT_STYLE, width: 'auto' }}
+      />
+    )
+  }
+
+  return (
+    <span
+      onClick={() => { setDraft(value); setEditing(true) }}
+      className="cursor-pointer rounded px-1 -ml-1 hover:bg-[#F6F8FC] transition-colors inline-block"
+      title="Click to edit"
+      style={{ fontSize: 13.5, color: overdue ? '#D2502B' : (displayValue === '—' ? '#94A0B5' : '#1B2840'), fontWeight: 600 }}
+    >
+      {displayValue}
+    </span>
   )
 }
 

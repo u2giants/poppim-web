@@ -107,11 +107,6 @@ export function PimTaskCard({
         >
           {product.businessUnit}
         </span>
-        {product.code && (
-          <span className="truncate text-[10.5px] font-semibold" style={{ color: '#5A6883' }}>
-            {product.code}
-          </span>
-        )}
       </div>
       {/* Title row: category tile + title */}
       <div className="flex items-start gap-2.5">
