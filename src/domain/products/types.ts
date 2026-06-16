@@ -63,6 +63,10 @@ export interface ProductSummary {
   factoryName: string | null
   category: ProductCategory
   priority: Priority
+  clickupSpaceName: string | null
+  clickupFolderName: string | null
+  clickupListName: string | null
+  clickupCreatorName: string | null
   due: string | null
   dueOver: boolean
   onShelfDate: string | null

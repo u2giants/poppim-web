@@ -26,7 +26,13 @@ export const PRODUCT_SUMMARY_FIELDS = [
   'closure_reason',
   'cover_url',
   'clickup_url',
+  'clickup_list_id',
   'clickup_list_name',
+  'clickup_folder_id',
+  'clickup_folder_name',
+  'clickup_space_id',
+  'clickup_space_name',
+  'clickup_creator_name',
   'clickup_parent_id',
   'clickup_top_level_parent_id',
   'clickup_status',
@@ -48,12 +54,13 @@ export const PRODUCT_SUMMARY_FIELDS = [
 ] as const
 
 function buildFilter(opts: Omit<FetchProductsOpts, 'limit'> = {}): Record<string, unknown> {
-  const { search, licensorIds, businessUnit, lifecycleStates } = opts
+  const { search, licensorIds, listNames, businessUnit, lifecycleStates } = opts
   const and: unknown[] = [{ stage: { _nnull: true } }]
   if (search?.trim()) {
     and.push({ _or: [{ name: { _icontains: search.trim() } }, { code: { _icontains: search.trim() } }] })
   }
   if (licensorIds?.length) and.push({ licensor: { id: { _in: licensorIds } } })
+  if (listNames?.length) and.push({ clickup_list_name: { _in: listNames } })
   if (businessUnit === 'Licensed') {
     and.push({ business_unit: { _in: ['POP', 'POP Creations'] } })
     and.push({ clickup_status_type: { _in: ['open', 'custom'] } })
@@ -76,9 +83,36 @@ function buildFilter(opts: Omit<FetchProductsOpts, 'limit'> = {}): Record<string
 export interface FetchProductsOpts {
   search?: string
   licensorIds?: string[]
+  listNames?: string[]
   businessUnit?: BusinessUnit
   lifecycleStates?: string[]
   limit?: number
+}
+
+export interface ListFacet {
+  folderName: string | null
+  listName: string
+  count: number
+}
+
+// Distinct ClickUp lists (with their folder + product count) for the active
+// department — powers the List filter. One aggregate query, no row payload.
+export async function fetchListFacets(businessUnit?: BusinessUnit): Promise<ListFacet[]> {
+  const rows = (await directus.request(
+    aggregate('product', {
+      aggregate: { count: '*' },
+      groupBy: ['clickup_folder_name', 'clickup_list_name'] as never,
+      filter: buildFilter({ businessUnit }) as never,
+    }),
+  )) as unknown as Array<{ clickup_folder_name: string | null; clickup_list_name: string | null; count: { '*': string } }>
+  return rows
+    .filter((r) => r.clickup_list_name)
+    .map((r) => ({
+      folderName: r.clickup_folder_name,
+      listName: r.clickup_list_name as string,
+      count: parseInt(r.count?.['*'] ?? '0', 10),
+    }))
+    .sort((a, b) => b.count - a.count)
 }
 
 export async function fetchPipelineProducts(opts: FetchProductsOpts = {}): Promise<Product[]> {

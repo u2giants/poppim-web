@@ -234,8 +234,8 @@ export function TaskDetailModal({ task, onClose }: Props) {
         <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
           {/* Top bar */}
           <div className="flex shrink-0 items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #EAEEF5' }}>
-            <span className="text-[13px]" style={{ color: '#5A6883' }}>
-              {[task.businessUnit, task.retailerName, task.buyerName].filter(Boolean).join(' / ') || 'Product'}
+            <span className="truncate text-[13px]" style={{ color: '#5A6883' }}>
+              {[task.clickupSpaceName ?? task.businessUnit, task.clickupFolderName, task.clickupListName, task.retailerName, task.buyerName].filter(Boolean).join(' / ') || 'Product'}
             </span>
             <div className="flex items-center gap-3">
               <button
@@ -491,8 +491,17 @@ export function TaskDetailModal({ task, onClose }: Props) {
               Legacy source
             </summary>
             <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-4">
+              <ModalField label="ClickUp space">
+                <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{task.clickupSpaceName ?? '—'}</span>
+              </ModalField>
+              <ModalField label="ClickUp folder">
+                <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{task.clickupFolderName ?? '—'}</span>
+              </ModalField>
               <ModalField label="ClickUp list">
-                <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{task.legacy.clickupListName ?? '—'}</span>
+                <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{task.clickupListName ?? '—'}</span>
+              </ModalField>
+              <ModalField label="Created by">
+                <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{task.clickupCreatorName ?? '—'}</span>
               </ModalField>
               <ModalField label="Created in ClickUp">
                 <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{formatDate(task.legacy.clickupCreatedAt)}</span>

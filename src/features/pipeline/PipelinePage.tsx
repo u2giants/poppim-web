@@ -50,7 +50,7 @@ function setItemParam(id: string | null) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function PipelinePage() {
-  const { pipelineView, searchQuery, filterLicensorIds, businessUnit } = useAppState()
+  const { pipelineView, searchQuery, filterLicensorIds, filterListNames, setFilterListNames, businessUnit } = useAppState()
   const [tasks, setTasks] = useState<ProductSummary[]>([])
   const [stages, setStages] = useState<Stage[]>([])
   const [totalCount, setTotalCount] = useState(0)
@@ -83,12 +83,12 @@ export function PipelinePage() {
       ? new URLSearchParams(window.location.search).get('item')
       : null
 
-    const hasFilter = debouncedSearch.trim() || filterLicensorIds.size > 0
     const opts: FetchProductsOpts = {
       search: debouncedSearch.trim() || undefined,
       licensorIds: filterLicensorIds.size > 0 ? [...filterLicensorIds] : undefined,
+      listNames: filterListNames.size > 0 ? [...filterListNames] : undefined,
       businessUnit,
-      limit: hasFilter ? 5000 : 5000,
+      limit: 5000,
     }
 
     const v = ++fetchVersion.current
@@ -113,7 +113,16 @@ export function PipelinePage() {
         setFetching(false)
         isFirstProducts.current = false
       })
-  }, [debouncedSearch, filterLicensorIds, businessUnit])
+  }, [debouncedSearch, filterLicensorIds, filterListNames, businessUnit])
+
+  // Lists differ per department — clear the list filter when switching departments.
+  const prevBusinessUnit = useRef(businessUnit)
+  useEffect(() => {
+    if (prevBusinessUnit.current !== businessUnit) {
+      prevBusinessUnit.current = businessUnit
+      if (filterListNames.size > 0) setFilterListNames(new Set())
+    }
+  }, [businessUnit, filterListNames, setFilterListNames])
 
   function openTask(t: ProductSummary) {
     setActiveTask(t)
@@ -328,6 +337,8 @@ function TableView({
         groupBy === 'stage'    ? t.stageName :
         groupBy === 'licensor' ? t.licensorName ?? 'No licensor' :
         groupBy === 'priority' ? t.priority :
+        groupBy === 'list'     ? t.clickupListName ?? 'No list' :
+        groupBy === 'folder'   ? t.clickupFolderName ?? 'No folder' :
         t.assignees[0]?.name ?? 'Unassigned'
       ;(map.get(key) ?? map.set(key, []).get(key)!).push(t)
     }

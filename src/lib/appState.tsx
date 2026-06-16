@@ -20,7 +20,7 @@ export type Screen =
   | 'settings'
 export type PipelineView = 'kanban' | 'table'
 export type ColorBy = 'category' | 'licensor' | 'stage' | 'priority' | 'none'
-export type GroupBy = 'stage' | 'licensor' | 'priority' | 'assignee'
+export type GroupBy = 'stage' | 'licensor' | 'priority' | 'assignee' | 'list' | 'folder'
 export type BusinessUnitFilter = Exclude<BusinessUnit, 'Unknown'>
 
 interface AppState {
@@ -38,6 +38,8 @@ interface AppState {
   setSearchQuery: (q: string) => void
   filterLicensorIds: Set<string>
   setFilterLicensorIds: (s: Set<string>) => void
+  filterListNames: Set<string>
+  setFilterListNames: (s: Set<string>) => void
 }
 
 const AppStateCtx = createContext<AppState | null>(null)
@@ -50,6 +52,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [businessUnit, setBusinessUnit] = useState<BusinessUnitFilter>('Licensed')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterLicensorIds, setFilterLicensorIds] = useState<Set<string>>(new Set())
+  const [filterListNames, setFilterListNames] = useState<Set<string>>(new Set())
 
   return (
     <AppStateCtx.Provider value={{
@@ -60,6 +63,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       businessUnit, setBusinessUnit,
       searchQuery, setSearchQuery,
       filterLicensorIds, setFilterLicensorIds,
+      filterListNames, setFilterListNames,
     }}>
       {children}
     </AppStateCtx.Provider>
