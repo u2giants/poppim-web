@@ -1,6 +1,10 @@
+import { useEffect, useMemo, useState } from 'react'
 import { useAppState, type Screen } from '@/lib/appState'
-import { BarChart3, Briefcase, Building2, CheckSquare, ChevronDown, Factory, FilePenLine, Gauge, Images, Layers3, ReceiptText, Search, Send, Settings, UserCheck } from 'lucide-react'
+import { BarChart3, Briefcase, Building2, CheckSquare, ChevronDown, ChevronRight, Factory, FilePenLine, Folder, Gauge, Images, Layers3, List, ReceiptText, Search, Send, Settings, UserCheck } from 'lucide-react'
 import popLogo from '@/assets/pop-logo.png'
+import { fetchHierarchyFacets, type HierarchyFacet } from '@/features/pipeline/api'
+import { spaceToBusinessUnit } from '@/domain/products/adapters'
+import type { BusinessUnit } from '@/domain/products/types'
 
 const NAV_ITEMS: { screen: Screen; icon: typeof CheckSquare; label: string }[] = [
   { screen: 'home', icon: Gauge, label: 'Control room' },
@@ -58,6 +62,8 @@ export function Sidebar() {
             </SidebarRow>
           ))}
         </div>
+
+        <SpacesTree />
       </div>
 
       <div className="flex items-center justify-between px-3 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
@@ -84,6 +90,208 @@ export function Sidebar() {
         </button>
       </div>
     </aside>
+  )
+}
+
+// ─── Spaces tree (ClickUp-style space > folder > list navigation) ─────────────
+
+interface TreeList { listName: string; count: number }
+interface TreeFolder { folderName: string | null; lists: TreeList[]; count: number }
+interface TreeSpace { spaceName: string; businessUnit: BusinessUnit; folders: TreeFolder[]; count: number }
+
+const BU_ORDER: Record<BusinessUnit, number> = { Licensed: 0, Generic: 1, Software: 2, Unknown: 3 }
+
+function buildTree(facets: HierarchyFacet[]): TreeSpace[] {
+  const spaces = new Map<string, TreeSpace>()
+  for (const f of facets) {
+    const spaceName = f.spaceName ?? 'Other'
+    let space = spaces.get(spaceName)
+    if (!space) {
+      space = { spaceName, businessUnit: spaceToBusinessUnit(f.spaceName), folders: [], count: 0 }
+      spaces.set(spaceName, space)
+    }
+    let folder = space.folders.find((fo) => fo.folderName === f.folderName)
+    if (!folder) {
+      folder = { folderName: f.folderName, lists: [], count: 0 }
+      space.folders.push(folder)
+    }
+    folder.lists.push({ listName: f.listName, count: f.count })
+    folder.count += f.count
+    space.count += f.count
+  }
+  for (const space of spaces.values()) {
+    // folderless lists (null) sort last; named folders by count desc
+    space.folders.sort((a, b) => {
+      if ((a.folderName === null) !== (b.folderName === null)) return a.folderName === null ? 1 : -1
+      return b.count - a.count
+    })
+    for (const folder of space.folders) folder.lists.sort((a, b) => b.count - a.count)
+  }
+  return [...spaces.values()].sort((a, b) => BU_ORDER[a.businessUnit] - BU_ORDER[b.businessUnit])
+}
+
+function SpacesTree() {
+  const { screen, setScreen, businessUnit, setBusinessUnit, filterListNames, setFilterListNames } = useAppState()
+  const [facets, setFacets] = useState<HierarchyFacet[]>([])
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [seeded, setSeeded] = useState(false)
+
+  useEffect(() => {
+    fetchHierarchyFacets().then(setFacets).catch(() => setFacets([]))
+  }, [])
+
+  const tree = useMemo(() => buildTree(facets), [facets])
+
+  // On first load, expand the space + its folders for the active department.
+  useEffect(() => {
+    if (seeded || tree.length === 0) return
+    const active = tree.find((s) => s.businessUnit === businessUnit)
+    if (active) {
+      const keys = new Set<string>([`s:${active.spaceName}`])
+      for (const folder of active.folders) if (folder.folderName) keys.add(`f:${active.spaceName}:${folder.folderName}`)
+      setExpanded(keys)
+    }
+    setSeeded(true)
+  }, [tree, seeded, businessUnit])
+
+  function toggle(key: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  function openList(space: TreeSpace, listName: string) {
+    if (space.businessUnit !== 'Unknown') setBusinessUnit(space.businessUnit)
+    setScreen('pipeline')
+    setFilterListNames(new Set([listName]))
+  }
+
+  function isActiveList(listName: string): boolean {
+    return screen === 'pipeline' && filterListNames.has(listName)
+  }
+
+  if (tree.length === 0) return null
+
+  return (
+    <div className="mt-3">
+      <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em]" style={{ color: '#5A6883' }}>
+        Spaces
+      </div>
+      <div className="space-y-0.5">
+        {tree.map((space) => {
+          const spaceKey = `s:${space.spaceName}`
+          const spaceOpen = expanded.has(spaceKey)
+          return (
+            <div key={spaceKey}>
+              <TreeRow depth={0} open={spaceOpen} onToggle={() => toggle(spaceKey)} count={space.count}>
+                <span className="truncate text-[13px] font-semibold" style={{ color: '#fff' }}>{space.spaceName}</span>
+              </TreeRow>
+              {spaceOpen && space.folders.map((folder) => {
+                // Folderless lists render directly under the space.
+                if (folder.folderName === null) {
+                  return folder.lists.map((l) => (
+                    <TreeLeaf
+                      key={`l:${space.spaceName}:${l.listName}`}
+                      depth={1}
+                      active={isActiveList(l.listName)}
+                      count={l.count}
+                      onClick={() => openList(space, l.listName)}
+                    >
+                      <List className="size-3.5 shrink-0" style={{ color: isActiveList(l.listName) ? '#fff' : '#94A3C0' }} />
+                      <span className="truncate text-[12.5px]" style={{ color: isActiveList(l.listName) ? '#fff' : '#C7D0E0' }}>{l.listName}</span>
+                    </TreeLeaf>
+                  ))
+                }
+                const folderKey = `f:${space.spaceName}:${folder.folderName}`
+                const folderOpen = expanded.has(folderKey)
+                return (
+                  <div key={folderKey}>
+                    <TreeRow depth={1} open={folderOpen} onToggle={() => toggle(folderKey)} count={folder.count} icon={<Folder className="size-3.5 shrink-0" style={{ color: '#94A3C0' }} />}>
+                      <span className="truncate text-[12.5px] font-medium" style={{ color: '#C7D0E0' }}>{folder.folderName}</span>
+                    </TreeRow>
+                    {folderOpen && folder.lists.map((l) => (
+                      <TreeLeaf
+                        key={`l:${space.spaceName}:${l.listName}`}
+                        depth={2}
+                        active={isActiveList(l.listName)}
+                        count={l.count}
+                        onClick={() => openList(space, l.listName)}
+                      >
+                        <List className="size-3.5 shrink-0" style={{ color: isActiveList(l.listName) ? '#fff' : '#94A3C0' }} />
+                        <span className="truncate text-[12.5px]" style={{ color: isActiveList(l.listName) ? '#fff' : '#C7D0E0' }}>{l.listName}</span>
+                      </TreeLeaf>
+                    ))}
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function TreeRow({
+  depth,
+  open,
+  onToggle,
+  count,
+  icon,
+  children,
+}: {
+  depth: number
+  open: boolean
+  onToggle: () => void
+  count: number
+  icon?: React.ReactNode
+  children: React.ReactNode
+}) {
+  return (
+    <div
+      onClick={onToggle}
+      className="flex cursor-pointer items-center gap-1.5 rounded-lg py-1.5 pr-2 transition-colors"
+      style={{ paddingLeft: 12 + depth * 14 }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+    >
+      {open
+        ? <ChevronDown className="size-3.5 shrink-0" style={{ color: '#94A3C0' }} />
+        : <ChevronRight className="size-3.5 shrink-0" style={{ color: '#94A3C0' }} />}
+      {icon}
+      {children}
+      <span className="ml-auto shrink-0 text-[10.5px] font-semibold" style={{ color: '#5A6883' }}>{count.toLocaleString()}</span>
+    </div>
+  )
+}
+
+function TreeLeaf({
+  depth,
+  active,
+  count,
+  onClick,
+  children,
+}: {
+  depth: number
+  active: boolean
+  count: number
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <div
+      onClick={onClick}
+      className="flex cursor-pointer items-center gap-1.5 rounded-lg py-1.5 pr-2 transition-colors"
+      style={{ paddingLeft: 12 + depth * 14, background: active ? '#0094FF' : 'transparent' }}
+      onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
+      onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent' }}
+    >
+      {children}
+      <span className="ml-auto shrink-0 text-[10.5px] font-semibold" style={{ color: active ? 'rgba(255,255,255,0.7)' : '#5A6883' }}>{count.toLocaleString()}</span>
+    </div>
   )
 }
 

@@ -33,6 +33,8 @@ export const PRODUCT_SUMMARY_FIELDS = [
   'clickup_space_id',
   'clickup_space_name',
   'clickup_creator_name',
+  'clickup_time_estimate_ms',
+  'clickup_orderindex',
   'clickup_parent_id',
   'clickup_top_level_parent_id',
   'clickup_status',
@@ -93,6 +95,43 @@ export interface ListFacet {
   folderName: string | null
   listName: string
   count: number
+}
+
+export interface HierarchyFacet {
+  spaceName: string | null
+  folderName: string | null
+  listName: string
+  count: number
+}
+
+// Base filter matching what the pipeline shows: open/custom top-level products
+// with a stage. Used so sidebar/list counts match the board.
+const PIPELINE_BASE_FILTER = {
+  _and: [
+    { stage: { _nnull: true } },
+    { clickup_status_type: { _in: ['open', 'custom'] } },
+    { clickup_parent_id: { _null: true } },
+  ],
+}
+
+// Full space > folder > list tree across all departments, with product counts.
+// Powers the sidebar navigation tree. One aggregate query.
+export async function fetchHierarchyFacets(): Promise<HierarchyFacet[]> {
+  const rows = (await directus.request(
+    aggregate('product', {
+      aggregate: { count: '*' },
+      groupBy: ['clickup_space_name', 'clickup_folder_name', 'clickup_list_name'] as never,
+      filter: PIPELINE_BASE_FILTER as never,
+    }),
+  )) as unknown as Array<{ clickup_space_name: string | null; clickup_folder_name: string | null; clickup_list_name: string | null; count: { '*': string } }>
+  return rows
+    .filter((r) => r.clickup_list_name)
+    .map((r) => ({
+      spaceName: r.clickup_space_name,
+      folderName: r.clickup_folder_name,
+      listName: r.clickup_list_name as string,
+      count: parseInt(r.count?.['*'] ?? '0', 10),
+    }))
 }
 
 // Distinct ClickUp lists (with their folder + product count) for the active

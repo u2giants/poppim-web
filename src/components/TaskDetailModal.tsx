@@ -75,6 +75,16 @@ function fileSize(bytes: number | null): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+function formatDuration(ms: number | null): string {
+  if (!ms || ms <= 0) return '—'
+  const totalMinutes = Math.round(ms / 60000)
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  if (hours === 0) return `${minutes}m`
+  if (minutes === 0) return `${hours}h`
+  return `${hours}h ${minutes}m`
+}
+
 function productLabel(product: Product | string | null): string | null {
   if (!product || typeof product === 'string') return null
   return [product.code, product.name].filter(Boolean).join(' · ')
@@ -460,6 +470,13 @@ export function TaskDetailModal({ task, onClose }: Props) {
                 {[task.brandAssuranceNumber ? `BA ${task.brandAssuranceNumber}` : null, task.piStatus ? `PI ${task.piStatus}` : null].filter(Boolean).join(' · ') || '—'}
               </span>
             </ModalField>
+            {task.clickupTimeEstimateMs != null && (
+              <ModalField label="Time estimate">
+                <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>
+                  {formatDuration(task.clickupTimeEstimateMs)}
+                </span>
+              </ModalField>
+            )}
           </div>
 
           {/* Assignees (loaded from API) */}

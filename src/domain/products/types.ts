@@ -67,6 +67,8 @@ export interface ProductSummary {
   clickupFolderName: string | null
   clickupListName: string | null
   clickupCreatorName: string | null
+  clickupTimeEstimateMs: number | null
+  clickupOrderindex: number | null
   due: string | null
   dueOver: boolean
   onShelfDate: string | null

@@ -124,7 +124,7 @@ export function Topbar() {
             {BUSINESS_UNITS.map((b) => (
               <button
                 key={b.value}
-                onClick={() => setBusinessUnit(b.value)}
+                onClick={() => { setBusinessUnit(b.value); setFilterListNames(new Set()) }}
                 className="rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all"
                 style={
                   businessUnit === b.value

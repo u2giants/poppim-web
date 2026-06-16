@@ -31,6 +31,15 @@ function resolveStageColor(name: string): { bg: string; dot: string } {
   return STAGE_COLORS[name] ?? stageColor(name)
 }
 
+// ClickUp manual order within a list. Items without an orderindex sort last.
+function byOrderindex(a: ProductSummary, b: ProductSummary): number {
+  const ai = a.clickupOrderindex, bi = b.clickupOrderindex
+  if (ai == null && bi == null) return 0
+  if (ai == null) return 1
+  if (bi == null) return -1
+  return ai - bi
+}
+
 function useDebounce<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value)
   useEffect(() => {
@@ -50,7 +59,7 @@ function setItemParam(id: string | null) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function PipelinePage() {
-  const { pipelineView, searchQuery, filterLicensorIds, filterListNames, setFilterListNames, businessUnit } = useAppState()
+  const { pipelineView, searchQuery, filterLicensorIds, filterListNames, businessUnit } = useAppState()
   const [tasks, setTasks] = useState<ProductSummary[]>([])
   const [stages, setStages] = useState<Stage[]>([])
   const [totalCount, setTotalCount] = useState(0)
@@ -114,15 +123,6 @@ export function PipelinePage() {
         isFirstProducts.current = false
       })
   }, [debouncedSearch, filterLicensorIds, filterListNames, businessUnit])
-
-  // Lists differ per department — clear the list filter when switching departments.
-  const prevBusinessUnit = useRef(businessUnit)
-  useEffect(() => {
-    if (prevBusinessUnit.current !== businessUnit) {
-      prevBusinessUnit.current = businessUnit
-      if (filterListNames.size > 0) setFilterListNames(new Set())
-    }
-  }, [businessUnit, filterListNames, setFilterListNames])
 
   function openTask(t: ProductSummary) {
     setActiveTask(t)
@@ -215,7 +215,7 @@ function KanbanView({
   const columns = useMemo(() =>
     stageNames.map((name) => ({
       name,
-      items: tasks.filter((t) => t.stageName === name),
+      items: tasks.filter((t) => t.stageName === name).sort(byOrderindex),
     })), [tasks, stageNames])
 
   function onDragStart(e: DragStartEvent) {
@@ -342,6 +342,7 @@ function TableView({
         t.assignees[0]?.name ?? 'Unassigned'
       ;(map.get(key) ?? map.set(key, []).get(key)!).push(t)
     }
+    for (const items of map.values()) items.sort(byOrderindex)
     const order = groupBy === 'stage' ? stageNames : [...map.keys()].sort()
     return order.map((k) => ({ key: k, items: map.get(k) ?? [] })).filter((g) => g.items.length > 0)
   }, [tasks, groupBy, stageNames])

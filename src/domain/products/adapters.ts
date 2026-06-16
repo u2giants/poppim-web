@@ -55,6 +55,16 @@ function normaliseBusinessUnit(raw: string | null | undefined): BusinessUnit {
   return 'Unknown'
 }
 
+// Maps a ClickUp space name to its Poppim department. The three live spaces are
+// POP Creations (Licensed), Spruce Line (Generic), and designflow (Software).
+export function spaceToBusinessUnit(spaceName: string | null | undefined): BusinessUnit {
+  const v = (spaceName ?? '').trim().toLowerCase()
+  if (v === 'pop creations' || v === 'pop' || v === 'licensed') return 'Licensed'
+  if (v === 'spruce line' || v === 'spruce' || v === 'generic') return 'Generic'
+  if (v === 'designflow' || v === 'software') return 'Software'
+  return 'Unknown'
+}
+
 function normaliseLicensor(raw: string | null | undefined): string | null {
   if (!raw) return null
   const key = raw.trim().toLowerCase()
@@ -179,6 +189,9 @@ export function productToSummary(product: Product): ProductSummary {
     clickupFolderName: product.clickup_folder_name ?? null,
     clickupListName: product.clickup_list_name ?? null,
     clickupCreatorName: product.clickup_creator_name ?? null,
+    clickupTimeEstimateMs: product.clickup_time_estimate_ms != null ? Number(product.clickup_time_estimate_ms) : null,
+    // Stored as a 32-decimal string; Number() is enough precision for ordering.
+    clickupOrderindex: product.clickup_orderindex != null ? Number(product.clickup_orderindex) : null,
     due,
     dueOver,
     onShelfDate: product.on_shelf_date ?? null,
