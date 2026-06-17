@@ -111,6 +111,7 @@ This app only **reads/writes** the backend; the schema is defined in the `direct
 | Collaboration collections | `checklist_item`, `subtask`, `product_assignee` (M2M), native `directus_comments` | `directus` repo `pm-system/add-collaboration-model.mjs` | task-detail |
 | Image field | `product.cover_url` | `directus` repo `pm-system/migration/clickup-to-spaces.mjs` | DigitalOcean Spaces original; thumbnail derived in `src/domain/products/adapters.ts` |
 | ClickUp board mirror fields | `product.clickup_list_name`, `clickup_parent_id`, `clickup_status_type`, `clickup_updated_at` | `directus` repo `pm-system/add-clickup-work-model.mjs` + `pm-system/migration/clickup-work-import.mjs` | Used by the Licensed pipeline to mirror ClickUp top-level open board cards |
+| ClickUp hierarchy/metadata fields | `product.clickup_space_id/name`, `clickup_folder_id/name`, `clickup_list_id`, `clickup_creator_id/name`, `clickup_time_estimate_ms`, `clickup_orderindex` | `directus` repo commit `45af984` (`add-clickup-hierarchy-fields.mjs` + `backfill-clickup-hierarchy.mjs`) | Space/folder/list nav (sidebar tree + List filter), creator, time estimate, manual ordering. See §11 quirks for sparse/string caveats |
 
 Do not rename these identifiers casually — both repos depend on them.
 
@@ -197,6 +198,36 @@ If cards or counts drift from ClickUp, first verify `business_unit`, `clickup_pa
 ### No client-side router
 The app uses a simple auth gate in `App.tsx`, not routes. Deep-linking is done with `history.replaceState` + `URLSearchParams` (`?item=<uuid>`). `react-router-dom` is installed but not used — don't add route components without a clear reason.
 
+### Department switch clears the List filter via the topbar tab onClick, NOT a reactive effect
+What changed:
+Switching department (Licensed/Generic/Software) clears `filterListNames`. This is done in the `BUSINESS_UNITS` button `onClick` in `Topbar.tsx`, not in a `useEffect` watching `businessUnit`.
+Why:
+A reactive effect (`if prevBusinessUnit !== businessUnit → clear`) was tried first and clobbered the sidebar Spaces tree: clicking a list sets department + list filter together, and the effect fired on the department change and wiped the just-set filter. Lists are department-specific, so a stale filter must clear on an *explicit* tab switch only.
+Future sessions should:
+Do not move this back into a `useEffect`. If you add another way to switch department, clear `filterListNames` in that same explicit handler.
+
+### ClickUp orderindex is a string; sort numerically, and it truncates past 5,000
+What changed:
+`clickup_orderindex` is stored as a 32-decimal varchar (exceeds float64). `adapters.ts` parses it with `Number()` into `ProductSummary.clickupOrderindex`; `PipelinePage` sorts cards within each kanban column / table group by it (`byOrderindex`, nulls last).
+Why:
+Lexical string sort is wrong ("10" < "5"). Ordering is only *exact* within a single list; across lists in one stage column it's a stable secondary order. The pipeline caps at 5,000 loaded rows, so the only list exceeding that (`Licensing Management`, ~11,575) is still order-exact only on the loaded subset even when filtered to it.
+Future sessions should:
+Never sort orderindex lexically. Don't claim "exact ClickUp order" globally — it holds per-list, and not for lists over the 5,000 load cap.
+
+### ClickUp time estimate is sparse — render only when set
+What changed:
+`clickup_time_estimate_ms` is populated for only ~123 of 17,859 products (ClickUp returns null when unset, not 0). The modal shows a "Time estimate" field only when the value is non-null (`formatDuration`).
+Future sessions should:
+Treat null as "no estimate." Do not add it to cards or default it to 0 — it would be blank noise on ~99% of products.
+
+### Inline field edits are optimistic and fail silently
+What changed:
+Editable fields in `TaskDetailModal` keep a `local` override object layered over the `task` prop; `applyLocal` updates state then calls `updateProduct` (`collab.ts`), reverting the override on error with no toast.
+Why:
+Matches the existing drag-to-stage / checklist optimistic pattern.
+Future sessions should:
+If a "field didn't save" bug is reported, check the Directus write/role permission and the network response — the UI gives no error signal, so a silent revert (value snaps back) is the symptom.
+
 ## 12. Credentials and environment
 
 The frontend holds **no secrets** (it's a browser app; all auth is via the backend session cookie).
@@ -252,6 +283,8 @@ No production incidents since the app moved to `pm.designflow.app`.
 | done | Delete leftover Vite-template assets + dead board files | `src/assets/*`, `public/icons.svg`, and 7 unreachable `features/board/` files removed; 2026-06-12 |
 | done | Production deploy at `pm.designflow.app` | live via Coolify service `ysvdyj3t7d5tyh5ogrvlka4y`; SSO + cert verified; raw-docker retired 2026-06-11 |
 | open | List / Timeline views | Table view exists; Timeline tab is a placeholder |
+| done | ClickUp space/folder/list hierarchy in the UI | 2026-06-16: backend (directus 45af984) backfilled space/folder/list + creator/time_estimate/orderindex; frontend added topbar List filter, group-by List/Folder, sidebar Spaces tree, card/modal breadcrumbs, time-estimate field, orderindex sort. See §11 quirks. Deployed (`e487955`); not driven on the live site (SSO gate) — see HANDOFF. |
+| done | Inline-editable product fields + image lightbox/cover | 2026-06-16: title/stage/licensor/due/product-type/lifecycle/next-action/waiting-on/risk editable in `TaskDetailModal` via optimistic `updateProduct`; images open in-modal lightbox; right-click sets `cover_url`. Removed internal `code` from card. Topbar search icon now expands an inline search bar (was a DOM-focus hack). |
 | done | URL deep-linking (`?item=`) for the detail panel | `history.replaceState` + `URLSearchParams`; auto-opens on page load; 2026-06-12 |
 | done | Durable image storage for product covers | DigitalOcean Spaces originals + thumbs; future DAM can supersede this, but ClickUp CDN is no longer the source. |
 | partial | Durable storage for product-file attachments | Backend copied 20,234 / 20,281 imported `product_file` rows to Spaces on 2026-06-14. Remaining 47 ClickUp source URLs return 404 or 0 bytes even with token; recover those source bytes from old exports/NAS/user uploads if required. |

@@ -47,3 +47,24 @@ Verify ClickUp API endpoints/permissions for task history/activity, and confirm 
 
 Risks / watchouts:
 - Existing evidence docs already noted `time_entries` were empty; activity may need a different endpoint or may be unavailable with the current token.
+- This is about logged time *entries* / activity log, which are still empty. It is NOT the per-task `clickup_time_estimate_ms` field (added 2026-06-16, populated for ~123 products) — that is a separate field and does not resolve this item.
+
+## Hierarchy + Editing Frontend (deployed, not live-verified)
+
+Status:
+partial (code complete + deployed; live behavior unverified)
+
+Done:
+- Backend (directus 45af984): 8 new product fields added + backfilled; verification SQL passed (17,859 has_space/has_list_id; 17,705 has_folder; 123 has_time_estimate).
+- Frontend (`e487955`, live on `pm.designflow.app`): topbar List filter, group-by List/Folder, sidebar Spaces tree, card/modal breadcrumbs, time-estimate field, orderindex sort, inline-editable modal fields, image lightbox + set-as-cover, inline topbar search. `npm run build` clean.
+
+Next action:
+Drive the live site (needs a real login — the Playwright/automated browser hits the Microsoft SSO gate and has no session) and spot-check:
+1. Sidebar tree counts match the topbar List-filter counts (e.g. Licensing Management ~11,575).
+2. Click a sidebar list in a *different* department → it switches department AND keeps the filter (regression check for the effect-ordering fix; see AGENTS.md §11).
+3. Edit a field, reopen the card → value persisted (silent revert = a failed Directus write/permission).
+4. Right-click an image → "Set as cover image" updates the card banner.
+
+Risks / watchouts:
+- orderindex order is exact per-list only and not for lists over the 5,000 load cap (Licensing Management). See AGENTS.md §11.
+- Field edits fail silently (optimistic revert). A "didn't save" report is a backend write/permission issue, not a UI bug.
