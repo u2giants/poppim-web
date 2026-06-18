@@ -111,7 +111,8 @@ This app only **reads/writes** the backend; the schema is defined in the `direct
 | Collaboration collections | `checklist_item`, `subtask`, `product_assignee` (M2M), native `directus_comments` | `directus` repo `pm-system/add-collaboration-model.mjs` | task-detail |
 | Image field | `product.cover_url` | `directus` repo `pm-system/migration/clickup-to-spaces.mjs` | DigitalOcean Spaces original; thumbnail derived in `src/domain/products/adapters.ts` |
 | ClickUp board mirror fields | `product.clickup_list_name`, `clickup_parent_id`, `clickup_status_type`, `clickup_updated_at` | `directus` repo `pm-system/add-clickup-work-model.mjs` + `pm-system/migration/clickup-work-import.mjs` | Used by the Licensed pipeline to mirror ClickUp top-level open board cards |
-| ClickUp hierarchy/metadata fields | `product.clickup_space_id/name`, `clickup_folder_id/name`, `clickup_list_id`, `clickup_creator_id/name`, `clickup_time_estimate_ms`, `clickup_orderindex` | `directus` repo commit `45af984` (`add-clickup-hierarchy-fields.mjs` + `backfill-clickup-hierarchy.mjs`) | Space/folder/list nav (sidebar tree + List filter), creator, time estimate, manual ordering. See §11 quirks for sparse/string caveats |
+| ClickUp hierarchy/metadata fields | `product.clickup_space_id/name`, `clickup_folder_id/name`, `clickup_list_id`, `clickup_creator_id/name`, `clickup_time_estimate_ms`, `clickup_orderindex` | `directus` repo commit `45af984` (`add-clickup-hierarchy-fields.mjs` + `backfill-clickup-hierarchy.mjs`) | List filter + group-by-list, creator, time estimate, manual ordering. See §11 quirks for sparse/string caveats |
+| Saved views | `pm_saved_view` (+ `visibility`, `origin`, `color`, `sort_order`) and `pm_view_pref` (per-user `sort_order`/`color`/`hidden`) | `directus` repo `pm-system/add-saved-views-model.mjs` + `pm-system/migration/seed-clickup-list-views.mjs` (authored 2026-06-17; **commit pending in directus repo** — see HANDOFF) | Sidebar Space=department → Master + views; `src/features/views/api.ts`. See §11 quirks |
 
 Do not rename these identifiers casually — both repos depend on them.
 
@@ -220,6 +221,22 @@ What changed:
 Future sessions should:
 Treat null as "no estimate." Do not add it to cards or default it to 0 — it would be blank noise on ~99% of products.
 
+### Saved Views: Space = department, per-user prefs live in pm_view_pref
+What changed:
+The sidebar is a saved-views model, not a literal ClickUp tree. Each department (Licensed/Generic/Software) is a "Space" with a virtual Master view ("All") pinned first, then `pm_saved_view` rows (company-`shared` ∪ the user's `personal`). Applying a view writes its `filters_json` + `business_unit` into appState. Per-user reorder/recolor/hide of *any* view (including shared/seeded) is stored in a separate `pm_view_pref` row — the view record itself is never mutated by a non-owner.
+Why:
+A shared view is one record seen by many users, so per-user order/color/hidden cannot live on it. `pm_view_pref` (one row per user+view) holds the overrides. "Deleting" a shared/seeded view sets `pm_view_pref.hidden=true` (per-user); only the owner can hard-`deleteView`.
+Future sessions should:
+There is **no composite-unique (user, view)** at the DB layer — `upsertViewPref` does read-then-write. Don't assume DB-enforced uniqueness. Seeded list views are `origin='clickup_list'`, color `#8C9BB5`; re-running `seed-clickup-list-views.mjs` is idempotent (skips by name+business_unit).
+
+### pm_saved_view / pm_view_pref permissions are wildcard; scoping is in the query
+What changed:
+Both collections grant wildcard CRUD with no row filter across the app policies (the new `pm_view_pref` mirrors `pm_saved_view`'s existing grants). Per-user/visibility scoping (`user = me OR visibility = 'shared'`) is enforced in the frontend `fetchViews`/`fetchViewPrefs` queries, not by Directus policies.
+Why:
+This matches how `pm_saved_view` already worked before this feature; tightening it was out of scope and risked breaking existing saved views.
+Future sessions should:
+Treat view isolation as client-enforced. If true row-level security is needed later, add `permissions` filters in the directus repo for both collections — don't assume they exist today.
+
 ### Inline field edits are optimistic and fail silently
 What changed:
 Editable fields in `TaskDetailModal` keep a `local` override object layered over the `task` prop; `applyLocal` updates state then calls `updateProduct` (`collab.ts`), reverting the override on error with no toast.
@@ -285,6 +302,7 @@ No production incidents since the app moved to `pm.designflow.app`.
 | open | List / Timeline views | Table view exists; Timeline tab is a placeholder |
 | done | ClickUp space/folder/list hierarchy in the UI | 2026-06-16: backend (directus 45af984) backfilled space/folder/list + creator/time_estimate/orderindex; frontend added topbar List filter, group-by List/Folder, sidebar Spaces tree, card/modal breadcrumbs, time-estimate field, orderindex sort. See §11 quirks. Deployed (`e487955`); not driven on the live site (SSO gate) — see HANDOFF. |
 | done | Inline-editable product fields + image lightbox/cover | 2026-06-16: title/stage/licensor/due/product-type/lifecycle/next-action/waiting-on/risk editable in `TaskDetailModal` via optimistic `updateProduct`; images open in-modal lightbox; right-click sets `cover_url`. Removed internal `code` from card. Topbar search icon now expands an inline search bar (was a DOM-focus hack). |
+| done (frontend) | Saved Views sidebar (Space=department → Master + views) | 2026-06-17: replaced the literal ClickUp tree with saved views — shared+personal, per-user drag-reorder/recolor/hide, topbar "Save view", 15 seeded list-views. Frontend deployed (`0e4e61c`). **Backend scripts authored + already RUN against prod but NOT yet committed to the directus repo** (git perms) — see HANDOFF. Not live-verified (SSO gate). |
 | done | URL deep-linking (`?item=`) for the detail panel | `history.replaceState` + `URLSearchParams`; auto-opens on page load; 2026-06-12 |
 | done | Durable image storage for product covers | DigitalOcean Spaces originals + thumbs; future DAM can supersede this, but ClickUp CDN is no longer the source. |
 | partial | Durable storage for product-file attachments | Backend copied 20,234 / 20,281 imported `product_file` rows to Spaces on 2026-06-14. Remaining 47 ClickUp source URLs return 404 or 0 bytes even with token; recover those source bytes from old exports/NAS/user uploads if required. |
