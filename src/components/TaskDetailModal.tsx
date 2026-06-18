@@ -31,7 +31,7 @@ import {
   updateProduct,
   fetchLicensors,
   fetchProductTypes,
-  fetchRetailers,
+  fetchCustomers,
   fetchBuyers,
   userName,
   userInitials,
@@ -146,7 +146,7 @@ export function TaskDetailModal({ task, onClose }: Props) {
     fetchStages().then(setStages).catch(() => {})
     fetchLicensors().then(setLicensors).catch(() => {})
     fetchProductTypes().then(setProductTypes).catch(() => {})
-    fetchRetailers().then(setRetailers).catch(() => {})
+    fetchCustomers().then(setRetailers).catch(() => {})
     // Pre-load buyers for the current retailer if set
     const currentRetailerId = task.retailerId
     if (currentRetailerId) {

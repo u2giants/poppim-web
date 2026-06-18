@@ -7,7 +7,7 @@ import {
   readComments,
   createComment,
 } from '@directus/sdk'
-import type { Buyer, Licensor, ProductType, Retailer } from '@/lib/types'
+import type { Buyer, CustomerStatus, Licensor, ProductType, Retailer } from '@/lib/types'
 import { directus } from '@/lib/directus'
 import type {
   ChecklistItem,
@@ -187,8 +187,17 @@ export async function fetchProductTypes(): Promise<ProductType[]> {
   return directus.request(readItems('product_type', { sort: ['name'], limit: -1 })) as Promise<ProductType[]>
 }
 
-export async function fetchRetailers(): Promise<Retailer[]> {
-  return directus.request(readItems('retailer', { sort: ['name'], limit: -1 })) as Promise<Retailer[]>
+// The `retailer` collection is a dump of EVERY Twenty-CRM company (~3,740 rows,
+// 97% flagged "Not a Customer"). NEVER offer it raw as a picker. Only companies
+// whose customer_status is an active or potential customer are valid choices.
+export const CUSTOMER_STATUSES: CustomerStatus[] = ['ACTIVE_CUSTOMER', 'POTENTIAL_CUSTOMER']
+
+export async function fetchCustomers(): Promise<Retailer[]> {
+  return directus.request(readItems('retailer', {
+    filter: { customer_status: { _in: CUSTOMER_STATUSES } },
+    sort: ['name'],
+    limit: -1,
+  })) as Promise<Retailer[]>
 }
 
 export async function fetchBuyers(retailerId: string): Promise<Buyer[]> {

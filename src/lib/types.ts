@@ -9,9 +9,16 @@ export interface Stage {
   business_unit: string | null
 }
 
+// NOTE: the `retailer` collection is a dump of EVERY Twenty-CRM company, not a
+// curated list. Only rows whose customer_status is ACTIVE_CUSTOMER or
+// POTENTIAL_CUSTOMER are valid customers for app pickers. Filter on it — never
+// offer the raw collection as a choice list. See AGENTS.md §11.
+export type CustomerStatus = 'ACTIVE_CUSTOMER' | 'POTENTIAL_CUSTOMER' | 'OTHER' | 'UNASSIGNED'
+
 export interface Retailer {
   id: string
   name: string
+  customer_status?: CustomerStatus | null
   resale_restriction?: boolean | null
   notes?: string | null
 }

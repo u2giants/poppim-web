@@ -253,6 +253,14 @@ Matches the existing drag-to-stage / checklist optimistic pattern.
 Future sessions should:
 If a "field didn't save" bug is reported, check the Directus write/role permission and the network response — the UI gives no error signal, so a silent revert (value snaps back) is the symptom.
 
+### `retailer` is a raw CRM-company dump, NOT a customer list — filter on `customer_status`
+What it is:
+The `retailer` collection is a raw import of **every** Twenty-CRM company (`directus` repo `pm-system/migration/twenty-import.mjs`): ~3,740 rows, of which ~97% are `customer_status='OTHER'` ("Not a Customer"). Only **40 ACTIVE_CUSTOMER + 62 POTENTIAL_CUSTOMER** (~102) are real customers. The collection is shared by **12 collections** across PIM/CRM/DAM (`product`, `project`, `order`, `design.first_offered_to`, `design_collection.account_specific_for`, `buyer`, and `crm_*`), so it is intentionally **not** renamed — renaming would break all of them. Its Directus `note` was rewritten to warn against raw use.
+Why:
+Offering the raw collection as a picker shows thousands of non-customers (e.g. "1kms" = `OTHER`). The product owner's rule: the only companies applicable to these apps are customers — **active or potential**.
+Future sessions should:
+Never offer `retailer` raw as a choice list. Always filter `customer_status _in [ACTIVE_CUSTOMER, POTENTIAL_CUSTOMER]` — use `fetchCustomers()` (`features/board/collab.ts`), not a hand-rolled `readItems('retailer')`. `buyer` rows hang off a `retailer`, so a buyer picker must be scoped to a chosen customer first (`fetchBuyers(retailerId)`).
+
 ## 12. Credentials and environment
 
 The frontend holds **no secrets** (it's a browser app; all auth is via the backend session cookie).
