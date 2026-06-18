@@ -40,6 +40,10 @@ interface AppState {
   setFilterLicensorIds: (s: Set<string>) => void
   filterListNames: Set<string>
   setFilterListNames: (s: Set<string>) => void
+  activeViewId: string | null
+  setActiveViewId: (id: string | null) => void
+  viewsRefreshKey: number
+  bumpViewsRefresh: () => void
 }
 
 const AppStateCtx = createContext<AppState | null>(null)
@@ -53,6 +57,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterLicensorIds, setFilterLicensorIds] = useState<Set<string>>(new Set())
   const [filterListNames, setFilterListNames] = useState<Set<string>>(new Set())
+  const [activeViewId, setActiveViewId] = useState<string | null>(null)
+  const [viewsRefreshKey, setViewsRefreshKey] = useState(0)
 
   return (
     <AppStateCtx.Provider value={{
@@ -64,6 +70,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       searchQuery, setSearchQuery,
       filterLicensorIds, setFilterLicensorIds,
       filterListNames, setFilterListNames,
+      activeViewId, setActiveViewId,
+      viewsRefreshKey, bumpViewsRefresh: () => setViewsRefreshKey((k) => k + 1),
     }}>
       {children}
     </AppStateCtx.Provider>

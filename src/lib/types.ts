@@ -261,6 +261,28 @@ export interface PmSavedView {
   columns_json: unknown
   is_default: boolean | null
   shared_with_role: string | DirectusRole | null
+  visibility: 'personal' | 'shared' | null
+  origin: 'user' | 'clickup_list' | null
+  color: string | null
+  sort_order: number | null
+}
+
+export interface PmViewPref {
+  id: string
+  user: string | DirectusUser | null
+  view: string | PmSavedView | null
+  sort_order: number | null
+  color: string | null
+  hidden: boolean | null
+}
+
+// The canonical filter payload stored in pm_saved_view.filters_json.
+export interface ViewFilters {
+  search?: string
+  licensorIds?: string[]
+  listNames?: string[]
+  groupBy?: string
+  colorBy?: string
 }
 
 export interface StageHistory {
@@ -417,4 +439,5 @@ export interface Schema {
   product_sample: ProductSample[]
   revision_request: RevisionRequest[]
   pm_saved_view: PmSavedView[]
+  pm_view_pref: PmViewPref[]
 }

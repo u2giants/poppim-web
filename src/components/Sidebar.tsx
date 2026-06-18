@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useAppState, type Screen } from '@/lib/appState'
-import { BarChart3, Briefcase, Building2, CheckSquare, ChevronDown, ChevronRight, Factory, FilePenLine, Folder, Gauge, Images, Layers3, List, ReceiptText, Search, Send, Settings, UserCheck } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useAppState, type BusinessUnitFilter, type Screen } from '@/lib/appState'
+import { BarChart3, Briefcase, Building2, CheckSquare, ChevronDown, ChevronRight, Factory, FilePenLine, Gauge, Home, Images, Layers3, List, ReceiptText, Search, Send, Settings, Trash2, UserCheck } from 'lucide-react'
 import popLogo from '@/assets/pop-logo.png'
-import { fetchHierarchyFacets, type HierarchyFacet } from '@/features/pipeline/api'
-import { spaceToBusinessUnit } from '@/domain/products/adapters'
-import type { BusinessUnit } from '@/domain/products/types'
+import { useAuth } from '@/auth/auth'
+import { fetchViews, fetchViewPrefs, upsertViewPref, deleteView } from '@/features/views/api'
+import type { PmSavedView, PmViewPref, ViewFilters } from '@/lib/types'
 
 const NAV_ITEMS: { screen: Screen; icon: typeof CheckSquare; label: string }[] = [
   { screen: 'home', icon: Gauge, label: 'Control room' },
@@ -63,7 +63,7 @@ export function Sidebar() {
           ))}
         </div>
 
-        <SpacesTree />
+        <ViewsTree />
       </div>
 
       <div className="flex items-center justify-between px-3 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
@@ -93,87 +93,120 @@ export function Sidebar() {
   )
 }
 
-// ─── Spaces tree (ClickUp-style space > folder > list navigation) ─────────────
+// ─── Views tree (Space = department > Master view + saved/shared views) ───────
 
-interface TreeList { listName: string; count: number }
-interface TreeFolder { folderName: string | null; lists: TreeList[]; count: number }
-interface TreeSpace { spaceName: string; businessUnit: BusinessUnit; folders: TreeFolder[]; count: number }
+const DEPTS: BusinessUnitFilter[] = ['Licensed', 'Generic', 'Software']
+const SWATCHES = ['#0094FF', '#3F9A50', '#D24B83', '#DB6645', '#C8942A', '#6B54C9', '#239281', '#8C9BB5']
 
-const BU_ORDER: Record<BusinessUnit, number> = { Licensed: 0, Generic: 1, Software: 2, Unknown: 3 }
-
-function buildTree(facets: HierarchyFacet[]): TreeSpace[] {
-  const spaces = new Map<string, TreeSpace>()
-  for (const f of facets) {
-    const spaceName = f.spaceName ?? 'Other'
-    let space = spaces.get(spaceName)
-    if (!space) {
-      space = { spaceName, businessUnit: spaceToBusinessUnit(f.spaceName), folders: [], count: 0 }
-      spaces.set(spaceName, space)
-    }
-    let folder = space.folders.find((fo) => fo.folderName === f.folderName)
-    if (!folder) {
-      folder = { folderName: f.folderName, lists: [], count: 0 }
-      space.folders.push(folder)
-    }
-    folder.lists.push({ listName: f.listName, count: f.count })
-    folder.count += f.count
-    space.count += f.count
-  }
-  for (const space of spaces.values()) {
-    // folderless lists (null) sort last; named folders by count desc
-    space.folders.sort((a, b) => {
-      if ((a.folderName === null) !== (b.folderName === null)) return a.folderName === null ? 1 : -1
-      return b.count - a.count
-    })
-    for (const folder of space.folders) folder.lists.sort((a, b) => b.count - a.count)
-  }
-  return [...spaces.values()].sort((a, b) => BU_ORDER[a.businessUnit] - BU_ORDER[b.businessUnit])
+function viewOrder(v: PmSavedView, pref?: PmViewPref): number {
+  return pref?.sort_order ?? v.sort_order ?? 9999
 }
 
-function SpacesTree() {
-  const { screen, setScreen, businessUnit, setBusinessUnit, filterListNames, setFilterListNames } = useAppState()
-  const [facets, setFacets] = useState<HierarchyFacet[]>([])
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const [seeded, setSeeded] = useState(false)
+function ViewsTree() {
+  const app = useAppState()
+  const { user } = useAuth()
+  const userId = user?.id ?? ''
+  const [views, setViews] = useState<PmSavedView[]>([])
+  const [prefs, setPrefs] = useState<Map<string, PmViewPref>>(new Map())
+  const [expanded, setExpanded] = useState<Set<string>>(new Set([app.businessUnit]))
+  const [menu, setMenu] = useState<{ id: string; owned: boolean; x: number; y: number } | null>(null)
+  const [dragId, setDragId] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchHierarchyFacets().then(setFacets).catch(() => setFacets([]))
-  }, [])
+    if (!userId) return
+    fetchViews(userId).then(setViews).catch(() => setViews([]))
+    fetchViewPrefs(userId).then((rows) => {
+      const m = new Map<string, PmViewPref>()
+      for (const p of rows) {
+        const vid = typeof p.view === 'string' ? p.view : p.view?.id
+        if (vid) m.set(vid, p)
+      }
+      setPrefs(m)
+    }).catch(() => setPrefs(new Map()))
+  }, [userId, app.viewsRefreshKey])
 
-  const tree = useMemo(() => buildTree(facets), [facets])
-
-  // On first load, expand the space + its folders for the active department.
   useEffect(() => {
-    if (seeded || tree.length === 0) return
-    const active = tree.find((s) => s.businessUnit === businessUnit)
-    if (active) {
-      const keys = new Set<string>([`s:${active.spaceName}`])
-      for (const folder of active.folders) if (folder.folderName) keys.add(`f:${active.spaceName}:${folder.folderName}`)
-      setExpanded(keys)
-    }
-    setSeeded(true)
-  }, [tree, seeded, businessUnit])
+    if (!menu) return
+    const close = () => setMenu(null)
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [menu])
 
-  function toggle(key: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
+  function toggle(dept: string) {
+    setExpanded((p) => { const n = new Set(p); if (n.has(dept)) n.delete(dept); else n.add(dept); return n })
+  }
+
+  function viewsFor(dept: BusinessUnitFilter): PmSavedView[] {
+    return views
+      .filter((v) => v.business_unit === dept && !prefs.get(v.id)?.hidden)
+      .sort((a, b) => viewOrder(a, prefs.get(a.id)) - viewOrder(b, prefs.get(b.id)) || (a.name ?? '').localeCompare(b.name ?? ''))
+  }
+
+  function applyMaster(dept: BusinessUnitFilter) {
+    app.setBusinessUnit(dept)
+    app.setSearchQuery('')
+    app.setFilterLicensorIds(new Set())
+    app.setFilterListNames(new Set())
+    app.setScreen('pipeline')
+    app.setActiveViewId(`master:${dept}`)
+  }
+
+  function applyView(v: PmSavedView) {
+    const f = (v.filters_json ?? {}) as ViewFilters
+    app.setBusinessUnit((v.business_unit as BusinessUnitFilter) ?? app.businessUnit)
+    app.setSearchQuery(f.search ?? '')
+    app.setFilterLicensorIds(new Set(f.licensorIds ?? []))
+    app.setFilterListNames(new Set(f.listNames ?? []))
+    if (f.groupBy) app.setGroupBy(f.groupBy as never)
+    if (f.colorBy) app.setColorBy(f.colorBy as never)
+    app.setScreen('pipeline')
+    app.setActiveViewId(v.id)
+  }
+
+  function patchPref(viewId: string, patch: Partial<PmViewPref>) {
+    setPrefs((p) => {
+      const n = new Map(p)
+      const cur = n.get(viewId) ?? ({ id: '', user: userId, view: viewId, sort_order: null, color: null, hidden: false } as PmViewPref)
+      n.set(viewId, { ...cur, ...patch })
+      return n
     })
   }
 
-  function openList(space: TreeSpace, listName: string) {
-    if (space.businessUnit !== 'Unknown') setBusinessUnit(space.businessUnit)
-    setScreen('pipeline')
-    setFilterListNames(new Set([listName]))
+  async function recolor(viewId: string, color: string | null) {
+    setMenu(null)
+    patchPref(viewId, { color })
+    try { await upsertViewPref(userId, viewId, { color }) } catch { /* best-effort */ }
   }
 
-  function isActiveList(listName: string): boolean {
-    return screen === 'pipeline' && filterListNames.has(listName)
+  async function removeView(v: PmSavedView, owned: boolean) {
+    setMenu(null)
+    if (owned) {
+      setViews((vs) => vs.filter((x) => x.id !== v.id))
+      try { await deleteView(v.id) } catch { /* keep optimistic */ }
+    } else {
+      patchPref(v.id, { hidden: true })
+      try { await upsertViewPref(userId, v.id, { hidden: true }) } catch { /* */ }
+    }
   }
 
-  if (tree.length === 0) return null
+  async function onDrop(dept: BusinessUnitFilter, targetId: string) {
+    const id = dragId
+    setDragId(null)
+    if (!id || id === targetId) return
+    const ordered = viewsFor(dept)
+    const from = ordered.findIndex((v) => v.id === id)
+    const to = ordered.findIndex((v) => v.id === targetId)
+    if (from < 0 || to < 0) return
+    const reordered = [...ordered]
+    const [moved] = reordered.splice(from, 1)
+    reordered.splice(to, 0, moved)
+    reordered.forEach((v, i) => patchPref(v.id, { sort_order: i }))
+    for (let i = 0; i < reordered.length; i++) {
+      try { await upsertViewPref(userId, reordered[i].id, { sort_order: i }) } catch { /* */ }
+    }
+  }
+
+  if (!userId) return null
 
   return (
     <div className="mt-3">
@@ -181,116 +214,118 @@ function SpacesTree() {
         Spaces
       </div>
       <div className="space-y-0.5">
-        {tree.map((space) => {
-          const spaceKey = `s:${space.spaceName}`
-          const spaceOpen = expanded.has(spaceKey)
+        {DEPTS.map((dept) => {
+          const open = expanded.has(dept)
+          const masterId = `master:${dept}`
+          const deptViews = viewsFor(dept)
           return (
-            <div key={spaceKey}>
-              <TreeRow depth={0} open={spaceOpen} onToggle={() => toggle(spaceKey)} count={space.count}>
-                <span className="truncate text-[13px] font-semibold" style={{ color: '#fff' }}>{space.spaceName}</span>
-              </TreeRow>
-              {spaceOpen && space.folders.map((folder) => {
-                // Folderless lists render directly under the space.
-                if (folder.folderName === null) {
-                  return folder.lists.map((l) => (
-                    <TreeLeaf
-                      key={`l:${space.spaceName}:${l.listName}`}
-                      depth={1}
-                      active={isActiveList(l.listName)}
-                      count={l.count}
-                      onClick={() => openList(space, l.listName)}
-                    >
-                      <List className="size-3.5 shrink-0" style={{ color: isActiveList(l.listName) ? '#fff' : '#94A3C0' }} />
-                      <span className="truncate text-[12.5px]" style={{ color: isActiveList(l.listName) ? '#fff' : '#C7D0E0' }}>{l.listName}</span>
-                    </TreeLeaf>
-                  ))
-                }
-                const folderKey = `f:${space.spaceName}:${folder.folderName}`
-                const folderOpen = expanded.has(folderKey)
-                return (
-                  <div key={folderKey}>
-                    <TreeRow depth={1} open={folderOpen} onToggle={() => toggle(folderKey)} count={folder.count} icon={<Folder className="size-3.5 shrink-0" style={{ color: '#94A3C0' }} />}>
-                      <span className="truncate text-[12.5px] font-medium" style={{ color: '#C7D0E0' }}>{folder.folderName}</span>
-                    </TreeRow>
-                    {folderOpen && folder.lists.map((l) => (
-                      <TreeLeaf
-                        key={`l:${space.spaceName}:${l.listName}`}
-                        depth={2}
-                        active={isActiveList(l.listName)}
-                        count={l.count}
-                        onClick={() => openList(space, l.listName)}
-                      >
-                        <List className="size-3.5 shrink-0" style={{ color: isActiveList(l.listName) ? '#fff' : '#94A3C0' }} />
-                        <span className="truncate text-[12.5px]" style={{ color: isActiveList(l.listName) ? '#fff' : '#C7D0E0' }}>{l.listName}</span>
-                      </TreeLeaf>
-                    ))}
-                  </div>
-                )
-              })}
+            <div key={dept}>
+              <div
+                onClick={() => toggle(dept)}
+                className="flex cursor-pointer items-center gap-1.5 rounded-lg py-1.5 pr-2 pl-3 transition-colors"
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+              >
+                {open
+                  ? <ChevronDown className="size-3.5 shrink-0" style={{ color: '#94A3C0' }} />
+                  : <ChevronRight className="size-3.5 shrink-0" style={{ color: '#94A3C0' }} />}
+                <span className="truncate text-[13px] font-semibold" style={{ color: '#fff' }}>{dept}</span>
+              </div>
+              {open && (
+                <>
+                  <ViewLeaf
+                    active={app.activeViewId === masterId}
+                    color={null}
+                    icon={<Home className="size-3.5 shrink-0" style={{ color: app.activeViewId === masterId ? '#fff' : '#94A3C0' }} />}
+                    label="All (everything)"
+                    onClick={() => applyMaster(dept)}
+                  />
+                  {deptViews.map((v) => {
+                    const owned = (typeof v.user === 'string' ? v.user : v.user?.id) === userId
+                    const color = prefs.get(v.id)?.color ?? v.color ?? null
+                    const active = app.activeViewId === v.id
+                    return (
+                      <ViewLeaf
+                        key={v.id}
+                        active={active}
+                        color={color}
+                        seeded={v.origin === 'clickup_list'}
+                        draggable
+                        onDragStart={() => setDragId(v.id)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => onDrop(dept, v.id)}
+                        icon={<List className="size-3.5 shrink-0" style={{ color: active ? '#fff' : (color ?? '#94A3C0') }} />}
+                        label={v.name ?? 'Untitled'}
+                        onClick={() => applyView(v)}
+                        onContextMenu={(e) => { e.preventDefault(); setMenu({ id: v.id, owned, x: e.clientX, y: e.clientY }) }}
+                      />
+                    )
+                  })}
+                </>
+              )}
             </div>
           )
         })}
       </div>
+
+      {menu && (
+        <div
+          className="fixed z-[70] min-w-[180px] overflow-hidden rounded-xl border py-2 shadow-xl"
+          style={{ left: menu.x, top: menu.y, background: '#fff', borderColor: '#EAEEF5' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 pb-1.5 text-[11px] font-bold uppercase" style={{ color: '#94A0B5' }}>Color</div>
+          <div className="flex flex-wrap gap-1.5 px-3 pb-2">
+            {SWATCHES.map((c) => (
+              <button key={c} onClick={() => recolor(menu.id, c)} className="size-5 rounded-full" style={{ background: c, boxShadow: '0 0 0 1px #EAEEF5' }} />
+            ))}
+            <button onClick={() => recolor(menu.id, null)} title="Reset color" className="flex size-5 items-center justify-center rounded-full text-[10px]" style={{ boxShadow: '0 0 0 1px #EAEEF5', color: '#94A0B5' }}>✕</button>
+          </div>
+          <div className="my-1 h-px" style={{ background: '#EAEEF5' }} />
+          <button
+            onClick={() => { const v = views.find((x) => x.id === menu.id); if (v) removeView(v, menu.owned) }}
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] font-medium transition-colors hover:bg-[#F6F8FC]"
+            style={{ color: '#D2502B' }}
+          >
+            <Trash2 className="size-3.5" />
+            {menu.owned ? 'Delete view' : 'Remove from my sidebar'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
 
-function TreeRow({
-  depth,
-  open,
-  onToggle,
-  count,
-  icon,
-  children,
-}: {
-  depth: number
-  open: boolean
-  onToggle: () => void
-  count: number
-  icon?: React.ReactNode
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      onClick={onToggle}
-      className="flex cursor-pointer items-center gap-1.5 rounded-lg py-1.5 pr-2 transition-colors"
-      style={{ paddingLeft: 12 + depth * 14 }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
-    >
-      {open
-        ? <ChevronDown className="size-3.5 shrink-0" style={{ color: '#94A3C0' }} />
-        : <ChevronRight className="size-3.5 shrink-0" style={{ color: '#94A3C0' }} />}
-      {icon}
-      {children}
-      <span className="ml-auto shrink-0 text-[10.5px] font-semibold" style={{ color: '#5A6883' }}>{count.toLocaleString()}</span>
-    </div>
-  )
-}
-
-function TreeLeaf({
-  depth,
-  active,
-  count,
-  onClick,
-  children,
-}: {
-  depth: number
+function ViewLeaf({ active, color, seeded, icon, label, onClick, onContextMenu, draggable, onDragStart, onDragOver, onDrop }: {
   active: boolean
-  count: number
+  color: string | null
+  seeded?: boolean
+  icon: React.ReactNode
+  label: string
   onClick: () => void
-  children: React.ReactNode
+  onContextMenu?: (e: React.MouseEvent) => void
+  draggable?: boolean
+  onDragStart?: () => void
+  onDragOver?: (e: React.DragEvent) => void
+  onDrop?: () => void
 }) {
   return (
     <div
       onClick={onClick}
+      onContextMenu={onContextMenu}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
       className="flex cursor-pointer items-center gap-1.5 rounded-lg py-1.5 pr-2 transition-colors"
-      style={{ paddingLeft: 12 + depth * 14, background: active ? '#0094FF' : 'transparent' }}
+      style={{ paddingLeft: 26, background: active ? '#0094FF' : 'transparent' }}
       onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
       onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent' }}
+      title={seeded ? `${label} (imported list)` : label}
     >
-      {children}
-      <span className="ml-auto shrink-0 text-[10.5px] font-semibold" style={{ color: active ? 'rgba(255,255,255,0.7)' : '#5A6883' }}>{count.toLocaleString()}</span>
+      {icon}
+      <span className="truncate text-[12.5px]" style={{ color: active ? '#fff' : (color ?? '#C7D0E0') }}>{label}</span>
+      {seeded && <span className="ml-auto size-1.5 shrink-0 rounded-full" style={{ background: active ? 'rgba(255,255,255,0.6)' : '#8C9BB5' }} />}
     </div>
   )
 }

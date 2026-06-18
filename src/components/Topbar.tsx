@@ -3,12 +3,13 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuTrigger,
   DropdownMenuCheckboxItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
-import { Search, X } from 'lucide-react'
+import { Plus, Search, X } from 'lucide-react'
 import { buildInfo, formatCommitDateInNewYork } from '@/lib/buildInfo'
 import { useEffect, useRef, useState } from 'react'
 import { fetchLicensors } from '@/domain/reference/api'
 import { fetchListFacets, type ListFacet } from '@/features/pipeline/api'
-import type { Licensor } from '@/lib/types'
+import { createView } from '@/features/views/api'
+import type { Licensor, ViewFilters } from '@/lib/types'
 import { useAuth } from '@/auth/auth'
 import type { BusinessUnitFilter } from '@/lib/appState'
 
@@ -59,12 +60,16 @@ export function Topbar() {
     filterLicensorIds, setFilterLicensorIds,
     filterListNames, setFilterListNames,
     searchQuery, setSearchQuery,
+    setActiveViewId, bumpViewsRefresh,
   } = useAppState()
   const { user } = useAuth()
   const [licensors, setLicensors] = useState<Licensor[]>([])
   const [listFacets, setListFacets] = useState<ListFacet[]>([])
   const [searchOpen, setSearchOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const [saveName, setSaveName] = useState('')
+  const [saveShared, setSaveShared] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => { if (searchOpen) searchInputRef.current?.focus() }, [searchOpen])
 
@@ -76,6 +81,36 @@ export function Topbar() {
     if (next.has(name)) next.delete(name)
     else next.add(name)
     setFilterListNames(next)
+  }
+
+  function currentFilters(): ViewFilters {
+    return {
+      search: searchQuery || undefined,
+      licensorIds: filterLicensorIds.size > 0 ? [...filterLicensorIds] : undefined,
+      listNames: filterListNames.size > 0 ? [...filterListNames] : undefined,
+      groupBy,
+      colorBy,
+    }
+  }
+
+  async function saveView() {
+    if (!user?.id || !saveName.trim() || saving) return
+    setSaving(true)
+    try {
+      const created = await createView({
+        userId: user.id,
+        name: saveName.trim(),
+        businessUnit,
+        filters: currentFilters(),
+        visibility: saveShared ? 'shared' : 'personal',
+      })
+      setSaveName('')
+      setSaveShared(false)
+      bumpViewsRefresh()
+      setActiveViewId(created.id)
+    } catch { /* surfaced by no new view appearing */ } finally {
+      setSaving(false)
+    }
   }
 
   const isPipeline = screen === 'pipeline'
@@ -124,7 +159,7 @@ export function Topbar() {
             {BUSINESS_UNITS.map((b) => (
               <button
                 key={b.value}
-                onClick={() => { setBusinessUnit(b.value); setFilterListNames(new Set()) }}
+                onClick={() => { setBusinessUnit(b.value); setFilterListNames(new Set()); setActiveViewId(null) }}
                 className="rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all"
                 style={
                   businessUnit === b.value
@@ -360,6 +395,43 @@ export function Topbar() {
                   <DropdownMenuRadioItem key={o.value} value={o.value}>{o.label}</DropdownMenuRadioItem>
                 ))}
               </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Save current filters as a view */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="flex items-center gap-1.5 rounded-[10px] px-3.5 py-2 text-[13px] font-semibold text-white transition-colors"
+                style={{ background: '#0094FF' }}
+              >
+                <Plus className="size-3.5" />
+                Save view
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64 p-3">
+              <DropdownMenuLabel className="p-0 pb-2">Save current filters as a view</DropdownMenuLabel>
+              <input
+                value={saveName}
+                onChange={(e) => setSaveName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') saveView() }}
+                placeholder="View name"
+                className="mb-2 w-full rounded-lg border px-2.5 py-1.5 text-[13px] outline-none"
+                style={{ borderColor: '#EAEEF5', color: '#1B2840' }}
+                autoFocus
+              />
+              <label className="mb-2 flex cursor-pointer items-center gap-2 text-[12.5px]" style={{ color: '#5A6883' }}>
+                <input type="checkbox" checked={saveShared} onChange={(e) => setSaveShared(e.target.checked)} className="size-3.5" />
+                Share with the whole company
+              </label>
+              <button
+                onClick={saveView}
+                disabled={!saveName.trim() || saving}
+                className="w-full rounded-lg py-1.5 text-[13px] font-semibold text-white transition-colors disabled:opacity-40"
+                style={{ background: '#0094FF' }}
+              >
+                {saving ? 'Saving…' : `Save to ${businessUnit}`}
+              </button>
             </DropdownMenuContent>
           </DropdownMenu>
         </>
