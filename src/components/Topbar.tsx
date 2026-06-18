@@ -65,6 +65,8 @@ export function Topbar() {
   const { user } = useAuth()
   const [licensors, setLicensors] = useState<Licensor[]>([])
   const [listFacets, setListFacets] = useState<ListFacet[]>([])
+  const [listQuery, setListQuery] = useState('')
+  const [licensorQuery, setLicensorQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [saveName, setSaveName] = useState('')
@@ -303,7 +305,15 @@ export function Topbar() {
                   </button>
                 )}
               </div>
-              {groupFacetsByFolder(listFacets).map(({ folder, lists }) => (
+              <input
+                value={listQuery}
+                onChange={(e) => setListQuery(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+                placeholder="Search lists…"
+                className="mx-2 mb-1 w-[calc(100%-1rem)] rounded-md border px-2 py-1 text-[12.5px] outline-none focus:border-[#0094FF]"
+                style={{ borderColor: '#EAEEF5', color: '#1B2840' }}
+              />
+              {groupFacetsByFolder(listFacets.filter((f) => f.listName.toLowerCase().includes(listQuery.trim().toLowerCase()))).map(({ folder, lists }) => (
                 <div key={folder ?? '__none__'}>
                   <div className="px-2 pt-1.5 pb-0.5 text-[10.5px] font-bold uppercase tracking-[0.04em]" style={{ color: '#94A0B5' }}>
                     {folder ?? 'No folder'}
@@ -352,9 +362,19 @@ export function Topbar() {
                 )}
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuContent align="end" className="max-h-[70vh] w-56 overflow-y-auto">
               <DropdownMenuLabel>Licensor</DropdownMenuLabel>
-              {licensors.map((l) => (
+              <input
+                value={licensorQuery}
+                onChange={(e) => setLicensorQuery(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+                placeholder="Search licensors…"
+                className="mx-2 mb-1 w-[calc(100%-1rem)] rounded-md border px-2 py-1 text-[12.5px] outline-none focus:border-[#0094FF]"
+                style={{ borderColor: '#EAEEF5', color: '#1B2840' }}
+              />
+              {licensors
+                .filter((l) => (l.name ?? '').toLowerCase().includes(licensorQuery.trim().toLowerCase()))
+                .map((l) => (
                 <DropdownMenuCheckboxItem
                   key={l.id}
                   checked={filterLicensorIds.has(l.id)}

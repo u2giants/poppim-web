@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ProductSummary } from '@/domain/products/types'
 import { CATEGORY_ICONS, LICENSOR_META, STAGE_COLORS, stageColor } from '@/domain/products/presentation'
 import { ClipboardCheck, ExternalLink, FilePenLine, FileText, FlaskConical, History, MessageSquare, Paperclip, Send, Tags, X } from 'lucide-react'
@@ -1366,6 +1366,8 @@ function EditText({
   )
 }
 
+// Click-to-edit, type-to-search combobox. Filters options client-side as you type;
+// arrow keys + Enter select, Escape / click-outside cancels.
 function EditSelect({
   value,
   options,
@@ -1378,36 +1380,69 @@ function EditSelect({
   renderValue: (v: string) => React.ReactNode
 }) {
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value)
-  const ref = useRef<HTMLSelectElement>(null)
+  const [query, setQuery] = useState('')
+  const [highlight, setHighlight] = useState(0)
+  const boxRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { if (editing) ref.current?.focus() }, [editing])
-  useEffect(() => { if (!editing) setDraft(value) }, [value, editing])
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return q ? options.filter((o) => o.label.toLowerCase().includes(q)) : options
+  }, [options, query])
 
-  function commit(v: string) {
-    setEditing(false)
-    if (v !== value) onSave(v)
-  }
+  useEffect(() => { if (editing) inputRef.current?.focus() }, [editing])
+  useEffect(() => {
+    if (!editing) return
+    function onDoc(e: MouseEvent) {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) close()
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [editing])
+
+  function open() { setQuery(''); setHighlight(0); setEditing(true) }
+  function close() { setEditing(false); setQuery('') }
+  function commit(v: string) { close(); if (v !== value) onSave(v) }
 
   if (editing) {
     return (
-      <select
-        ref={ref}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => commit(draft)}
-        onKeyDown={(e) => { if (e.key === 'Enter') commit(draft); if (e.key === 'Escape') { setEditing(false); setDraft(value) } }}
-        style={{ ...EDIT_INPUT_STYLE, fontWeight: 600 }}
-        autoFocus
-      >
-        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
+      <div ref={boxRef} style={{ position: 'relative', width: '100%' }}>
+        <input
+          ref={inputRef}
+          value={query}
+          placeholder="Type to search…"
+          onChange={(e) => { setQuery(e.target.value); setHighlight(0) }}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown') { e.preventDefault(); setHighlight((h) => Math.min(h + 1, filtered.length - 1)) }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlight((h) => Math.max(h - 1, 0)) }
+            else if (e.key === 'Enter') { e.preventDefault(); const o = filtered[highlight]; if (o) commit(o.value) }
+            else if (e.key === 'Escape') { e.preventDefault(); close() }
+          }}
+          style={{ ...EDIT_INPUT_STYLE, fontWeight: 600 }}
+        />
+        <div style={{ position: 'absolute', zIndex: 60, top: '100%', left: 0, right: 0, marginTop: 3, maxHeight: 220, overflowY: 'auto', background: '#fff', border: '1px solid #E2E8F0', borderRadius: 6, boxShadow: '0 6px 20px rgba(15,40,80,0.14)' }}>
+          {filtered.length === 0 ? (
+            <div style={{ padding: '6px 10px', fontSize: 12.5, color: '#94A3B8' }}>No matches</div>
+          ) : (
+            filtered.map((o, i) => (
+              <div
+                key={o.value}
+                onMouseDown={(e) => { e.preventDefault(); commit(o.value) }}
+                onMouseEnter={() => setHighlight(i)}
+                style={{ padding: '5px 10px', fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', background: i === highlight ? '#EFF6FF' : o.value === value ? '#F6F8FC' : '#fff', color: '#1B2840', fontWeight: o.value === value ? 700 : 500 }}
+              >
+                {o.label || '—'}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     )
   }
 
   return (
     <span
-      onClick={() => { setDraft(value); setEditing(true) }}
+      onClick={open}
       className="cursor-pointer rounded px-1 -ml-1 hover:bg-[#F6F8FC] transition-colors inline-block"
       title="Click to edit"
     >
