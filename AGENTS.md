@@ -221,6 +221,14 @@ What changed:
 Future sessions should:
 Treat null as "no estimate." Do not add it to cards or default it to 0 — it would be blank noise on ~99% of products.
 
+### Do not display `product.code` — it's an internal ClickUp-style id
+What changed:
+`product.code` holds a ClickUp-task-style string (e.g. `8688wgqth`), not a human SKU. It was being prepended to product titles (`code · title`) and was removed from every display surface (2026-06-17/18): pipeline card + table, Control Room, My Work, Projects, Orders, Samples, Submissions, Revisions, Reports, and the modal's linked-product label. Surfaces now show the title alone.
+Why:
+Users read it as "random characters." It crept in across ~10 components because the `[x.code, x.title].filter(Boolean).join(' · ')` idiom was copy-pasted.
+Future sessions should:
+When rendering a product/summary label, show `title` (or `name`) only — do not reintroduce `code` into list/card labels. If a genuine human-facing SKU exists later, add a dedicated field; don't repurpose `code`.
+
 ### Saved Views: Space = department, per-user prefs live in pm_view_pref
 What changed:
 The sidebar is a saved-views model, not a literal ClickUp tree. Each department (Licensed/Generic/Software) is a "Space" with a virtual Master view ("All") pinned first, then `pm_saved_view` rows (company-`shared` ∪ the user's `personal`). Applying a view writes its `filters_json` + `business_unit` into appState. Per-user reorder/recolor/hide of *any* view (including shared/seeded) is stored in a separate `pm_view_pref` row — the view record itself is never mutated by a non-owner.
@@ -301,7 +309,7 @@ No production incidents since the app moved to `pm.designflow.app`.
 | done | Production deploy at `pm.designflow.app` | live via Coolify service `ysvdyj3t7d5tyh5ogrvlka4y`; SSO + cert verified; raw-docker retired 2026-06-11 |
 | open | List / Timeline views | Table view exists; Timeline tab is a placeholder |
 | done | ClickUp space/folder/list hierarchy in the UI | 2026-06-16: backend (directus 45af984) backfilled space/folder/list + creator/time_estimate/orderindex; frontend added topbar List filter, group-by List/Folder, sidebar Spaces tree, card/modal breadcrumbs, time-estimate field, orderindex sort. See §11 quirks. Deployed (`e487955`); not driven on the live site (SSO gate) — see HANDOFF. |
-| done | Inline-editable product fields + image lightbox/cover | 2026-06-16: title/stage/licensor/due/product-type/lifecycle/next-action/waiting-on/risk editable in `TaskDetailModal` via optimistic `updateProduct`; images open in-modal lightbox; right-click sets `cover_url`. Removed internal `code` from card. Topbar search icon now expands an inline search bar (was a DOM-focus hack). |
+| done | Inline-editable product fields + image lightbox/cover | 2026-06-16: title/stage/licensor/due/product-type/lifecycle/next-action/waiting-on/risk editable in `TaskDetailModal` via optimistic `updateProduct`; images open in-modal lightbox; right-click sets `cover_url`. Topbar search icon now expands an inline search bar (was a DOM-focus hack). Internal `product.code` removed from all list/card titles (2026-06-18, 10 surfaces — see §11 quirk). |
 | done (frontend) | Saved Views sidebar (Space=department → Master + views) | 2026-06-17: replaced the literal ClickUp tree with saved views — shared+personal, per-user drag-reorder/recolor/hide, topbar "Save view", 15 seeded list-views. Frontend deployed (`0e4e61c`). **Backend scripts authored + already RUN against prod but NOT yet committed to the directus repo** (git perms) — see HANDOFF. Not live-verified (SSO gate). |
 | done | URL deep-linking (`?item=`) for the detail panel | `history.replaceState` + `URLSearchParams`; auto-opens on page load; 2026-06-12 |
 | done | Durable image storage for product covers | DigitalOcean Spaces originals + thumbs; future DAM can supersede this, but ClickUp CDN is no longer the source. |
