@@ -165,7 +165,7 @@ function RevisionWorkRow({ revision }: { revision: RevisionRequest }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="line-clamp-1 text-[13.5px] font-medium" style={{ color: '#1B2840' }}>
-          {product ? [product.code, product.title].filter(Boolean).join(' · ') : 'Revision request'}
+          {product ? product.title : 'Revision request'}
         </p>
         <p className="mt-0.5 line-clamp-1 text-[12px]" style={{ color: '#5A6883' }}>
           {[titleCase(revision.source), titleCase(revision.status), revision.body].filter(Boolean).join(' · ')}
@@ -198,7 +198,7 @@ function MyWorkRow({ product, onOpen }: { product: ProductSummary; onOpen: (p: P
       </div>
       <div className="min-w-0 flex-1">
         <p className="line-clamp-1 text-[13.5px] font-medium" style={{ color: '#1B2840' }}>
-          {[product.code, product.title].filter(Boolean).join(' · ')}
+          {product.title}
         </p>
         <p className="mt-0.5 line-clamp-1 text-[12px]" style={{ color: '#5A6883' }}>
           {[product.businessUnit, product.retailerName, product.buyerName, product.nextAction].filter(Boolean).join(' · ')}

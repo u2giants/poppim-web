@@ -484,7 +484,7 @@ function TableTaskRow({ task, onOpen }: { task: ProductSummary; onOpen: (t: Prod
             <span className="text-[8px] font-black" style={{ color: catColors?.accent ?? '#5A6883' }}>{CATEGORY_ICONS[task.category]}</span>
           </div>
           <span className="text-[13.5px] font-semibold line-clamp-1 flex-1 min-w-0" style={{ color: '#1B2840' }}>
-            {[task.code, task.title].filter(Boolean).join(' · ')}
+            {task.title}
           </span>
           {task.pill && (
             <span

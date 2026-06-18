@@ -87,7 +87,7 @@ function formatDuration(ms: number | null): string {
 
 function productLabel(product: Product | string | null): string | null {
   if (!product || typeof product === 'string') return null
-  return [product.code, product.name].filter(Boolean).join(' · ')
+  return product.name ?? null
 }
 
 // ─── Props ───────────────────────────────────────────────────────────────────

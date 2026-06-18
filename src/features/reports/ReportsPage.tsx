@@ -209,7 +209,7 @@ function HandoffRow({ handoff }: { handoff: StageHistory }) {
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>
-          {summary ? [summary.code, summary.title].filter(Boolean).join(' · ') : 'Unknown product'}
+          {summary ? summary.title : 'Unknown product'}
         </p>
         <p className="mt-0.5 truncate text-[12px]" style={{ color: '#5A6883' }}>
           {[summary?.businessUnit, summary?.retailerName, summary?.buyerName, summary?.licensorName].filter(Boolean).join(' · ') || 'No product context'}

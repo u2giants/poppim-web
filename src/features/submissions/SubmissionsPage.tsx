@@ -148,7 +148,7 @@ function SubmissionRow({ row, onUpdated }: { row: ProductSubmission; onUpdated: 
     <tr className="transition-colors hover:bg-[#F6F8FC]" style={{ borderBottom: '1px solid #EAEEF5' }}>
       <td className="px-4 py-3">
         <p className="line-clamp-1 text-[13px] font-semibold" style={{ color: '#1B2840' }}>
-          {summary ? [summary.code, summary.title].filter(Boolean).join(' · ') : 'No product linked'}
+          {summary ? summary.title : 'No product linked'}
         </p>
         <p className="mt-0.5 line-clamp-1 text-[12px]" style={{ color: '#5A6883' }}>
           {[summary?.businessUnit, summary?.retailerName, summary?.buyerName, summary?.licensorName].filter(Boolean).join(' · ') || relationName(row.project)}

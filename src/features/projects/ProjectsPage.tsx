@@ -394,7 +394,7 @@ function ProjectDetailModal({ project, onClose }: { project: Project; onClose: (
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="line-clamp-1 text-[12.5px] font-semibold" style={{ color: '#1B2840' }}>
-                      {[task.code, task.title].filter(Boolean).join(' · ')}
+                      {task.title}
                     </p>
                     <div className="mt-0.5 flex items-center gap-2">
                       <span

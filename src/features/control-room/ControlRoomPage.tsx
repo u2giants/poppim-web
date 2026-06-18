@@ -241,7 +241,7 @@ function ProductRow({ product, mode }: { product: ProductSummary; mode: 'priorit
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
           <p className="truncate text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>
-            {[product.code, product.title].filter(Boolean).join(' · ')}
+            {product.title}
           </p>
           {mode === 'priority' && product.priority !== 'normal' && (
             <span className="size-2 shrink-0 rounded-full" style={{ background: priorityColor }} />

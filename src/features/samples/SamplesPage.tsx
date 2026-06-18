@@ -142,7 +142,7 @@ function SampleCard({ row, onUpdated }: { row: ProductSample; onUpdated: (row: P
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h2 className="line-clamp-1 text-[14px] font-bold" style={{ color: '#1B2840' }}>
-            {summary ? [summary.code, summary.title].filter(Boolean).join(' · ') : 'No product linked'}
+            {summary ? summary.title : 'No product linked'}
           </h2>
           <p className="mt-1 line-clamp-1 text-[12.5px]" style={{ color: '#5A6883' }}>
             {[summary?.businessUnit, summary?.retailerName, summary?.buyerName, relationName(row.factory)].filter(Boolean).join(' · ') || relationName(row.project)}

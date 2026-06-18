@@ -138,7 +138,7 @@ function OrderRow({ order }: { order: Order }) {
       <td className="px-4 py-3">
         <div className="min-w-0">
           <p className="line-clamp-1 text-[13px] font-semibold" style={{ color: '#1B2840' }}>
-            {summary ? [summary.code, summary.title].filter(Boolean).join(' · ') : 'No product linked'}
+            {summary ? summary.title : 'No product linked'}
           </p>
           <p className="mt-0.5 line-clamp-1 text-[12px]" style={{ color: '#5A6883' }}>
             {[summary?.businessUnit, summary?.productTypeName, summary?.stageName].filter(Boolean).join(' · ') || 'No product context'}
