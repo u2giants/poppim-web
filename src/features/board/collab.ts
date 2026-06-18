@@ -7,7 +7,7 @@ import {
   readComments,
   createComment,
 } from '@directus/sdk'
-import type { Licensor, ProductType } from '@/lib/types'
+import type { Buyer, Licensor, ProductType, Retailer } from '@/lib/types'
 import { directus } from '@/lib/directus'
 import type {
   ChecklistItem,
@@ -185,6 +185,18 @@ export async function fetchLicensors(): Promise<Licensor[]> {
 
 export async function fetchProductTypes(): Promise<ProductType[]> {
   return directus.request(readItems('product_type', { sort: ['name'], limit: -1 })) as Promise<ProductType[]>
+}
+
+export async function fetchRetailers(): Promise<Retailer[]> {
+  return directus.request(readItems('retailer', { sort: ['name'], limit: -1 })) as Promise<Retailer[]>
+}
+
+export async function fetchBuyers(retailerId: string): Promise<Buyer[]> {
+  return directus.request(readItems('buyer', {
+    filter: { retailer: { _eq: retailerId } },
+    sort: ['name'],
+    limit: -1,
+  })) as Promise<Buyer[]>
 }
 
 export function userName(u: DirectusUser | string | null | undefined) {

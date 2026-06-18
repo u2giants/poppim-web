@@ -3,6 +3,7 @@ import type { ProductSummary } from '@/domain/products/types'
 import { CATEGORY_ICONS, LICENSOR_META, STAGE_COLORS, stageColor } from '@/domain/products/presentation'
 import { ClipboardCheck, ExternalLink, FilePenLine, FileText, FlaskConical, History, MessageSquare, Paperclip, Send, Tags, X } from 'lucide-react'
 import type {
+  Buyer,
   Comment,
   Licensor,
   Product,
@@ -12,6 +13,7 @@ import type {
   ProductFile,
   ProductLink,
   ProductType,
+  Retailer,
   Stage,
   Subtask,
   ProductTag,
@@ -29,6 +31,8 @@ import {
   updateProduct,
   fetchLicensors,
   fetchProductTypes,
+  fetchRetailers,
+  fetchBuyers,
   userName,
   userInitials,
   listProductActivity,
@@ -120,21 +124,34 @@ export function TaskDetailModal({ task, onClose }: Props) {
     product_type?: string | null
     productTypeName?: string | null
     pps_requested_date?: string | null
+    retailer?: string | null
+    retailerName?: string | null
+    buyer?: string | null
+    buyerName?: string | null
   }>({})
   const [stages, setStages] = useState<Stage[]>([])
   const [licensors, setLicensors] = useState<Licensor[]>([])
   const [productTypes, setProductTypes] = useState<ProductType[]>([])
+  const [retailers, setRetailers] = useState<Retailer[]>([])
+  const [buyers, setBuyers] = useState<Buyer[]>([])
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; coverUrl: string | null; previewUrl: string | null } | null>(null)
 
   useEffect(() => {
     if (!task) return
     setLocal({})
+    setBuyers([])
     setLightboxUrl(null)
     setContextMenu(null)
     fetchStages().then(setStages).catch(() => {})
     fetchLicensors().then(setLicensors).catch(() => {})
     fetchProductTypes().then(setProductTypes).catch(() => {})
+    fetchRetailers().then(setRetailers).catch(() => {})
+    // Pre-load buyers for the current retailer if set
+    const currentRetailerId = task.retailerId
+    if (currentRetailerId) {
+      fetchBuyers(currentRetailerId).then(setBuyers).catch(() => {})
+    }
   }, [task?.id])
 
   useEffect(() => {
@@ -182,6 +199,10 @@ export function TaskDetailModal({ task, onClose }: Props) {
   const displayProductTypeId = 'product_type' in local ? local.product_type : (typeof task.raw.product_type === 'object' ? task.raw.product_type?.id : task.raw.product_type as string | null | undefined)
   const displayProductTypeName = 'productTypeName' in local ? local.productTypeName : task.productTypeName
   const editableDueDate = 'pps_requested_date' in local ? (local.pps_requested_date ?? '') : (task.ppsRequestedDate ?? task.raw.on_shelf_date ?? '')
+  const displayRetailerId = 'retailer' in local ? local.retailer : task.retailerId
+  const displayRetailerName = 'retailerName' in local ? local.retailerName : task.retailerName
+  const displayBuyerId = 'buyer' in local ? local.buyer : task.buyerId
+  const displayBuyerName = 'buyerName' in local ? local.buyerName : task.buyerName
 
   const licMeta = displayLicensorName ? LICENSOR_META[displayLicensorName] : null
   const resolvedStageColors = STAGE_COLORS[displayStageName] ?? stageColor(displayStageName)
@@ -449,10 +470,46 @@ export function TaskDetailModal({ task, onClose }: Props) {
             <ModalField label="Project / offer">
               <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{task.projectTitle ?? '—'}</span>
             </ModalField>
-            <ModalField label="Retailer / buyer">
-              <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>
-                {[task.retailerName, task.buyerName].filter(Boolean).join(' / ') || '—'}
-              </span>
+            <ModalField label="Retailer">
+              {retailers.length > 0 ? (
+                <EditSelect
+                  value={displayRetailerId ?? ''}
+                  options={[{ value: '', label: '—' }, ...retailers.map(r => ({ value: r.id, label: r.name }))]}
+                  onSave={(id) => {
+                    const r = id ? retailers.find(x => x.id === id) : null
+                    applyLocal(
+                      { retailer: id || null, retailerName: r?.name ?? null, buyer: null, buyerName: null },
+                      { retailer: id || null, buyer: null },
+                    )
+                    setBuyers([])
+                    if (id) fetchBuyers(id).then(setBuyers).catch(() => {})
+                  }}
+                  renderValue={() => (
+                    <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{displayRetailerName ?? '—'}</span>
+                  )}
+                />
+              ) : (
+                <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{displayRetailerName ?? '—'}</span>
+              )}
+            </ModalField>
+            <ModalField label="Buyer">
+              {displayRetailerId && buyers.length > 0 ? (
+                <EditSelect
+                  value={displayBuyerId ?? ''}
+                  options={[{ value: '', label: '—' }, ...buyers.map(b => ({ value: b.id, label: b.name ?? '' }))]}
+                  onSave={(id) => {
+                    const b = id ? buyers.find(x => x.id === id) : null
+                    applyLocal({ buyer: id || null, buyerName: b?.name ?? null }, { buyer: id || null })
+                  }}
+                  renderValue={() => (
+                    <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{displayBuyerName ?? '—'}</span>
+                  )}
+                />
+              ) : (
+                <span className="text-[13.5px] font-semibold" style={{ color: displayRetailerId ? '#1B2840' : '#A0AEC0' }}>
+                  {displayBuyerName ?? (displayRetailerId ? '—' : 'Select retailer first')}
+                </span>
+              )}
             </ModalField>
             <ModalField label="Property">
               <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{task.propertyName ?? '—'}</span>

@@ -54,7 +54,9 @@ export interface ProductSummary {
   licensorName: string | null
   propertyName: string | null
   productTypeName: string | null
+  retailerId: string | null
   retailerName: string | null
+  buyerId: string | null
   buyerName: string | null
   projectId: string | null
   projectTitle: string | null
