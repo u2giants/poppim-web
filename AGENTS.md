@@ -253,13 +253,18 @@ Matches the existing drag-to-stage / checklist optimistic pattern.
 Future sessions should:
 If a "field didn't save" bug is reported, check the Directus write/role permission and the network response — the UI gives no error signal, so a silent revert (value snaps back) is the symptom.
 
-### `retailer` is a raw CRM-company dump, NOT a customer list — filter on `customer_status`
+### `retailer`/`buyer` are curated customer tables; the raw CRM dump lives in `ingested_*`
 What it is:
-The `retailer` collection is a raw import of **every** Twenty-CRM company (`directus` repo `pm-system/migration/twenty-import.mjs`): ~3,740 rows, of which ~97% are `customer_status='OTHER'` ("Not a Customer"). Only **40 ACTIVE_CUSTOMER + 62 POTENTIAL_CUSTOMER** (~102) are real customers. The collection is shared by **12 collections** across PIM/CRM/DAM (`product`, `project`, `order`, `design.first_offered_to`, `design_collection.account_specific_for`, `buyer`, and `crm_*`), so it is intentionally **not** renamed — renaming would break all of them. Its Directus `note` was rewritten to warn against raw use.
+The raw Twenty-CRM ingestion dumps were split out of `retailer`/`buyer` (directus repo migration `pm-system/migration/split-customers-from-ingested.sql`, 2026-06-18). End state:
+- **`retailer`** = curated real customers only (`customer_status` active/potential), ~102 rows, editable. Safe to read directly as a picker.
+- **`buyer`** = curated buyers (contacts at customers + any referenced by live PIM work), ~747 rows.
+- **`ingested_domains`** = the old `retailer` (all ~3,740 ingested companies); the email worker writes here for dedup. **Not for app pickers.**
+- **`ingested_contact`** = the old `buyer` (all ~8,649 ingested email contacts).
+Customers are **copied** (kept in both `ingested_domains` and `retailer` with the same IDs) so the worker still sees "domain already ingested" and so `crm_*` relations stay on the `ingested_*` tables. PIM relations (`product`/`project`/`order`/`design.first_offered_to`/`design_collection.account_specific_for` and the buyer links) point at the curated tables.
 Why:
-Offering the raw collection as a picker shows thousands of non-customers (e.g. "1kms" = `OTHER`). The product owner's rule: the only companies applicable to these apps are customers — **active or potential**.
+The product owner's rule: apps must only ever see real customers (active/potential), never a table that is ~97% ingested garbage (e.g. "1kms" = `OTHER`).
 Future sessions should:
-Never offer `retailer` raw as a choice list. Always filter `customer_status _in [ACTIVE_CUSTOMER, POTENTIAL_CUSTOMER]` — use `fetchCustomers()` (`features/board/collab.ts`), not a hand-rolled `readItems('retailer')`. `buyer` rows hang off a `retailer`, so a buyer picker must be scoped to a chosen customer first (`fetchBuyers(retailerId)`).
+Read `retailer`/`buyer` directly — `fetchCustomers()` / `fetchBuyers(retailerId)` in `features/board/collab.ts` (no `customer_status` filter needed anymore). Never point an app picker at `ingested_domains`/`ingested_contact`. New customers are promoted from `ingested_domains` by the CRM email worker (directus repo `pm-system/crm-worker.mjs`).
 
 ## 12. Credentials and environment
 
