@@ -1,5 +1,8 @@
 # Poppim Web Gaps
 
+> **Status (2026-06-21): historical analysis — partially superseded. Do not bulk-load (~1700 lines).**
+> Written against the Directus architecture when most business screens were still unbuilt. Many gaps it lists are now built (see `AGENTS.md` §15) and the backend is slated to migrate to shared Supabase (see `shared-db/AGENTS.md`). Use it for product-scope/vision context, **not** as a current to-do list — verify each item against the live app first.
+
 **Purpose.** This document compares the current `poppim-web` application against what the company actually needs from the project management system, based on:
 
 - The current `poppim-web` codebase.

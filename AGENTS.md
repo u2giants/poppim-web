@@ -7,6 +7,8 @@ Canonical operating guide for **poppim-web**. Read this first; it routes you to 
 
 **Live in production:** `https://pm.designflow.app` (the permanent human URL; admins use `data.designflow.app` for Directus Data Studio). Preview aliases `pm-dev` and `pm-ci` serve the same Coolify service. Deploy via `git push main` — see §13 and `docs/cicd.md`.
 
+**Backend direction:** today this app runs **entirely on Directus**. A migration to a shared, enterprise **Supabase** backend (one DB for PM/CRM/DAM/PLM) is **planned but not started in this repo** — see the cross-app coordination playbook `shared-db/AGENTS.md` and the execution plan `shared-db/docs/ai-session-instructions/poppim-web-supabase-migration-plan.md`. Until that cutover, treat Directus as authoritative (see §15 Pending work).
+
 ## Multi-model AI note
 
 There is no universal ignore-file standard across AI coding tools.
@@ -35,6 +37,7 @@ Then load additional docs only when relevant:
 | Touch the shared Supabase database, schema/migrations, or any cross-app work | **`shared-db/AGENTS.md`** (read first — the cross-app coordination playbook: main-only here, branch+PR in `shared-db`, the four anti-collision rules, and the merge protocol) | app-screen-only docs |
 | Investigate a bug/incident | `AGENTS.md` §11 + §14, `HANDOFF.md` if present | unrelated docs |
 | Continue unfinished work | `AGENTS.md` §15, **`HANDOFF.md`** (required reading when present) | docs outside the handoff scope |
+| Product scope / roadmap / "what should we build next" | `gaps.md` (gap analysis vs. business needs) + `docs/architecture-update-implementation-plan.md` (roadmap). **Both are large and partially superseded** — verify against §15 + completed screens first | day-to-day screen/deploy docs |
 | Claude Code session | `CLAUDE.md`, then `AGENTS.md` | other docs unless needed |
 | Documentation-only cleanup | `AGENTS.md`, `README.md`, affected `docs/` | source except to verify accuracy |
 
@@ -113,7 +116,7 @@ This app only **reads/writes** the backend; the schema is defined in the `direct
 | Image field | `product.cover_url` | `directus` repo `pm-system/migration/clickup-to-spaces.mjs` | DigitalOcean Spaces original; thumbnail derived in `src/domain/products/adapters.ts` |
 | ClickUp board mirror fields | `product.clickup_list_name`, `clickup_parent_id`, `clickup_status_type`, `clickup_updated_at` | `directus` repo `pm-system/add-clickup-work-model.mjs` + `pm-system/migration/clickup-work-import.mjs` | Used by the Licensed pipeline to mirror ClickUp top-level open board cards |
 | ClickUp hierarchy/metadata fields | `product.clickup_space_id/name`, `clickup_folder_id/name`, `clickup_list_id`, `clickup_creator_id/name`, `clickup_time_estimate_ms`, `clickup_orderindex` | `directus` repo commit `45af984` (`add-clickup-hierarchy-fields.mjs` + `backfill-clickup-hierarchy.mjs`) | List filter + group-by-list, creator, time estimate, manual ordering. See §11 quirks for sparse/string caveats |
-| Saved views | `pm_saved_view` (+ `visibility`, `origin`, `color`, `sort_order`) and `pm_view_pref` (per-user `sort_order`/`color`/`hidden`) | `directus` repo `pm-system/add-saved-views-model.mjs` + `pm-system/migration/seed-clickup-list-views.mjs` (authored 2026-06-17; **commit pending in directus repo** — see HANDOFF) | Sidebar Space=department → Master + views; `src/features/views/api.ts`. See §11 quirks |
+| Saved views | `pm_saved_view` (+ `visibility`, `origin`, `color`, `sort_order`) and `pm_view_pref` (per-user `sort_order`/`color`/`hidden`) | `directus` repo `pm-system/add-saved-views-model.mjs` + `pm-system/migration/seed-clickup-list-views.mjs` (committed in directus as `0133b64`) | Sidebar Space=department → Master + views; `src/features/views/api.ts`. See §11 quirks |
 
 Do not rename these identifiers casually — both repos depend on them.
 
@@ -126,7 +129,9 @@ Do not rename these identifiers casually — both repos depend on them.
 
 ## 10. What to ignore
 
-Do not load these into AI context: `node_modules/`, `dist/`, `.env`, `*.local`, `.cache/`, `coverage/`. Matches `.claudeignore` / `.cursorignore`.
+Do not load these into AI context: `node_modules/`, `dist/`, `.env`, `*.local`, `.cache/`, `coverage/`, and the leftover Vite-template assets (`src/assets/react.svg`, `src/assets/vite.svg`, `src/assets/hero.png`, `public/icons.svg`). Matches `.claudeignore` / `.cursorignore`.
+
+`shared-db/` is a **read-only synced mirror** of the canonical `u2giants/shared-db` repo (auto-overwritten on each push). For cross-app/Supabase work read only `shared-db/AGENTS.md` (and the named migration plan) — do **not** bulk-load `shared-db/supabase/` or `shared-db/docs/`, and never hand-edit anything under `shared-db/` (edit the canonical repo instead).
 
 ## 11. Intentional quirks and non-obvious decisions
 
@@ -312,6 +317,7 @@ No production incidents since the app moved to `pm.designflow.app`.
 
 | Status | Item | Owner/next action |
 |---|---|---|
+| open | **Supabase backend migration** | Move this app off Directus onto the shared enterprise Supabase DB. Not started in this repo. Plan + rules live in `shared-db/` — read `shared-db/AGENTS.md` (coordination) and `shared-db/docs/ai-session-instructions/poppim-web-supabase-migration-plan.md` (phased execution). Directus remains authoritative until cutover. |
 | done | ClickUp image backfill | Complete in the `directus` repo via `pm-system/migration/clickup-to-spaces.mjs`; 3,747 covers moved to Spaces originals + thumbs, 0 ClickUp URLs remain. |
 | done | CI/Coolify pipeline + cutover | `git push main` → Actions → GHCR → Coolify (`ysvdyj3t7d5tyh5ogrvlka4y`) serving `pm.designflow.app`; legacy raw-docker removed; GHCR package public; 2026-06-11. See `docs/cicd.md`. |
 | done | Server-side filtering/pagination | Search + licensor pushed to Directus `_icontains`/`_in`; parallel count query; debounced 300ms; table prev/next pagination; truncation badge; 2026-06-12 |
@@ -324,7 +330,7 @@ No production incidents since the app moved to `pm.designflow.app`.
 | open | List / Timeline views | Table view exists; Timeline tab is a placeholder |
 | done | ClickUp space/folder/list hierarchy in the UI | 2026-06-16: backend (directus 45af984) backfilled space/folder/list + creator/time_estimate/orderindex; frontend added topbar List filter, group-by List/Folder, sidebar Spaces tree, card/modal breadcrumbs, time-estimate field, orderindex sort. See §11 quirks. Deployed (`e487955`); not driven on the live site (SSO gate) — see HANDOFF. |
 | done | Inline-editable product fields + image lightbox/cover | 2026-06-16: title/stage/licensor/due/product-type/lifecycle/next-action/waiting-on/risk editable in `TaskDetailModal` via optimistic `updateProduct`; images open in-modal lightbox; right-click sets `cover_url`. Topbar search icon now expands an inline search bar (was a DOM-focus hack). Internal `product.code` removed from all list/card titles (2026-06-18, 10 surfaces — see §11 quirk). |
-| done (frontend) | Saved Views sidebar (Space=department → Master + views) | 2026-06-17: replaced the literal ClickUp tree with saved views — shared+personal, per-user drag-reorder/recolor/hide, topbar "Save view", 15 seeded list-views. Frontend deployed (`0e4e61c`). **Backend scripts authored + already RUN against prod but NOT yet committed to the directus repo** (git perms) — see HANDOFF. Not live-verified (SSO gate). |
+| done (frontend) | Saved Views sidebar (Space=department → Master + views) | 2026-06-17: replaced the literal ClickUp tree with saved views — shared+personal, per-user drag-reorder/recolor/hide, topbar "Save view", 15 seeded list-views. Frontend deployed (`0e4e61c`). Backend scripts committed to the directus repo (`0133b64`). Not live-verified (SSO gate) — see HANDOFF. |
 | done | URL deep-linking (`?item=`) for the detail panel | `history.replaceState` + `URLSearchParams`; auto-opens on page load; 2026-06-12 |
 | done | Durable image storage for product covers | DigitalOcean Spaces originals + thumbs; future DAM can supersede this, but ClickUp CDN is no longer the source. |
 | partial | Durable storage for product-file attachments | Backend copied 20,234 / 20,281 imported `product_file` rows to Spaces on 2026-06-14. Remaining 47 ClickUp source URLs return 404 or 0 bytes even with token; recover those source bytes from old exports/NAS/user uploads if required. |

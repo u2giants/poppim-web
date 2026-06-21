@@ -1,5 +1,8 @@
 # Architecture Update and Implementation Plan
 
+> **Status (2026-06-21): historical roadmap — partially superseded. Do not bulk-load (~52KB).**
+> This phase-one→full-PM roadmap predates the now-completed business screens (`AGENTS.md` §15) and the planned shared-**Supabase** backend migration (`shared-db/AGENTS.md`), which changes the data-layer direction. Use for product/roadmap context; verify against current code and the Supabase plan before implementing.
+
 **Purpose.** This document defines the architecture update and implementation plan required to turn `poppim-web` from a phase-one ClickUp-board replacement into the project management system POP Creations actually needs.
 
 It is intentionally detailed. Future engineering sessions should be able to use this as a roadmap, product spec, architecture guide, and implementation checklist.

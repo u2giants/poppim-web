@@ -49,31 +49,17 @@ Risks / watchouts:
 - Existing evidence docs already noted `time_entries` were empty; activity may need a different endpoint or may be unavailable with the current token.
 - This is about logged time *entries* / activity log, which are still empty. It is NOT the per-task `clickup_time_estimate_ms` field (added 2026-06-16, populated for ~123 products) — that is a separate field and does not resolve this item.
 
-## Saved Views — directus scripts run in prod but NOT committed (ACTION NEEDED)
+## Saved Views — directus scripts committed (RESOLVED 2026-06-21)
 
 Status:
-partial (schema + seed applied to production; scripts not yet in the directus GitHub repo)
+done — the schema/seed scripts are now committed to the directus repo as `0133b64`
+("saved views: pm_saved_view fields + pm_view_pref + seed list views"). Prod schema/seed
+were already applied and the scripts are idempotent, so the commit just recorded them; the
+"prod schema the repo doesn't describe" drift is resolved.
 
-Done:
-- Authored and RAN against prod Directus (`data.designflow.app`) on 2026-06-17:
-  - `/worksp/directus/pm-system/add-saved-views-model.mjs` — added `visibility`,
-    `origin`, `color`, `sort_order` to `pm_saved_view`; created `pm_view_pref`
-    (user, view, sort_order, color, hidden) with CASCADE relations; mirrored
-    `pm_saved_view`'s 24 wildcard permissions onto `pm_view_pref`. Additive/idempotent.
-  - `/worksp/directus/pm-system/migration/seed-clickup-list-views.mjs` — seeded
-    15 shared `origin='clickup_list'` views (Licensed 8, Generic 5, Software 2),
-    all color `#8C9BB5`. DRY_RUN default / APPLY=1; idempotent by name+business_unit.
-- Verified: pm_view_pref exists; 15 seeded views; one distinct color per dept.
-- poppim-web frontend consuming all of the above is committed + deployed (`0e4e61c`).
-
-Next action (do this in the directus AI session — that repo's git is not writable by the poppim session's user):
-1. `cd /worksp/directus && git add pm-system/add-saved-views-model.mjs pm-system/migration/seed-clickup-list-views.mjs`
-2. Commit + push to `main` (keeps GitHub the source of truth; the prod schema/seed are already applied, so this just records them). Re-running either script is idempotent/no-op.
-3. Optional: update `pm-system/schema-snapshot.yaml` if that repo keeps one in sync.
-
-Risks / watchouts:
-- Until committed, production has schema the repo doesn't describe (drift) — violates the directus repo's "GitHub is source of truth" rule. Commit promptly.
-- `pm_view_pref` has NO composite-unique (user, view); the app does read-then-upsert. If you later want DB-level safety, add a unique index via a migration in the directus repo (the field API can't create composite uniques).
+Residual notes (not blockers):
+- `pm_view_pref` has NO composite-unique (user, view); the app does read-then-upsert. Add a
+  unique index via a directus migration if DB-level safety is wanted later.
 - View isolation is client-enforced (wildcard policies). See poppim-web AGENTS.md §11.
 
 ## Hierarchy + Editing Frontend (deployed, not live-verified)
