@@ -2,6 +2,9 @@
 
 **Read `AGENTS.md` first** — it's the canonical guide (architecture, identifiers, deployment, quirks, pending work). This file only adds Claude-specific notes; it does not duplicate AGENTS.md.
 
+## Shared database / cross-app
+Before any shared Supabase database, schema, migration, or cross-app change, read and follow `shared-db/AGENTS.md` (the cross-app coordination playbook): app code here is `main`-only (no branches); `shared-db` changes use branch+PR and the AI owns the merge.
+
 ## Ignore
 `.claudeignore` is honored by Claude Code. For other AI tools, paste `AGENTS.md` first and follow its "What to ignore" (§10). Don't load `node_modules/`, `dist/`, `.env`, or the leftover Vite-template assets (`src/assets/*`, `public/icons.svg`).
 
