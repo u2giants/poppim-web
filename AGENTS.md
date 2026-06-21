@@ -32,6 +32,7 @@ Then load additional docs only when relevant:
 | Change Docker, hosting, the deploy/preview flow, rollback | `AGENTS.md`, `docs/deployment.md`, `docs/configuration.md` | local-only dev docs |
 | Change CI/CD, the release pipeline, GitHub Actions, registry, deploy trigger | `AGENTS.md`, **`docs/cicd.md`**, `.github/workflows/deploy.yml` | local-only dev docs |
 | Change how data is read/written (collections, fields, the SDK) | `AGENTS.md`, `docs/architecture.md`, **the `directus` repo's `AGENTS.md`** (backend schema is there) | deployment docs |
+| Touch the shared Supabase database, schema/migrations, or any cross-app work | **`shared-db/AGENTS.md`** (read first — the cross-app coordination playbook: main-only here, branch+PR in `shared-db`, the four anti-collision rules, and the merge protocol) | app-screen-only docs |
 | Investigate a bug/incident | `AGENTS.md` §11 + §14, `HANDOFF.md` if present | unrelated docs |
 | Continue unfinished work | `AGENTS.md` §15, **`HANDOFF.md`** (required reading when present) | docs outside the handoff scope |
 | Claude Code session | `CLAUDE.md`, then `AGENTS.md` | other docs unless needed |
