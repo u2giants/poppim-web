@@ -1,79 +1,40 @@
-# Poppim Web Gaps
+# Poppim Web Gaps — Reconciled Current State (2026-06-21)
 
-> **Status (2026-06-21): historical analysis — partially superseded. Do not bulk-load (~1700 lines).**
-> Written against the Directus architecture when most business screens were still unbuilt. Many gaps it lists are now built (see `AGENTS.md` §15) and the backend is slated to migrate to shared Supabase (see `shared-db/AGENTS.md`). Use it for product-scope/vision context, **not** as a current to-do list — verify each item against the live app first.
+> **This is the reconciled, current-state version of the gap analysis.** It began as an aspirational gap analysis of the app vs. the business's needs. On **2026-06-21** every item was re-checked **line-by-line against the live codebase** and tagged `DONE` / `PARTIAL` / `OPEN` / `OBSOLETE` with file-path evidence. Treat this as the authoritative "what's built vs. what's still missing" reference.
+>
+> - For the original aspirational roadmap/spec, see `docs/architecture-update-implementation-plan.md` (kept for historical reference; that doc points back here for current status).
+> - Backend is migrating to a shared **Supabase** database — see `shared-db/AGENTS.md` and `AGENTS.md` §15.
+>
+> **Legend:** `DONE` = built & verified · `PARTIAL` = partially built · `OPEN` = not built · `OBSOLETE` = the premise no longer applies.
 
-**Purpose.** This document compares the current `poppim-web` application against what the company actually needs from the project management system, based on:
+**Scope of the original analysis.** Compared the `poppim-web` frontend against what the business actually needs (offers/projects, SKUs/style numbers, designs, design collections, licensor submissions, buyer selections, samples, POs/orders, revisions, compliance artifacts, factories, account rules, lifecycle states), drawing on the codebase and the Directus backend docs.
 
-- The current `poppim-web` codebase.
-- The frontend docs in this repo.
-- The Directus backend docs in `/worksp/directus`, especially `docs/business-process.md`, `docs/product-flow-evidence-pack.md`, `docs/pm-system-design.md`, and `docs/data-model.md`.
-- The ClickUp monitoring evidence and employee-interview synthesis captured in the Directus repo.
-
-**Bottom line.** The current app is a useful first slice: it authenticates against Directus, shows real product records, supports a product board/table, opens a detail modal, shows migrated ClickUp work evidence, and has a basic projects page. But it is still mostly a nicer ClickUp-style product board. It is not yet the tailored business operating system described in the business/process docs.
-
-The gap is not cosmetic. The core issue is that the real business does not run on generic tasks. It runs on offers/projects, SKUs/style numbers, designs, design collections, licensor submissions, buyer selections, samples, POs/orders, revisions, compliance artifacts, factories, account-specific rules, and lifecycle states. The frontend currently exposes only a small subset of that graph.
+**Headline (2026-06-21).** The app has moved decisively past the prototype the original doc critiqued: all mock data and the `MockTask` abstraction are gone, every production screen reads real Directus data through a domain-organized API layer, POP/Spruce are hard-separated, and first-class screens exist for projects, designs, collections, submissions, samples, revisions, orders, accounts, reports, control room, and My Work. Remaining work is mostly **architectural maturity** (router, modal decomposition, broader search/filter, server pagination, louder error handling) and the **automation/intelligence layer** (stage-history logging, SLA/stuck alerts, role-named cockpits, reuse/turnaround analytics), plus the looming Directus→Supabase migration.
 
 ---
 
 ## 1. Current Fit Summary
 
+The fit summary is mostly historical narrative. Reconciling the few falsifiable claims:
+
 ### 1.1 What the current app already does well
 
-The current application has several strong foundations:
-
-1. **Directus session authentication is correct.**
-   - The app uses the backend session-cookie model instead of local token storage.
-   - This is aligned with cross-subdomain SSO architecture for `pm.designflow.app` and `data.designflow.app`.
-
-2. **The main pipeline uses real Directus product data.**
-   - `src/features/pipeline/api.ts` queries `product`, `stage`, and `licensor`.
-   - Server-side search, licensor filtering, and product counts are implemented.
-   - Dragging a product updates `product.stage`.
-
-3. **The projects page uses real Directus project data.**
-   - `src/features/projects/api.ts` reads `project` and aggregates product counts.
-   - It can open a project and show linked products.
-
-4. **The detail modal preserves imported ClickUp evidence.**
-   - Comments, product updates, files, tags, imported fields, activity, links, and time entries can be displayed from Directus collections.
-   - This is important because the raw D1/ClickUp monitoring showed that context lived in comments, paths, files, and incremental edits, not only stage changes.
-
-5. **The UI shell is a plausible starting point.**
-   - Sidebar, topbar, board/table toggle, card images, modal, and detail tabs are all good raw material.
-
-6. **The app builds.**
-   - `npm run lint` currently has warnings but no errors.
-   - `npm run build` succeeds.
+Original: lists existing strengths (session auth, real pipeline/projects data, evidence-preserving modal, UI shell, builds).
+**Status (2026-06-21):** DONE
+**Evidence:** Session auth in `src/lib/directus.ts` (`authentication('session', …)`); real data in `src/features/pipeline/api.ts`, `src/features/projects/api.ts`; modal at `src/components/TaskDetailModal.tsx`. AGENTS.md §15 confirms build/deploy live at `pm.designflow.app`. Note: the lint "no errors" claim is stale — `npm run build` is the gate (`tsc -b && vite build`).
 
 ### 1.2 What the current app is primarily optimized for
 
-The app is currently optimized for:
-
-- Seeing products grouped by stage.
-- Searching products by name/code.
-- Filtering products by licensor.
-- Moving products between stages.
-- Opening a product and viewing imported ClickUp context.
-- Seeing a simple list of projects and their product counts.
-
-That is useful, but it is only a slice of the real workflow.
+Original: claims the app is optimized only for a thin "products by stage / search / drag" slice.
+**Status (2026-06-21):** OBSOLETE
+**Evidence:** Scope has expanded well beyond this slice — `src/features/` now has control-room, mywork, designs (library + collections), submissions, samples, revisions, orders, accounts, reports. The "only a slice" framing no longer holds.
 
 ### 1.3 What the real business needs instead
 
-The real business needs a system that answers:
-
-- What kind of object is this?
-- Is this an offer, product, design, collection, submission, sample, order, or reusable concept?
-- Which business line does it belong to, POP or Spruce?
-- Who owns the next decision?
-- What evidence is required before it moves?
-- What is blocked, waiting, parked, canceled, reusable, complete, or stale?
-- What can be reused for future buyers?
-- What requires licensor review, buyer review, factory action, pricing review, sample action, or production approval?
-- Which person should act now without Jessica or Jen manually pushing every status?
-
-The current app does not yet answer those questions reliably.
+Original: enumerates the questions the system must answer (object type, business line, owner, evidence, lifecycle, reuse).
+**Status (2026-06-21):** PARTIAL
+**Evidence:** Object types, hard POP/Spruce (Licensed/Generic) separation, lifecycle/next-action/waiting-on, and a reusable design library are now modeled (`src/domain/products/types.ts`, `src/domain/products/adapters.ts`, `src/features/designs/`).
+**Remaining:** "Required evidence to move" and role-driven "who acts now without a PM pushing" are not enforced — no stage gates, no SLA/staleness alerts.
 
 ---
 
@@ -81,1259 +42,239 @@ The current app does not yet answer those questions reliably.
 
 ## 2.1 The app still flattens business objects into "tasks"
 
-### Current state
-
-The real product rows from Directus are converted into `MockTask` in `src/features/pipeline/adapter.ts`.
-
-That adapter:
-
-- Converts `product.name` into a task title.
-- Converts `product.stage` into a task stage.
-- Converts `product.licensor` into a display badge.
-- Infers category from the product title.
-- Sets `checklist`, `comments`, `attach`, and `assignees` to empty/zero values.
-- Uses ClickUp dates for due display.
-
-### Why this is wrong for the business
-
-The ClickUp evidence showed that the old structural problem was exactly this flattening: ClickUp made everything look like a task. The replacement should not repeat that at the application layer.
-
-The business has distinct objects:
-
-- Project / offer.
-- Product / SKU / style number.
-- Design.
-- Design collection.
-- Licensor submission.
-- Buyer selection.
-- Sample.
-- Factory/pricing request.
-- Order / PO.
-- Stage history.
-- Revision / note.
-- File / asset.
-
-When everything is converted into `MockTask`, the UI loses the natural shape of the business and makes future features harder to implement.
-
-### Consequences
-
-- Users cannot tell whether they are looking at a product, design, project, submission, order, or reusable concept.
-- POP and Spruce become too similar in the interface.
-- Lifecycle states get hidden behind board columns.
-- Role-specific queues have no native model.
-- The app risks becoming "ClickUp, but prettier."
-
-### Required direction
-
-Create real frontend domain models:
-
-- `PipelineProductCardModel`
-- `ProjectSummaryModel`
-- `DesignSummaryModel`
-- `DesignCollectionSummaryModel`
-- `SubmissionQueueItem`
-- `SampleQueueItem`
-- `OrderSummaryModel`
-- `MyWorkItem`
-- `ReviewQueueItem`
-- `ExceptionQueueItem`
-
-Do not keep using `MockTask` as the core bridge from Directus to UI.
-
----
+Original gap: real Directus rows were flattened into a generic `MockTask` via `pipeline/adapter.ts`, losing business-object shape.
+**Status (2026-06-21):** DONE
+**Evidence:** `MockTask` and `src/features/pipeline/adapter.ts` are gone (grep for `MockTask` across `src/` returns nothing). The board/detail view model is now `ProductSummary` in `src/domain/products/types.ts`, adapted from raw Directus in `src/domain/products/adapters.ts`. Distinct object models exist across feature areas. AGENTS.md §11 documents the removal.
 
 ## 2.2 POP and Spruce are not separated enough
 
-### Current state
-
-`fetchPipelineProducts()` filters only for `stage _nnull`. It does not require or expose a business-unit split in the pipeline query.
-
-The board shows one stage-driven product pipeline. It can include any product with a stage.
-
-### Why this is wrong for the business
-
-POP and Spruce are not the same workflow.
-
-POP:
-
-- Licensed product line.
-- Heavy licensor approval flow.
-- 17 major stages.
-- Requires internal review, licensing sheet review, licensor concept approval, sample/PPS approval, Brand Assurance, PI status, compliance artifacts, and production approval.
-
-Spruce:
-
-- Generic/original line.
-- Buyer/account driven.
-- No licensor.
-- Works through design collections, buyer selections, pricing, samples where account-specific, factory timing, and order execution.
-- High-res art may not exist until a buyer asks.
-- Some accounts do not require samples; others do.
-
-The current app treats a product with a stage as a generic pipeline object, which hides the most important distinction in the business.
-
-### Consequences
-
-- Users may see Spruce and POP work in the same mental model.
-- Licensor fields appear irrelevant or confusing for Spruce.
-- Spruce account-specific exceptions are not represented.
-- POP compliance gates are not enforced.
-- Reporting by line becomes unreliable.
-
-### Required direction
-
-Add first-class business-unit separation:
-
-- Global line switch: `POP`, `Spruce`, `All`.
-- Pipeline presets per business unit.
-- Different stage groups per business unit.
-- Different detail sections per business unit.
-- Different role dashboards per business unit.
-- Different creation flows per business unit.
-
-At minimum:
-
-- POP Product Pipeline.
-- POP Review/Submission Queues.
-- Spruce Account Projects.
-- Spruce Design Collections.
-- Spruce Pricing/Sample Tracker.
-
----
+Original gap: pipeline only filtered `stage _nnull` with no business-unit split; one mixed board.
+**Status (2026-06-21):** DONE
+**Evidence:** `BusinessUnit = 'Licensed' | 'Generic' | 'Software'` in `src/domain/products/types.ts`; hard-separated departments (no `All`) enforced via alias logic in `src/domain/products/adapters.ts` and each feature `api.ts`. Topbar tabs switch department and clear list filters (`src/components/Topbar.tsx`). AGENTS.md §11 ("Departments are hard-separated").
 
 ## 2.3 The design library is absent from the frontend
 
-### Current state
-
-The backend data model defines `design` as a first-class collection. The frontend does not expose it in navigation, types, data fetching, cards, detail views, or workflows.
-
-### Why this is a major business gap
-
-One of the clearest business needs from the evidence pack is that creative work gets lost:
-
-- Preliminary POP designs shown to buyers but not picked.
-- Approved POP concepts that never receive a PO or sample request.
-- Spruce trend art and general presentation inventory.
-- Designs that could be re-offered to future buyers.
-
-ClickUp hid this work inside tasks/projects. The new PM system must rescue it.
-
-### Consequences
-
-- The system cannot become a reusable creative inventory.
-- Adam cannot find concepts to re-offer.
-- Jessica cannot see approved-but-dormant concepts.
-- Jen cannot manage general Spruce presentations as inventory.
-- Designers cannot see what already exists before creating similar work.
-
-### Required direction
-
-Add a real Design Library area:
-
-- Search by licensor, property, retailer, buyer, season, product type, theme, style guide, product format, status, and source project.
-- Statuses such as `unpicked`, `picked`, `approved`, `reusable`, `offered_to_multiple`, `retired`, and `blocked`.
-- Visual card and table views.
-- Design detail page with source project, files, NAS paths, thumbnails, notes, offered-to history, picked-by history, related products, and restrictions.
-- Convert design to SKU/product.
-- Re-offer design to another project/account.
-- Flag licensing or buyer restrictions before reuse.
-
----
+Original gap: `design` collection existed in backend but had no frontend nav/types/views/workflows.
+**Status (2026-06-21):** PARTIAL
+**Evidence:** `src/features/designs/DesignLibraryPage.tsx` + `api.ts`; sidebar "Design library" (`src/components/Sidebar.tsx`); status badges, grouping by status, `first_offered_to` shown, card view, search/views integration.
+**Remaining:** No write actions — no "convert design to SKU/product," no "re-offer to another project/account," no restriction-flag flow; likely no full detail page with offered-to/picked-by history.
 
 ## 2.4 Design collections are absent from the frontend
 
-### Current state
-
-The backend data model includes `design_collection` for Spruce. The frontend does not expose it.
-
-### Why this matters
-
-Spruce often starts from account-agnostic trend/theme collections, not products. Examples from the business process include general themes such as Gaming, Farmhouse, Cowgirl Country, Soft Religion, Wall Art, Floor Coverings, Storage, Seasonal, and Garden.
-
-Those collections may contain many presentation-level designs. They are not committed products until a buyer selection or sample/order path makes them so.
-
-### Consequences
-
-- Spruce gets forced into a product/SKU model too early.
-- Jen cannot manage the true upstream creative process.
-- Adam lacks self-service access to general presentations.
-- Account-specific exceptions, such as Hobby Lobby/sample-required or storage/account-specific work, are not visible.
-
-### Required direction
-
-Add Spruce Design Collections:
-
-- Collection list by theme, format, date, account-specific flag, and status.
-- Collection detail with designs, presentations, selected accounts, buyer feedback, and conversion history.
-- General presentation view for Adam.
-- Account-specific branch view.
-- Ability to convert selected designs into account projects and style-numbered products.
-
----
+Original gap: `design_collection` (Spruce) existed in backend but not exposed.
+**Status (2026-06-21):** PARTIAL
+**Evidence:** `src/features/designs/DesignCollectionsPage.tsx` + sidebar "Design collections" entry read `design_collection` from Directus.
+**Remaining:** Conversion of selected designs into account projects / style-numbered products and account-specific branch/general-presentation views not confirmed (read-only listing observed); verify whether buyer-feedback and conversion-history are surfaced.
 
 ## 2.5 Lifecycle state is missing or under-modeled in the frontend
 
-### Current state
-
-The pipeline filters for products with a stage and displays stage as the main status. Project status only has `active` and `won` styling in the current frontend.
-
-### Why this is wrong
-
-The evidence showed that many "open" or "approved" ClickUp records are not actually active work. They may be:
-
-- Active.
-- Waiting.
-- Stuck.
-- Parked.
-- Reusable.
-- Canceled.
-- Abandoned.
-- Complete.
-- Waiting on buyer.
-- Waiting on licensor.
-- Waiting on factory.
-- Waiting on internal review.
-
-Stage and lifecycle are not the same thing.
-
-### Consequences
-
-- Old or parked work pollutes active boards.
-- Approved-but-unsold concepts look the same as active concepts.
-- Cancelled/abandoned work cannot be learned from.
-- Jessica and Jen cannot see what needs cleanup.
-- Adam cannot find reusable inventory confidently.
-
-### Required direction
-
-Expose lifecycle state everywhere:
-
-- Add filters and badges for lifecycle.
-- Separate active workflow boards from inventory/reuse boards.
-- Add cancellation and closure flows with reason codes.
-- Add parked/review-later queues.
-- Add dormant alerts for concept-approved products with no order/sample movement.
-
----
+Original gap: only stage was shown as status; no lifecycle states.
+**Status (2026-06-21):** PARTIAL
+**Evidence:** `lifecycleState`, `closureReason` on `ProductSummary` (`src/domain/products/types.ts`); lifecycle rendered on cards (`src/components/PimTaskCard.tsx`) and editable in `src/components/TaskDetailModal.tsx`; closure-reason aggregation in `src/features/reports/api.ts`.
+**Remaining:** No first-class lifecycle filters/badges, no active-vs-inventory boards, no cancellation/closure flow with reason-code capture, no parked/review-later queues, no dormant-concept alerts.
 
 ## 2.6 The app lacks role-specific operating views
 
-### Current state
-
-The navigation has a generic pipeline, projects, schedule, notes, people, my work, and settings. Most role-specific needs are not represented.
-
-### Required role views
-
-#### Jessica: POP PM control room
-
-Missing:
-
-- Due-soon and risk-ranked products/projects.
-- Stuck SKUs by stage age.
-- Licensing sheets waiting for Liz.
-- Art files not delivered by creative.
-- Tech packs ready but missing factory confirmation.
-- Concepts approved but not tied to PO/sample.
-- Designer workload/capacity.
-- Batch stage movement.
-- Batch assignment.
-- Exception management.
-- Products needing cancellation/parking/reuse decisions.
-
-#### Liz: creative director review queue
-
-Missing:
-
-- Licensing sheet review queue.
-- Package completeness display.
-- Pantone/spec/manufacturing detail visibility.
-- Markup attachment flow.
-- Approve/reject/request-changes action.
-- Routing to licensing.
-- Wholesale sublicensor separation.
-- Revision history by product/licensor/designer.
-
-#### Jen: Spruce control room
-
-Missing:
-
-- General design collection cockpit.
-- Account project queue.
-- Buyer feedback tracker.
-- Pricing tracker.
-- Sample tracker.
-- Factory waiting tracker.
-- Quarterly stale buyer review.
-- Account-specific rules display.
-
-#### Adam: sales cockpit
-
-Missing:
-
-- Buyer/retailer account view across POP and Spruce.
-- Current status, next action, blocker, and owner.
-- Buyer-facing mockups, selection PDFs, and reusable concepts.
-- Ability to record buyer selections/passes/changes.
-- Trigger for buyer commitment that creates SKU/style number.
-
-#### Creative designers
-
-Missing:
-
-- Real assigned work view.
-- Brief context.
-- Manufacturing constraints.
-- Files/NAS paths.
-- Revision requests.
-- Completion checklists for their step.
-
-#### Technical designers
-
-Missing:
-
-- Licensing sheet creation queue.
-- Costing sheet/tech pack queue.
-- Packaging queue.
-- Factory file handoff.
-- Product integrity/PI visibility.
-- Sample photo review.
-
-#### Sourcing / Albert / China team
-
-Missing:
-
-- Factory matching queue.
-- Pricing/costing queue.
-- Factory response tracking.
-- Sample timing tracking.
-- Constraint feedback to designers.
-
-#### Licensing team
-
-Missing:
-
-- Ready-to-submit queue.
-- Submission record creation.
-- Brand Assurance number/PDF capture.
-- Licensor response tracking.
-- PPS/sample submission tracking.
-- Rejection/revision routing.
-
-#### Production managers
-
-Missing:
-
-- Production approval queue.
-- Compliance paperwork tracker.
-- Import/shipping artifact status.
-- Brand Assurance/trademark form reuse.
-
----
+Original gap: only generic nav; most role needs unrepresented.
+**Status (2026-06-21):** PARTIAL
+**Evidence:** Role-oriented screens exist: Control room (`src/features/control-room/ControlRoomPage.tsx`), My work (`src/features/mywork/MyWorkPage.tsx`), Submissions, Samples, Reviews/revisions, Orders, Accounts, Reports.
+**Remaining:** These are general dashboards, not per-persona cockpits (Jessica/Liz/Jen/Adam, designers, sourcing, licensing, production). No login-role gating of views.
 
 ## 2.7 The main pipeline does not show true next action or owner
 
-### Current state
-
-The board groups products by stage. The card does not show next owner, next action, blocker, or elapsed time in stage.
-
-### Why this matters
-
-The business problem is not only "what stage is this in?" It is "who needs to do what next?"
-
-ClickUp required Jessica and Jen to chase people because status did not translate cleanly to next action.
-
-### Consequences
-
-- Stage names remain ambiguous.
-- Users still ask Jessica/Jen for status.
-- Work can sit in a stage with no clear accountable owner.
-- Board movement remains PM-driven instead of role-driven.
-
-### Required direction
-
-Every product/project/work item should expose:
-
-- Current stage.
-- Lifecycle state.
-- Next action.
-- Next owner.
-- Waiting on.
-- Last meaningful update.
-- Days in stage.
-- SLA/risk status.
-- Required evidence to move.
-- Blocker reason.
-
----
+Original gap: cards showed only stage — no next owner/action/blocker/time-in-stage.
+**Status (2026-06-21):** PARTIAL
+**Evidence:** `PimTaskCard.tsx` renders `lifecycleState · nextAction · Waiting on {waitingOn}` and assignee avatars. `ProductSummary` carries `nextAction`, `waitingOn`, `blockerReason`, `riskLevel`.
+**Remaining:** Cards do NOT show days-in-stage/elapsed time, blocker reason, last-meaningful-update, or SLA/risk badge. "Required evidence to move" not shown.
 
 ## 2.8 Stage movement has no business gates
 
-### Current state
-
-Dragging a card updates `product.stage` directly.
-
-### Why this matters
-
-POP stage movement should sometimes require evidence:
-
-- Art files completed.
-- Licensing sheet attached.
-- Liz review approved.
-- Licensing submission ready.
-- Brand Assurance number present.
-- PI status addressed.
-- Buyer pick confirmed.
-- PO received.
-- Sample requested.
-- Sample/PPS photos attached.
-- Licensor PPS approval.
-- Production compliance artifacts present.
-
-Spruce stage movement may require:
-
-- Buyer selection captured.
-- Pricing request sent.
-- Pricing returned.
-- Adam approved costing.
-- Sample requested if account requires it.
-- Factory deadline recorded.
-- Art sent for PO.
-- Order number captured.
-
-### Consequences
-
-- Users can move work into a false stage.
-- Stage history becomes less trustworthy.
-- PMs still need to audit manually.
-- The system cannot power reliable alerts.
-
-### Required direction
-
-Add move guards:
-
-- Soft warnings for missing evidence.
-- Hard gates for critical compliance moves.
-- Stage transition dialog with required fields.
-- Role-aware move actions.
-- Move reason and comment capture.
-- Batch move with validation summary.
-
----
+Original gap: drag updates `product.stage` directly with no evidence checks.
+**Status (2026-06-21):** OPEN
+**Evidence:** `src/features/pipeline/PipelinePage.tsx` `onDragEnd` → optimistic write, reverting on error. No transition dialog, required-field check, soft warning/hard gate, or move-reason capture.
+**Remaining:** Entire move-guard system — soft warnings, hard compliance gates, transition dialog with required fields, role-aware moves, reason capture, batch validation.
 
 ## 2.9 Stage history/SLA is not surfaced
 
-### Current state
-
-The backend data model includes `stage_history`, and the backend Flow is intended to write stage changes. The frontend does not show time-in-stage, stage history, SLA status, or projected completion.
-
-### Why this matters
-
-The monitoring work was partly intended to understand flow and cycle time. The new system should use that learning. Users need to know not just where an item is, but whether it is aging normally.
-
-### Consequences
-
-- No stuck-work visibility.
-- No objective risk signal.
-- No improvement loop.
-- No basis for proactive seasonal planning.
-
-### Required direction
-
-Add:
-
-- Days in current stage.
-- Stage history timeline.
-- SLA target by stage/product type/licensor/account.
-- On-track / at-risk / overdue status.
-- Projected completion.
-- Bottleneck dashboard.
-- Stage aging filters.
-
----
+Original gap: `stage_history` exists in backend but frontend shows no time-in-stage, history timeline, SLA, or projected completion.
+**Status (2026-06-21):** PARTIAL
+**Evidence:** `stage_history` is read in `src/features/reports/api.ts` and surfaced as "recent handoffs" (last 30, per business unit); `StageHistory` type in `src/lib/types.ts`.
+**Remaining:** No days-in-current-stage, no per-item stage-history timeline in `TaskDetailModal.tsx`, no SLA targets / on-track-at-risk-overdue status, no projected completion, no bottleneck dashboard, no stage-aging filters.
 
 ## 2.10 Product detail omits many business-critical fields
 
-### Current state
-
-The product modal shows:
-
-- Stage/status.
-- Licensor.
-- Due.
-- Inferred category.
-- Assignees.
-- Checklist.
-- Description.
-- Tags.
-- ClickUp metadata.
-- Files/fields/activity/updates.
-
-### Missing for POP
-
-- SKU code as a primary identifier.
-- Project/offer link.
-- Retailer and buyer.
-- Season.
-- Licensor property.
-- Product type.
-- Business unit.
-- Factory.
-- Packaging/put-up.
-- On-shelf date and PPS-requested date as distinct fields.
-- Brand Assurance number and PDF.
-- PI required/not required/completed/pending details.
-- Licensing sheet file.
-- Packaging file.
-- Licensor concept submission.
-- Licensor PPS/sample submission.
-- Licensor response history.
-- Sample requested/received/sent status.
-- PO/order history.
-- Closure/reuse state.
-- Manufacturing constraints visible to designers.
-- Pricing fields visible only to allowed roles.
-
-### Missing for Spruce
-
-- Account project.
-- Buyer/account rules.
-- Design collection.
-- Style number.
-- General presentation link.
-- Selection PDF.
-- Pricing request status.
-- Adam costing approval.
-- Sample requirement by buyer.
-- Factory deadline.
-- Art sent for PO.
-- Order number.
-- High-res art readiness.
-
-### Required direction
-
-Redesign the detail view as a business object workspace rather than a generic task modal.
-
-Recommended sections:
-
-- Identity.
-- Current status and next action.
-- Project/account context.
-- Design/source context.
-- Approval/submission status.
-- Files/assets.
-- Factory/pricing/sample/order.
-- Revision and comments.
-- Stage history and activity.
-- Related/reusable items.
-- Admin/migration metadata collapsed by default.
-
----
+Original gap: the product modal was a generic task modal missing SKU, project/offer link, retailer/buyer, season, property, product type, factory, BA/PI, samples, orders, pricing, etc.
+**Status (2026-06-21):** PARTIAL
+**Evidence:** `src/components/TaskDetailModal.tsx` renders/edits licensor, product type, retailer, buyer, PPS-requested date, lifecycle, next action, waiting-on, risk, plus `Factory` and `Brand Assurance / PI` fields, a department-aware header, and create-submission/sample/revision actions. Reference data fetched live.
+**Remaining:** No first-class SKU/style-number field, project/offer link, season, packaging/put-up, BA PDF/licensing-sheet/packaging files, submission/response history, sample status, PO/order history, closure/reuse state, or role-gated pricing. Still a task-shaped panel.
 
 ## 2.11 Projects page is real but not operationally rich
 
-### Current state
-
-Projects page shows:
-
-- Project title.
-- Status.
-- Business unit.
-- Retailer.
-- Shelf date.
-- SKU count.
-- Brief and restrictions in modal.
-- Linked products.
-
-### Missing
-
-- Buyer.
-- Season.
-- Licensors/properties.
-- Product types requested.
-- PPS requested date.
-- Project owner.
-- Next action.
-- Risk status.
-- Lifecycle state beyond active/won.
-- Selection PDF.
-- Spruce design collection.
-- Account-specific rules.
-- Buyer feedback.
-- Files and notes.
-- Project-level timeline.
-- Batch actions for child products.
-- Roll-up by child stage.
-- Roll-up by child blockers.
-- Project comments.
-- Opportunity/order context from CRM.
-
-### Required direction
-
-Projects should become the main container for offers/account projects:
-
-- Project list with filters by business unit, retailer, buyer, season, status, lifecycle, owner, risk, stage mix.
-- Project detail with product roll-up, files, brief, restrictions, notes, selections, next action, and child product operations.
-- Project board/table/report views.
-
----
+Original gap: Projects showed only basic fields; missing buyer, season, owner, next action, risk, roll-ups, batch actions, notes.
+**Status (2026-06-21):** PARTIAL
+**Evidence:** `src/features/projects/ProjectsPage.tsx` + `api.ts` add Buyer and PPS columns, a Design Collection field, brief/restrictions in the modal, and linked products carrying stage/licensor/property/product_type/factory.
+**Remaining:** Still missing season, licensor/property roll-up, owner, next action, risk, lifecycle, selection PDF, account rules, buyer feedback, project files/notes/comments, timeline, child-stage roll-ups, batch actions, CRM/order context, and project board/report views.
 
 ## 2.12 My Work is mock data
 
-### Current state
-
-`MyWorkPage` hardcodes a current user and filters mock tasks.
-
-### Why this is dangerous
-
-This page looks like a real operating surface, but it does not reflect the signed-in user or real assignments.
-
-### Consequences
-
-- Users cannot trust it.
-- It may create false confidence during demos.
-- It hides one of the most important future workflows: each person updating their own step.
-
-### Required direction
-
-Replace with real data:
-
-- Read current user via auth context.
-- Fetch direct product assignments.
-- Fetch subtasks assigned to user.
-- Fetch stage-owner queues relevant to user role.
-- Fetch review queues for creative director/licensing/sourcing roles.
-- Show grouped work by due date, risk, next action, and object type.
-
----
+Original gap: `MyWorkPage` hardcoded a current user and filtered mock tasks.
+**Status (2026-06-21):** DONE
+**Evidence:** `src/features/mywork/MyWorkPage.tsx` reads the signed-in user via `useAuth()` and calls `fetchMyWorkProducts`/`fetchMyRevisionWork`. `src/features/mywork/api.ts` queries `product_assignee`, lifecycle-owned products, and assigned revisions — no mock data (`src/lib/mockData.ts` deleted).
 
 ## 2.13 Schedule is mock data
 
-### Current state
-
-`SchedulePage` uses static week days and static mock task lists.
-
-### Why this matters
-
-The business needs seasonal planning, shelf dates, PPS dates, sample deadlines, factory deadlines, buyer meetings, follow-ups, and quarterly stale-buyer review. A fake weekly schedule does not serve that.
-
-### Required direction
-
-Either remove Schedule from production navigation until real, or implement it using:
-
-- Project `on_shelf_date`.
-- Product `pps_requested_date`.
-- Product `clickup_due_at` only as imported legacy metadata.
-- Sample due dates.
-- Factory deadlines.
-- Buyer follow-up dates.
-- Licensor expected response dates.
-- Order/PO dates.
-- Stage SLA due dates.
-
----
+Original gap: `SchedulePage` used static week days and mock task lists.
+**Status (2026-06-21):** PARTIAL (mock removed; real implementation not built)
+**Evidence:** `src/features/schedule/SchedulePage.tsx` is a placeholder stating the mock calendar was removed and a real schedule will use shelf/PPS/sample/factory/follow-up/SLA dates.
+**Remaining:** No real schedule yet — empty placeholder, not wired to any date sources.
 
 ## 2.14 Notes is mock data and should not become another silo
 
-### Current state
-
-`NotesPage` displays static mock notes.
-
-### Why this matters
-
-The business already suffered from scattered context in Teams, Illustrator markups, NAS paths, emails, and comments. A generic notes area could become another silo if it is not attached to business objects.
-
-### Required direction
-
-Do not build generic notes first. Build object-attached notes/revisions:
-
-- Product revision notes.
-- Project notes.
-- Design notes.
-- Buyer feedback notes.
-- Licensor rejection notes.
-- Factory constraint notes.
-- Meeting notes from CRM linked to retailers/buyers/projects.
-
-If a global notes page remains, it should be an index over object-linked notes, not a separate notebook.
-
----
+Original gap: `NotesPage` displayed static mock notes.
+**Status (2026-06-21):** PARTIAL (mock removed; object-attached notes not built)
+**Evidence:** `src/features/notes/NotesPage.tsx` is a placeholder explaining notes will become object-attached records.
+**Remaining:** No object-attached notes implemented; page is informational only.
 
 ## 2.15 People page is mock data
 
-### Current state
-
-`PeoplePage` displays fake people from `mockData`.
-
-### Required direction
-
-Either hide it or make it real:
-
-- Read active Directus users.
-- Show role, team, workload, active work, stuck work.
-- Link to assignments.
-- Respect roles/permissions.
-
----
+Original gap: `PeoplePage` displayed fake people from `mockData`.
+**Status (2026-06-21):** PARTIAL (mock removed; real version not built)
+**Evidence:** `src/features/people/PeoplePage.tsx` is a placeholder noting mock cards were removed and the real view will use Directus users/roles/assignments.
+**Remaining:** Not wired to real Directus users/roles/workload; still a placeholder.
 
 ## 2.16 Settings page is local-only and misleading
 
-### Current state
-
-Settings uses mock licensors/customers and stores uploaded logos only in React state. It implies records can be managed, but changes do not persist.
-
-### Required direction
-
-Either hide it or wire it to real Directus records:
-
-- `retailer`.
-- `buyer`.
-- `licensor`.
-- `property`.
-- `factory`.
-- `product_type`.
-- `season`.
-- `stage`.
-- Role/configuration tables.
-
-For licensor/customer logos, use real fields and file/asset storage, not local data URLs.
-
----
+Original gap: Settings used mock licensors/customers and stored logos only in React state.
+**Status (2026-06-21):** DONE (repurposed) / OBSOLETE as described
+**Evidence:** `src/features/settings/SettingsPage.tsx` + `api.ts` no longer touch mock master data or logo data-URLs; the page now manages real Directus `pm_saved_view` records.
+**Remaining:** It is now a saved-views screen, not a master-data admin. Full reference-data management (retailer/buyer/licensor/property/factory/product_type/season/stage) is net-new scope if still wanted.
 
 ## 2.17 The Add New button is nonfunctional and underspecified
 
-### Current state
-
-Topbar has an `Add new` button with no behavior.
-
-### Why this matters
-
-Creation is not simple in this business. "Add new" might mean:
-
-- New POP project/offer.
-- New POP SKU from buyer pick.
-- New POP design concept.
-- New Spruce design collection.
-- New Spruce account project.
-- New Spruce style-numbered product.
-- New licensor submission.
-- New sample request.
-- New order.
-- New buyer feedback note.
-- New factory/pricing request.
-
-### Required direction
-
-Replace generic Add New with a creation launcher:
-
-- Choose object type.
-- Ask business-unit-specific questions.
-- Use templates.
-- Validate required relations.
-- Create child objects only when the business event justifies them.
-
----
+Original gap: Topbar had a no-op `Add new` button.
+**Status (2026-06-21):** DONE (removed)
+**Evidence:** No "Add new"/plus creation button exists in `src/components/Topbar.tsx` or anywhere under `src/`. The richer object-type creation launcher proposed in the gap was not built, but the dangerous no-op button is gone.
 
 ## 2.18 Licensor filter uses static mock list
 
-### Current state
-
-The filter uses `LICENSORS` from `mockData`, and maps display names back to raw names via a hardcoded object.
-
-### Why this matters
-
-Licensors are real backend records. The frontend should not hardcode operational master data.
-
-### Consequences
-
-- New licensors require code changes.
-- Name variants can break filters.
-- Licensor metadata such as turnaround time, PI requirement, and resale restrictions is not used.
-
-### Required direction
-
-Fetch licensors from Directus:
-
-- `id`.
-- `name`.
-- `turnaround_days_min`.
-- `turnaround_days_max`.
-- `requires_pi`.
-- `prohibits_resale`.
-- logo/color metadata if desired.
-
-Use licensor IDs for filters, not display names.
-
----
+Original gap: filter used `LICENSORS` from `mockData` mapped via a hardcoded object.
+**Status (2026-06-21):** DONE
+**Evidence:** `src/domain/reference/api.ts` `fetchLicensors()` reads the Directus `licensor` collection (with turnaround/PI/resale metadata). `src/features/pipeline/api.ts` filters server-side by licensor **id** (`licensor: { id: { _in: licensorIds } }`). No `LICENSORS`/`mockData` references remain.
 
 ## 2.19 Category is inferred from product title
 
-### Current state
-
-`inferCategory()` uses regexes against the title and defaults to `storage`.
-
-### Why this is wrong
-
-Product type/category is a business field. It drives:
-
-- SLA expectations.
-- Designer workload.
-- Manufacturing constraints.
-- Factory capabilities.
-- Pricing/sample timing.
-- Seasonal planning.
-
-Title regexes are not a business source of truth.
-
-### Required direction
-
-Use `product.product_type` or a dedicated category/product-type relation. Show unknown/missing category explicitly rather than guessing.
-
----
+Original gap: `inferCategory()` guesses category from title regexes instead of a real product-type field.
+**Status (2026-06-21):** PARTIAL
+**Evidence:** `src/domain/products/adapters.ts` still runs `CATEGORY_KEYWORDS` regexes, but now seeds them from `product_type` first and returns `'unknown'` when nothing matches. The real `productTypeName` is carried through and shown in cards/modal.
+**Remaining:** `category` is still keyword-inferred rather than driven purely off the `product_type`/category relation; prefer `productTypeName` as source of truth and drop regex inference.
 
 ## 2.20 Assignees are not shown on cards/table
 
-### Current state
-
-The adapter sets `assignees: []`. Card avatars come from mock people only if IDs are present, which real products do not get through the adapter. Assignees are fetched only inside the modal.
-
-### Why this matters
-
-Assignment is core to reducing Jessica/Jen manual chasing.
-
-### Required direction
-
-Fetch assignment summaries with products:
-
-- Assigned users.
-- Role owner.
-- Next owner.
-- Subtask owners.
-- Review owner.
-
-Show them on cards, table, My Work, role queues, and filters.
-
----
+Original gap: adapter set `assignees: []`; avatars came from mock people.
+**Status (2026-06-21):** DONE
+**Evidence:** `src/domain/products/rollups.ts` (`hydrateProductSummaryRollups`) batch-fetches `product_assignee` and maps real Directus users onto each `ProductSummary`; called by `src/features/pipeline/PipelinePage.tsx`. Cards render avatars (`src/components/PimTaskCard.tsx`); table shows assignee names.
 
 ## 2.21 Checklist/comment/file counts are zeroed on cards
 
-### Current state
-
-`productToTask()` sets checklist/comment/file indicators to zero.
-
-### Why this matters
-
-The evidence showed context lives in comments/files/checklists. Cards should surface whether a product has:
-
-- Open checklist items.
-- Unresolved comments/revision notes.
-- Files missing or present.
-- Licensor submission documents.
-- Sample photos.
-
-### Required direction
-
-Add aggregate counts:
-
-- Checklist total/done.
-- Comment count.
-- File count.
-- Open revision count.
-- Missing required artifacts count.
-
-Use Directus aggregate queries or precomputed summary fields.
-
----
+Original gap: adapter set checklist/comment/file indicators to 0.
+**Status (2026-06-21):** DONE
+**Evidence:** `src/domain/products/rollups.ts` overwrites the zero defaults with real aggregates: `checklist_item` (total + done), `product_file` count, and `readComments` on `collection=product`. Cards render the counts (`src/components/PimTaskCard.tsx`).
+**Remaining:** Open-revision count and "missing required artifacts" count are not surfaced (see 2.29/2.30).
 
 ## 2.22 Imported ClickUp metadata is too visible
 
-### Current state
-
-The modal displays "ClickUp list", "Created in ClickUp", "Updated in ClickUp", "ClickUp due", and an "Open original ClickUp task" link.
-
-### Why this is partly wrong
-
-During migration, traceability is valuable. Long-term, the app should not make ClickUp the conceptual center of the new workflow.
-
-### Required direction
-
-Keep ClickUp metadata, but move it into a collapsed "Legacy source" section:
-
-- External source.
-- External ID.
-- Original URL.
-- Imported dates.
-- Raw fields.
-
-The main surface should use POP/Spruce business language.
-
----
+Original gap: modal prominently showed ClickUp list/dates/original-task link.
+**Status (2026-06-21):** DONE
+**Evidence:** `src/components/TaskDetailModal.tsx` wraps ClickUp fields in a collapsed `<details>` "Legacy source" section; main surface uses business language. Internal `product.code` removed from labels (AGENTS.md §11).
 
 ## 2.23 Notifications are fake
 
-### Current state
-
-Topbar shows a hardcoded notification count of `12`.
-
-### Required direction
-
-Either hide notifications or wire them to:
-
-- Stage handoffs.
-- Mentions/comments.
-- Review requests.
-- Stuck/SLA alerts.
-- Licensor response reminders.
-- Buyer/factory follow-up reminders.
-- Missing evidence alerts.
-
----
+Original gap: topbar showed a hardcoded notification count of `12`.
+**Status (2026-06-21):** DONE (removed, not wired)
+**Evidence:** `src/components/Topbar.tsx` no longer renders any notification icon/badge or hardcoded `12`.
+**Remaining:** No real notification system (stage handoffs, mentions, review requests, SLA/licensor reminders) — the fake is gone but the real one is unimplemented.
 
 ## 2.24 Sidebar collections are fake and potentially misleading
 
-### Current state
-
-Sidebar collections include hardcoded items such as "Disney · Encanto", "Marvel · Q4", and "Nick · Bluey"; only "Product Pipeline" is clickable.
-
-### Required direction
-
-Replace with real navigation:
-
-- POP.
-- Spruce.
-- My Work.
-- Projects/Offers.
-- Products/SKUs.
-- Design Library.
-- Spruce Collections.
-- Reviews.
-- Submissions.
-- Samples.
-- Orders.
-- Accounts.
-- Reports.
-- Admin/Settings.
-
-If there are saved views, fetch/save them as real user/team presets.
-
----
+Original gap: sidebar had hardcoded brand items; only one clickable.
+**Status (2026-06-21):** DONE
+**Evidence:** `src/components/Sidebar.tsx` renders real workflow nav and a Spaces section loading real saved views via `fetchViews`/`fetchViewPrefs`, grouped by department with a Master "All" view. No hardcoded brand items remain.
 
 ## 2.25 The app lacks buyer/account context
 
-### Current state
-
-Products do not fetch buyer/retailer/project context in the pipeline query. Projects only fetch retailer, not buyer.
-
-### Why this matters
-
-The business is buyer/account-driven:
-
-- Adam sells to buyers.
-- Offers/projects are organized around retailer, buyer, season, and account rules.
-- Spruce account differences materially change workflow.
-- POP buyer picks determine SKU creation.
-
-### Required direction
-
-Expose account context:
-
-- Retailer.
-- Buyer.
-- Department/account.
-- Account-specific rules.
-- Sample requirement.
-- Resale restriction.
-- Buyer feedback history.
-- Related CRM activity.
-
----
+Original gap: pipeline/projects queries didn't fetch buyer/retailer/account context.
+**Status (2026-06-21):** PARTIAL
+**Evidence:** `src/features/pipeline/api.ts` `PRODUCT_SUMMARY_FIELDS` pulls `retailer`, `buyer`, and `project.retailer`/`project.buyer`; adapter maps them. Account screen at `src/features/accounts/`. `Retailer.resale_restriction`/`Buyer.samples_required` exist. `retailer`/`buyer` are curated tables (AGENTS.md §11).
+**Remaining:** No buyer-feedback history, CRM activity feed, or account-specific rule surfaces beyond `samples_required`/`resale_restriction`.
 
 ## 2.26 The app lacks factory and sourcing context
 
-### Current state
-
-Products do not expose factory, factory constraints, costing, sample, or China-team status in the main UI.
-
-### Why this matters
-
-Interviews showed factory/pricing opacity and late manufacturing constraints cause rework.
-
-### Required direction
-
-Expose:
-
-- Factory.
-- Capabilities.
-- Known constraints.
-- Die line/material/print method notes.
-- Pricing request status.
-- Sample request status.
-- Factory deadlines.
-- China team contact.
-- Sourcing blockers.
-
-Keep sensitive pricing role-restricted, but expose non-price manufacturing constraints to designers.
-
----
+Original gap: factory/constraints/costing/sample/China-team status not exposed.
+**Status (2026-06-21):** PARTIAL
+**Evidence:** `factory` is linked on products and shown as `factoryName` in `TaskDetailModal` and `src/features/samples/SamplesPage.tsx`; `Factory.china_team_contact` exists.
+**Remaining:** No pricing/costing fields/status, no factory-constraint/die-line/material notes, no sourcing-blocker surface; China-team contact modeled but not displayed; no role-restriction logic for pricing.
 
 ## 2.27 The app lacks licensor submission modeling
 
-### Current state
-
-The app shows licensor as a badge and PI Required as a pill. It does not show licensor submission records, Brand Assurance, PPS submissions, or response tracking as first-class workflows.
-
-### Why this matters
-
-POP is defined by licensor approval.
-
-Required records include:
-
-- Concept submission.
-- Packaging submission.
-- Brand Assurance number/PDF.
-- Licensor response.
-- Revision request.
-- Concept approved.
-- Sample/PPS submission.
-- PPS approval.
-- Production approval/compliance artifacts.
-
-### Required direction
-
-Add submission objects and queues:
-
-- Ready to submit.
-- Submitted.
-- Waiting on licensor.
-- Changes requested.
-- Approved.
-- Overdue by licensor turnaround expectation.
-- Missing Brand Assurance.
-- Missing PI.
-
----
+Original gap: licensor shown only as badge/PI pill; no submission records or queues.
+**Status (2026-06-21):** DONE
+**Evidence:** `src/features/submissions/SubmissionsPage.tsx` + `src/features/workflow/api.ts` model `product_submission` (submission_type, recipient_type, BA number/file, portal_url/reference, response_at/summary, revision_required, linked revision). Status queue ready→submitted→waiting→changes_requested→approved/rejected.
+**Remaining:** "Overdue by licensor turnaround", "missing BA", "missing PI" derived queues aren't explicit filters (raw fields exist).
 
 ## 2.28 The app lacks order/PO history
 
-### Current state
-
-The app does not expose `order` or PO history.
-
-### Why this matters
-
-The business needs to know:
-
-- Whether an approved concept became an order.
-- Which buyer/retailer bought it.
-- Whether it can be reused.
-- Whether a product is dormant after approval.
-- Whether a Spruce item has an order number.
-
-### Required direction
-
-Add order history:
-
-- Product orders.
-- Retailer/buyer.
-- PO/order number.
-- Order date.
-- Quantity.
-- Role-restricted value/pricing.
-- Reuse history.
-
----
+Original gap: no `order`/PO history exposed.
+**Status (2026-06-21):** PARTIAL
+**Evidence:** `src/features/orders/api.ts` queries the `order` collection; `OrdersPage.tsx` renders the history table sorted by `-order_date`.
+**Remaining:** Read-only ledger; no reuse-history surface, no role-restricted value/pricing, no "approved concept but no PO / dormant" linkage.
 
 ## 2.29 The app lacks revision workflows
 
-### Current state
-
-The modal can show comments and imported updates. It does not provide structured revision request/response workflow.
-
-### Why this matters
-
-Revisions are central:
-
-- Liz requests changes.
-- Licensors request changes.
-- Buyers request changes.
-- Jen gets marked-up Spruce feedback.
-- Designers respond with revised files.
-
-### Required direction
-
-Add revision records:
-
-- Source: Liz, licensor, buyer, factory, internal.
-- Requested by.
-- Requested date.
-- Assigned to.
-- Due date.
-- Status: open, in progress, resolved, accepted, rejected.
-- Markup/files attached.
-- Linked submission/product/design.
-
----
+Original gap: no structured revision request/response workflow.
+**Status (2026-06-21):** DONE
+**Evidence:** `src/features/revisions/RevisionsPage.tsx` + `src/features/workflow/api.ts` model `revision_request` (source, requested_by, requested_at, assigned_to, due_at, markup_file, resolution_note, polymorphic link). Statuses open→in_progress→resolved/accepted/rejected/canceled. Created from `TaskDetailModal`.
 
 ## 2.30 The app lacks evidence-completeness checks
 
-### Current state
-
-There is no visible completeness checklist for stage transitions or review queues.
-
-### Required direction
-
-Add business-specific completeness:
-
-POP examples:
-
-- Art files present.
-- Product description present.
-- Product type selected.
-- Licensor/property selected.
-- Licensing sheet present.
-- Packaging file present.
-- Pantones/specs present.
-- Brand Assurance number present where required.
-- PI status addressed.
-- Sample photos attached.
-- PPS submission result captured.
-
-Spruce examples:
-
-- Design collection linked.
-- Buyer/account linked.
-- Selection PDF attached.
-- Pricing status captured.
-- Sample required flag resolved.
-- Factory deadline captured.
-- Style number assigned only after commitment.
-
----
+Original gap: no completeness checklist gating stage transitions or review queues.
+**Status (2026-06-21):** OPEN
+**Evidence:** Manual per-product checklists exist (`checklist_item`, `collab.ts`) and individual fields exist (`pi_status`, `brand_assurance_number`, sample `photo_urls`), but there is no computed completeness check or pre-transition validation.
+**Remaining:** Business-specific completeness rules that block/flag stage moves or review-queue entry when required evidence is missing.
 
 ## 2.31 User permissions are not reflected in frontend UX
 
-### Current state
-
-The backend enforces field permissions. The frontend has no role-aware surfaces, no role-specific navigation, and no visible cues for hidden/protected fields.
-
-### Why this matters
-
-Pricing must be hidden from designers while constraints remain visible. Different roles should see different defaults and actions.
-
-### Required direction
-
-Use `readMe()` role information:
-
-- Role-based nav.
-- Role-based dashboards.
-- Role-based move actions.
-- Role-aware detail sections.
-- Hide unavailable create/edit actions.
-- Never rely on frontend hiding for security; backend remains source of truth.
-
----
+Original gap: no role-aware navigation/dashboards/actions; pricing not hidden from designers.
+**Status (2026-06-21):** OPEN
+**Evidence:** Directus role is loaded (`src/auth/auth.tsx`) and used only to filter ownership in My Work / revision assignment. No screen, nav item, dashboard, or action is gated by role; no pricing-hiding logic (no pricing fields exist either).
+**Remaining:** Role-based nav/dashboards/actions; backend stays source of truth.
 
 ## 2.32 The app lacks creation/conversion workflows
 
-### Current state
-
-There is no real creation flow.
-
-### Required creation events
-
-POP:
-
-- Create project/offer from buyer brief.
-- Add preliminary design to project.
-- Convert buyer pick into SKU/product.
-- Create licensor submission from SKU.
-- Request sample from factory.
-- Record PO/order.
-- Park/cancel/reuse concept.
-
-Spruce:
-
-- Create design collection.
-- Add designs to collection.
-- Create account project.
-- Record buyer selections.
-- Convert selection into style-numbered product.
-- Create pricing request.
-- Create sample request if account requires.
-- Record order/art sent for PO.
-
----
+Original gap: no real creation/conversion flows.
+**Status (2026-06-21):** PARTIAL
+**Evidence:** `TaskDetailModal` can create submission/sample/revision for a product via `src/features/workflow/api.ts`; inline product field edits exist (AGENTS.md §11).
+**Remaining:** No create-project/offer, convert-buyer-pick-into-SKU, record-PO (Orders is read-only), create-design-collection/account-project/selection→style-number, or pricing-request creation.
 
 ## 2.33 The app lacks batch operations
 
-### Current state
-
-The board supports single-product stage movement. Projects can show child SKUs but not act on them.
-
-### Why this matters
-
-Jessica and Jen often manage many SKUs/designs under one project/account. The system needs to support partial progress, batch movement, and bulk assignment without losing item-level nuance.
-
-### Required direction
-
-Add batch actions:
-
-- Assign designer/technical designer.
-- Move selected products after validation.
-- Set lifecycle state.
-- Set due/PPS/sample dates.
-- Add note/tag.
-- Create submission batch.
-- Export selected products.
-- Download selected files/thumbnails.
-
----
+Original gap: only single-product stage movement; no batch assign/move/set/export.
+**Status (2026-06-21):** OPEN
+**Evidence:** `src/features/pipeline/PipelinePage.tsx` renders a per-card `Checkbox` but there is no selection state or batch action handler; no bulk assign/move/set-state/dates/export.
+**Remaining:** Multi-select state + batch actions (assign, validated move, set lifecycle/dates, note/tag, submission batch, export).
 
 ## 2.34 The app lacks reporting and analytics
 
-### Current state
-
-There are no real dashboards beyond board/table counts.
-
-### Required analytics
-
-- Active products by stage and business unit.
-- Stuck products by stage age.
-- Licensor response time.
-- Designer workload.
-- Designer output/pick rate where data supports it.
-- Concept-approved but no PO/sample.
-- Reusable design inventory.
-- Buyer/account activity.
-- Factory/pricing turnaround.
-- Sample turnaround.
-- Cancellation reasons.
-- Bottleneck trends.
-- Seasonal readiness.
-
----
+Original gap: no real dashboards beyond board/table counts.
+**Status (2026-06-21):** PARTIAL
+**Evidence:** `src/features/reports/api.ts` + `ReportsPage.tsx` compute stage distribution, closure-reason histogram, recent stage handoffs, and totals; `src/features/control-room/api.ts` adds urgent/upcoming/active-project surfaces.
+**Remaining:** Missing stuck-by-stage-age, licensor response time, designer workload, concept-approved-no-PO, reusable-design inventory, factory/pricing & sample turnaround, cancellation-reason trends, bottleneck/seasonal-readiness analytics.
 
 ## 2.35 The app lacks AI-assistant surfaces
 
-### Current state
-
-There is no assistant UI.
-
-### Why this matters
-
-The legacy Cloudflare Worker/D1 analytics layer was already oriented toward natural-language querying. The future PM system should be able to answer business questions using Directus data and historical evidence.
-
-### Required direction
-
-Add an AI side panel once data surfaces are reliable:
-
-- "What is stuck for Disney?"
-- "What concepts are approved but have no PO?"
-- "What can Adam re-offer to Burlington?"
-- "Which products are waiting on Liz?"
-- "Which sample requests are old?"
-- "Why did this item get delayed?"
-
-The assistant must cite the underlying records.
+Original gap: no assistant UI / NL query panel.
+**Status (2026-06-21):** OPEN
+**Evidence:** No assistant/AI/chat/NL-query UI exists in `src/`; no LLM integration.
+**Remaining:** A citing AI side panel once data surfaces are reliable.
 
 ---
 
@@ -1341,234 +282,126 @@ The assistant must cite the underlying records.
 
 ## 3.1 Domain code is mixed with mock/prototype code
 
-The app still imports from `src/lib/mockData.ts` in major production screens:
-
-- Pipeline card styling and category icons.
-- Topbar people/licensor filters.
-- Sidebar fake collections.
-- My Work.
-- Schedule.
-- Notes.
-- People.
-- Settings.
-
-This creates ambiguity over what is real and what is prototype.
-
-Required direction:
-
-- Move remaining mock data into `src/dev/` or delete it.
-- Do not import mock data in production routes.
-- Replace with Directus-backed APIs or hide the screen.
+App screens still import from `src/lib/mockData.ts`.
+**Status (2026-06-21):** OBSOLETE
+**Evidence:** `src/lib/mockData.ts` no longer exists; grep for `mockData`/`MockTask` returns zero hits. Schedule/Notes/People are stub pages explaining the mock removal. All production pages read Directus via per-feature `api.ts`.
 
 ## 3.2 Frontend types are a minimal hand-maintained slice
 
-`src/lib/types.ts` includes only the fields currently used. It omits many backend fields and collections that are central to the product spec.
-
-Required direction:
-
-- Expand types intentionally by domain.
-- Consider generated Directus schema types when stable.
-- Separate raw API types from UI view models.
+Types omit many backend fields/collections.
+**Status (2026-06-21):** PARTIAL
+**Evidence:** `src/lib/types.ts` (~430 lines) now covers ~40 interfaces (Product, Project, Design, DesignCollection, ProductSubmission, ProductSample, Order, RevisionRequest, StageHistory, PmSavedView, plus a `Schema` map). Raw vs view-model is separated via `src/domain/products/{types,adapters}.ts`.
+**Remaining:** Still hand-maintained, not generated from the Directus schema; raw vs UI split only exists for products.
 
 ## 3.3 API layer is not organized by domain object
 
-Current APIs are split around `pipeline`, `projects`, and leftover `board/collab`. The future app needs domain APIs:
-
-- `products/api.ts`
-- `projects/api.ts`
-- `designs/api.ts`
-- `collections/api.ts`
-- `submissions/api.ts`
-- `samples/api.ts`
-- `orders/api.ts`
-- `reviews/api.ts`
-- `work/api.ts`
-- `reports/api.ts`
-- `reference/api.ts`
+APIs split around pipeline/projects/board.
+**Status (2026-06-21):** DONE
+**Evidence:** Domain-organized APIs exist: `src/features/{accounts,control-room,designs,mywork,orders,pipeline,projects,reports,views,workflow,settings}/api.ts` plus `src/domain/{products,reference}/`. (Submissions/samples/reviews are handled by `workflow/api.ts`.)
 
 ## 3.4 Detail modal is doing too much
 
-`TaskDetailModal.tsx` fetches and renders many different pieces of data inline.
-
-Required direction:
-
-- Rename away from `Task`.
-- Split into domain detail sections.
-- Add route/deep-link support for object type and ID.
-- Consider full-page detail for complex business objects, with modal only for quick preview.
+`TaskDetailModal.tsx` fetches and renders everything inline.
+**Status (2026-06-21):** OPEN
+**Evidence:** `src/components/TaskDetailModal.tsx` is ~1,512 lines / 61KB — still a monolith, still named `Task`. Inline editing, lightbox, comments, checklist, subtasks, files, imported fields all live here.
+**Remaining:** Rename away from `Task`; split into domain sections; add route/deep-link for object type+ID (only `?item=<uuid>` exists); no full-page detail option.
 
 ## 3.5 No client routing yet
 
-The app uses internal state to switch screens. Deep linking only supports `?item=<uuid>`.
-
-Required direction:
-
-Use routes when the app adds multiple object types:
-
-- `/pipeline`
-- `/products/:id`
-- `/projects/:id`
-- `/designs/:id`
-- `/design-collections/:id`
-- `/reviews`
-- `/submissions/:id`
-- `/accounts/:id`
-- `/my-work`
-- `/reports`
+App switches screens via internal state; deep-link is `?item=`.
+**Status (2026-06-21):** OPEN
+**Evidence:** No `react-router` dependency. `src/App.tsx` `ActiveScreen()` is a `switch (screen)` over `useAppState()`; deep-link is only `?item=<uuid>` (AGENTS.md §15).
+**Remaining:** Adopt a router; per-object-type URLs for the screens.
 
 ## 3.6 Search is too narrow
 
-Current pipeline search hits product name/code only.
-
-Required direction:
-
-Add global search across:
-
-- Product code/name.
-- Project title.
-- Retailer.
-- Buyer.
-- Licensor.
-- Property.
-- Design name/theme.
-- Design collection.
-- Factory.
-- Order number.
-- Brand Assurance number.
-- Notes/comments/files.
+Pipeline search hits product name/code only.
+**Status (2026-06-21):** OPEN
+**Evidence:** `src/features/pipeline/api.ts` `buildFilter()` only `_or`s on `name`/`code` `_icontains`. No global search across project/retailer/buyer/licensor/property/design/factory/order/BA/notes.
+**Remaining:** Broaden to related fields and a global search entry point.
 
 ## 3.7 Filtering is too narrow
 
-Current pipeline filters by licensor only.
-
-Required filters:
-
-- Business unit.
-- Lifecycle state.
-- Stage.
-- Owner/assignee.
-- Next owner.
-- Retailer.
-- Buyer.
-- Season.
-- Licensor.
-- Property.
-- Product type.
-- Factory.
-- Stage age.
-- Risk status.
-- Missing evidence.
-- PI required.
-- Brand Assurance missing.
-- Sample status.
-- Order status.
+Pipeline filters by licensor only.
+**Status (2026-06-21):** PARTIAL
+**Evidence:** `buildFilter()` now supports `licensorIds`, `listNames` (ClickUp list), and `businessUnit`. `lifecycleStates` is accepted but a no-op (`void lifecycleStates`).
+**Remaining:** Stage, owner, retailer, buyer, season, property, product type, factory, stage-age, risk, missing-evidence, PI, BA-missing, sample/order status — none wired; lifecycle filter is stubbed.
 
 ## 3.8 Pagination/load strategy is still incomplete
 
-The pipeline loads 300 unfiltered products and 500 when filtered. Table pagination paginates only the loaded client slice.
-
-Required direction:
-
-- Server-side pagination.
-- Cursor or page state.
-- Stable sort.
-- Aggregate counts by column/stage.
-- Board virtualization or per-column lazy loading.
-- Deep link should fetch the specific item even if it is not in the first loaded slice.
+Loads 300/500 products; client-slice pagination only.
+**Status (2026-06-21):** PARTIAL
+**Evidence:** `fetchPipelineProducts` uses a flat `limit` (default 300); `countPipelineProducts`/`fetchListFacets` give aggregate counts; filtering + count are server-side and debounced (AGENTS.md §15).
+**Remaining:** No cursor/offset server pagination, no per-column lazy loading/virtualization; deep-linked item not guaranteed in the loaded slice.
 
 ## 3.9 Error handling is too quiet
 
-Several catches call `console.error` or silently clear data.
-
-Required direction:
-
-- Toast user-visible failures.
-- Distinguish permission issues from empty states.
-- Show partial data warnings.
-- Retry where appropriate.
-- Add structured logging for API failures.
+Catches `console.error` or silently clears data.
+**Status (2026-06-21):** OPEN
+**Evidence:** ~16 `console.error`/`console.warn` calls across `src/`. Sonner is installed (`src/main.tsx`, `src/components/ui/sonner.tsx`) but `toast(` is never called in feature code.
+**Remaining:** Surface failures as toasts; distinguish permission vs empty; partial-data warnings; retries.
 
 ## 3.10 No clear "real vs legacy" boundary in UI
 
-The modal mixes migrated ClickUp data with current PM fields.
-
-Required direction:
-
-- Primary business fields first.
-- Legacy ClickUp/source metadata collapsed.
-- Imported fields displayed as "Imported evidence" until mapped.
-- Encourage users to update new structured fields instead of editing legacy fields.
+Modal mixes ClickUp data with PM fields.
+**Status (2026-06-21):** PARTIAL
+**Evidence:** `PRODUCT_SUMMARY_FIELDS` still pulls ~25 `clickup_*` fields; `TaskDetailModal` has an "imported fields" section and `product.code` was removed from titles. Business fields (lifecycle, next_action, waiting_on, risk) are first-class and inline-editable.
+**Remaining:** ClickUp metadata still prominent in fetch/modal; not collapsed behind an "Imported evidence" boundary by default.
 
 ---
 
 ## 4. Extraneous or Potentially Harmful Current Elements
 
-These are not necessarily bad prototypes, but they should not remain as-is in production.
-
-1. **Fake sidebar collections.**
-   - They imply saved collections/projects exist.
-   - Most are not clickable.
-
-2. **Fake topbar avatars.**
-   - They imply active collaborators.
-
-3. **Fake notification badge.**
-   - It creates false urgency.
-
-4. **Generic Add New.**
-   - It hides critical creation distinctions.
-
-5. **Mock My Work.**
-   - It is especially dangerous because "my work" must be trustworthy.
-
-6. **Mock Schedule.**
-   - Could be mistaken for real deadlines.
-
-7. **Mock Notes.**
-   - Could create another silo if made real without object links.
-
-8. **Mock People.**
-   - Does not reflect Entra/Directus users.
-
-9. **Local-only Settings logo upload.**
-   - Appears to manage records but does not persist.
-
-10. **ClickUp as primary detail language.**
-    - Useful for migration, but should fade behind POP/Spruce business fields.
+**Status (2026-06-21):** MOSTLY DONE
+**Evidence:**
+- Mock My Work / Schedule / Notes / People: My Work is real (`src/features/mywork/api.ts`); Schedule/Notes/People are honest stubs; only My Work remains in the sidebar.
+- Generic "Add New": replaced — the primary topbar action is "Save view" (`src/components/Topbar.tsx`).
+- Fake sidebar collections: replaced by the real saved-views tree (`src/features/views/api.ts` + Sidebar) and a real "Design collections" screen.
+- Settings logo upload: `src/features/settings/SettingsPage.tsx` repurposed to saved views.
+**Remaining:** Verify topbar avatar/notification elements are real or removed. ClickUp metadata prominence (§3.10) still open.
 
 ---
 
 ## 5. Things Done in the Wrong Way
 
-This section is intentionally direct. These are not moral failures; they are natural phase-one shortcuts that should not harden into architecture.
-
 ### 5.1 Using `MockTask` for real products
 
-Wrong because it preserves the ClickUp mental model. Replace it with domain-specific view models.
+**Status (2026-06-21):** DONE
+**Evidence:** `MockTask` is gone. Pipeline uses real `Product` adapted via `src/domain/products/adapters.ts`. (The `TaskDetailModal` name persists — see §3.4 — but no longer rides on a mock type.)
 
 ### 5.2 Inferring product category from title
 
-Wrong because product type/category drives real business rules. Use backend product type/category data.
+**Status (2026-06-21):** PARTIAL
+**Evidence:** `inferCategory()` prefers `product_type` relation name first, falling back to title keywords.
+**Remaining:** Category should derive purely from backend product type/category, not title keywords.
 
 ### 5.3 Hardcoding operational master data
 
-Wrong because licensors, people, customers, stages, and collections belong in Directus.
+**Status (2026-06-21):** DONE
+**Evidence:** No `const LICENSORS/PEOPLE/STAGES/COLLECTIONS` arrays in `src`. Stages/licensors/properties/types come from `src/domain/reference/api.ts` and Directus relations. (Color/icon maps in `presentation.ts` are cosmetic.)
 
 ### 5.4 Treating stage as the primary truth
 
-Wrong because stage is only one dimension. Lifecycle, next action, owner, blocker, evidence, and SLA matter just as much.
+**Status (2026-06-21):** PARTIAL
+**Evidence:** `WorkflowFields` carries lifecycle_state, next_action, waiting_on, blocker_reason, risk_level, blocked_since — surfaced/editable in modal and Control Room.
+**Remaining:** Board/pipeline still stage-organized; SLA/evidence not enforced; lifecycle filter stubbed (§3.7).
 
 ### 5.5 Allowing stage moves without evidence prompts
 
-Wrong because critical business/compliance gates need validation.
+**Status (2026-06-21):** OPEN
+**Evidence:** No evidence/confirm prompts in `src/features/board/api.ts` or `PimTaskCard.tsx`; drag-to-stage writes optimistically with no BA/PI gate.
+**Remaining:** Validation gates for compliance-critical transitions.
 
 ### 5.6 Building generic pages before real workflows
 
-Schedule, Notes, People, and Settings are generic app-shaped features. The business needs review queues, submissions, design library, samples, orders, and account views more urgently.
+**Status (2026-06-21):** DONE
+**Evidence:** Real workflow screens exist (Submissions, Samples, Revisions, Orders, Accounts, Reports, Control Room, My Work). Generic Schedule/Notes/People reduced to stubs.
 
 ### 5.7 Making ClickUp metadata too prominent
 
-Wrong long-term because the new system should not remain organized around the legacy system.
+**Status (2026-06-21):** PARTIAL
+**Evidence:** Imported fields sectioned, code removed from titles, but ~25 `clickup_*` fields still fetched and shown.
+**Remaining:** Collapse legacy metadata behind an explicit imported-evidence boundary.
 
 ---
 
@@ -1576,169 +409,108 @@ Wrong long-term because the new system should not remain organized around the le
 
 ### Core objects
 
-- Product/SKU/style-number workspace.
-- Project/offer workspace.
-- Design library.
-- Spruce design collections.
-- Licensor submissions.
-- Buyer selections.
-- Samples.
-- Pricing/factory requests.
-- Orders/PO history.
-- Revision requests.
-- Object-linked notes.
-- Stage history.
-- Lifecycle state.
-- Saved views.
+| Item | Status | Evidence |
+|---|---|---|
+| Product/SKU/style-number workspace | PARTIAL | `domain/products/*`, pipeline; SKU/style-number not a distinct model |
+| Project/offer workspace | DONE | `features/projects/`, `types.Project` |
+| Design library | DONE | `features/designs/DesignLibraryPage.tsx`, `types.Design` |
+| Spruce design collections | DONE | `features/designs/DesignCollectionsPage.tsx`, `types.DesignCollection` |
+| Licensor submissions | DONE | `types.ProductSubmission`, `features/submissions`, `workflow/api.ts` |
+| Buyer selections | PARTIAL | `types.Buyer` w/ samples_required; no dedicated selection object |
+| Samples | DONE | `types.ProductSample`, `features/samples` |
+| Pricing/factory requests | OPEN | No model; `factory` is a relation only |
+| Orders/PO history | DONE | `types.Order`, `features/orders` |
+| Revision requests | DONE | `types.RevisionRequest`, `features/revisions`, `workflow/api.ts` |
+| Object-linked notes | OPEN | Notes page is a stub; no note model |
+| Stage history | PARTIAL | `types.StageHistory` + read in `reports/api.ts`; not auto-logged on move |
+| Lifecycle state | DONE | `WorkflowFields.lifecycle_state` |
+| Saved views | DONE | `features/views/api.ts`, `types.PmSavedView`/`PmViewPref` |
 
 ### Core views
 
-- POP pipeline.
-- Spruce pipeline.
-- Design library grid/table.
-- Design collection view.
-- Project/offer list and detail.
-- Account/retailer view.
-- My Work real queue.
-- Jessica control room.
-- Liz review queue.
-- Jen Spruce cockpit.
-- Adam sales cockpit.
-- Licensing submission queue.
-- Sourcing/factory queue.
-- Production approval queue.
-- Reports/dashboard.
+| Item | Status | Evidence |
+|---|---|---|
+| POP / Spruce pipeline | DONE | `features/pipeline` + `businessUnit` filter |
+| Design library grid/table | DONE | `DesignLibraryPage.tsx` |
+| Design collection view | DONE | `DesignCollectionsPage.tsx` |
+| Project/offer list & detail | PARTIAL | `ProjectsPage.tsx` list; detail via modal only |
+| Account/retailer view | DONE | `features/accounts/` |
+| My Work real queue | DONE | `features/mywork/api.ts` |
+| Jessica control room | PARTIAL | `features/control-room/` — generic, not Jessica-specific |
+| Liz review queue | PARTIAL | Covered by Submissions/Revisions, not a named cockpit |
+| Jen / Adam cockpits | OPEN | No role-named cockpits |
+| Licensing submission queue | DONE | `features/submissions` |
+| Sourcing/factory queue | OPEN | No factory queue view |
+| Production approval queue | PARTIAL | Revisions/Orders cover parts; no dedicated production queue |
+| Reports/dashboard | DONE | `features/reports/` |
 
 ### Core actions
 
-- Create POP project/offer.
-- Create preliminary design.
-- Convert buyer pick to SKU.
-- Create licensor submission.
-- Approve/request changes/reject review.
-- Record Brand Assurance.
-- Record PI status.
-- Request sample.
-- Record sample received/sent/approved.
-- Record PO/order.
-- Park/reuse/cancel/complete item.
-- Create Spruce collection.
-- Convert Spruce selection to style-numbered product.
-- Record buyer feedback.
-- Record pricing request and response.
-- Record factory deadline.
-- Batch assign/move/update/export.
+| Item | Status | Evidence |
+|---|---|---|
+| Create submission / sample / revision | DONE | `TaskDetailModal` + `workflow/api.ts` |
+| Approve/request-changes/reject review | DONE | `submissions` `updateSubmissionStatus` |
+| Record BA / PI status | PARTIAL | editable fields; no guided action |
+| Record sample received/sent/approved | PARTIAL | `ProductSample` + page; not all states confirmed |
+| Record PO/order | DONE | `features/orders` |
+| Park/reuse/cancel/complete | PARTIAL | `closure_reason`/lifecycle exist; no explicit action |
+| Convert buyer pick/Spruce selection to SKU | OPEN | No conversion action |
+| Record buyer feedback / pricing req+resp / factory deadline | OPEN | No models/actions |
+| Batch assign/move/update/export | OPEN | Not found |
+| Create POP project/offer / preliminary design | PARTIAL | Objects exist; create flows not confirmed |
 
 ### Core automations
 
-- Stage history logging.
-- Stage SLA/stuck alerts.
-- Licensor response due alerts.
-- Missing Brand Assurance alerts.
-- Missing PI alerts.
-- Dormant concept alerts.
-- Next owner handoff notifications.
-- Sample/factory overdue alerts.
-- Buyer follow-up reminders.
-- Multi-buyer/reuse conflict alerts.
+| Item | Status | Evidence |
+|---|---|---|
+| Stage history logging | OPEN | `StageHistory` read-only; no write on stage move |
+| All alert types (SLA/stuck, licensor due, missing BA/PI, dormant, handoff, sample/factory overdue, buyer follow-up, reuse conflict) | OPEN | No notification/automation layer; risk/blocked fields displayed only |
 
 ### Core reporting
 
-- Work by stage/business unit.
-- Work by owner/role.
-- Work by retailer/buyer.
-- Work by licensor/property.
-- Work by product type.
-- Stuck work.
-- Aging approved concepts.
-- Reusable inventory.
-- Designer workload.
-- Licensor turnaround.
-- Factory/sample turnaround.
-- Cancellation reasons.
-- Season readiness.
+| Item | Status | Evidence |
+|---|---|---|
+| Work by stage / business unit | DONE | `reports/api.ts` stageCounts + businessUnit |
+| Work by retailer/buyer / licensor/property | PARTIAL | summary joins retailer/buyer/licensor; breakdowns limited |
+| Work by owner/role / product type | OPEN | Not present |
+| Stuck work / aging concepts | PARTIAL | risk/blocked_since exist; no dedicated report |
+| Reusable inventory / designer workload / licensor turnaround / factory-sample turnaround / cancellation reasons / season readiness | OPEN | Not built |
 
 ---
 
 ## 7. Recommended Priority Order
 
 ### Priority 0: Stop misleading UI
-
-- Hide or label mock pages.
-- Remove fake counts/avatars/collections from production UI.
-- Make Add New either real or hidden.
+**Status (2026-06-21):** DONE — mock pages removed/stubbed, `mockData.ts` deleted, fake sidebar collections replaced by real saved views, generic "Add New" replaced by "Save view".
 
 ### Priority 1: Replace task abstraction
-
-- Introduce domain models.
-- Rename `TaskDetailModal`.
-- Remove `MockTask` from real pipeline.
+**Status (2026-06-21):** PARTIAL — domain `Product` model + adapters; `MockTask` gone. Remaining: `TaskDetailModal.tsx` still named `Task` and monolithic (§3.4).
 
 ### Priority 2: Separate POP and Spruce
-
-- Add business-unit filters and default views.
-- Use separate stage sets and detail layouts.
+**Status (2026-06-21):** DONE — `appState.tsx` `businessUnit` filter drives pipeline, control-room, and reports (AGENTS.md §11).
 
 ### Priority 3: Add real My Work
-
-- Current user.
-- Product assignments.
-- Subtasks.
-- Role-owned stage queues.
-- Review queues.
+**Status (2026-06-21):** PARTIAL — `features/mywork/api.ts` merges assignments + lifecycle-owned products + assigned revisions. Remaining: subtasks and explicit role-owned stage/review queues.
 
 ### Priority 4: Enrich product and project detail
-
-- Add missing business fields.
-- Add lifecycle state.
-- Add next action/owner/blocker.
-- Add stage history and evidence sections.
+**Status (2026-06-21):** PARTIAL — lifecycle/next_action/waiting_on/blocker/risk added and editable. Remaining: stage-history section (logging absent), evidence sections incomplete.
 
 ### Priority 5: Build role queues
-
-- Jessica control room.
-- Liz review queue.
-- Jen Spruce cockpit.
-- Adam sales cockpit.
-- Licensing/sourcing/production queues.
+**Status (2026-06-21):** PARTIAL — Control Room, Submissions, Revisions, My Work exist. Remaining: named cockpits (Jessica/Liz/Jen/Adam), sourcing/production queues.
 
 ### Priority 6: Build design library and Spruce collections
-
-- Rescue lost creative inventory.
-- Enable reuse and proactive seasonal planning.
+**Status (2026-06-21):** DONE — `DesignLibraryPage.tsx` + `DesignCollectionsPage.tsx` + `designs/api.ts`.
 
 ### Priority 7: Add submissions, samples, orders
-
-- Make approval and execution workflows first-class.
+**Status (2026-06-21):** DONE — `features/{submissions,samples,orders}` + `workflow/api.ts`/`orders/api.ts`.
 
 ### Priority 8: Add analytics and AI
-
-- SLA dashboards.
-- Bottleneck reports.
-- Reuse recommendations.
-- AI assistant with citations.
+**Status (2026-06-21):** PARTIAL — Reports dashboard exists. Remaining: SLA dashboards, bottleneck reports, reuse recommendations, AI assistant.
 
 ---
 
 ## 8. Final Assessment
 
-The current frontend is not wrong as a first slice. It proves that:
+The app has moved decisively past the prototype phase the original doc critiqued. All mock data and the `MockTask` abstraction are gone; every production screen reads real Directus data through a domain-organized API layer (`src/features/*/api.ts`, `src/domain/products`), and POP vs Spruce are hard-separated by a business-unit filter. First-class screens now exist for projects, designs, collections, submissions, samples, revisions, orders, accounts, reports, control room, and My Work, with lifecycle/next-action/owner/risk fields surfaced and inline-edited.
 
-- Directus can back a custom PM UI.
-- Product data can be shown at useful scale.
-- Stage movement works.
-- Imported ClickUp evidence can be preserved.
-- The frontend can deploy cleanly.
-
-But it is not yet tailored enough to the business. The next engineering phase should not be more generic app polish. It should reshape the product around the real business graph:
-
-- POP and Spruce are separate workflows on one platform.
-- Designs and collections are first-class.
-- Stage is only one piece of status.
-- Role queues matter more than generic boards.
-- Submissions, samples, orders, and revisions need their own models.
-- Lifecycle and reuse are essential.
-- The system should reduce chasing by making next action and owner obvious.
-
-The strategic risk is accidentally building another generic project management board. The strategic opportunity is building the first system that actually understands how POP Creations and Spruce Line create, approve, source, sell, and reuse products.
-
+The remaining gaps are **architectural maturity** rather than honesty: no client router (state-switch + `?item=` only), a ~1,500-line `TaskDetailModal` still named "Task", narrow pipeline search/filter, no server cursor pagination, quiet error handling (sonner installed but unused), and ClickUp metadata still prominent. The biggest missing capability is **automation/intelligence** — no stage-history logging, SLA/stuck/handoff alerts, role-named cockpits, or reuse/turnaround reporting — plus the looming **Directus→Supabase migration** (AGENTS.md §15). Net: a solid, honest, data-backed PM tool that now needs routing, modal decomposition, gated workflows, and the automation/analytics layer to fulfill the business graph the original doc envisioned.
