@@ -7,6 +7,14 @@ import type { DirectusUser } from '@/lib/types'
 const USER_FIELDS = ['id', 'first_name', 'last_name', 'email', 'avatar'] as const
 const ROLLUP_BATCH_SIZE = 200
 
+interface ProductFileCoverCandidate {
+  product: string | { id: string } | null
+  mime_type: string | null
+  source_url: string | null
+  thumbnail_url: string | null
+  stored_url: string | null
+}
+
 function productId(value: unknown): string | null {
   if (!value) return null
   if (typeof value === 'string') return value
@@ -39,13 +47,25 @@ function chunks<T>(values: T[], size: number): T[][] {
   return result
 }
 
+function fileHref(file: ProductFileCoverCandidate): string | null {
+  return file.stored_url || file.source_url || file.thumbnail_url || null
+}
+
+function filePreviewUrl(file: ProductFileCoverCandidate): string | null {
+  if (file.thumbnail_url?.includes('digitaloceanspaces.com')) return file.thumbnail_url
+  if (file.mime_type?.startsWith('image/') && file.stored_url) return file.stored_url
+  if (file.thumbnail_url) return file.thumbnail_url
+  if (file.mime_type?.startsWith('image/')) return fileHref(file)
+  return null
+}
+
 export async function hydrateProductSummaryRollups(products: ProductSummary[]): Promise<ProductSummary[]> {
   const ids = products.map((product) => product.id)
   if (ids.length === 0) return products
 
   const batches = chunks(ids, ROLLUP_BATCH_SIZE)
   const rollups = await Promise.all(batches.map(async (batch) => {
-    const [assigneeRows, checklistRows, completedChecklistRows, fileRows, commentRows] = await Promise.all([
+    const [assigneeRows, checklistRows, completedChecklistRows, fileRows, fileCoverRows, commentRows] = await Promise.all([
       directus.request(
         readItems('product_assignee', {
           fields: ['id', 'product', { directus_user: USER_FIELDS }] as never,
@@ -75,6 +95,14 @@ export async function hydrateProductSummaryRollups(products: ProductSummary[]): 
         }),
       ) as unknown as Promise<Array<{ product: string | { id: string } | null; count: { id: string } }>>,
       directus.request(
+        readItems('product_file', {
+          fields: ['product', 'mime_type', 'source_url', 'thumbnail_url', 'stored_url'] as never,
+          filter: { product: { _in: batch } },
+          sort: ['uploaded_at', 'title'],
+          limit: -1,
+        }),
+      ) as unknown as Promise<ProductFileCoverCandidate[]>,
+      directus.request(
         readComments({
           filter: { collection: { _eq: 'product' }, item: { _in: batch } },
           fields: ['id', 'item'] as never,
@@ -82,13 +110,14 @@ export async function hydrateProductSummaryRollups(products: ProductSummary[]): 
         }),
       ) as unknown as Promise<Array<{ item: string | null }>>,
     ])
-    return { assigneeRows, checklistRows, completedChecklistRows, fileRows, commentRows }
+    return { assigneeRows, checklistRows, completedChecklistRows, fileRows, fileCoverRows, commentRows }
   }))
 
   const assigneeRows = rollups.flatMap((rollup) => rollup.assigneeRows)
   const checklistRows = rollups.flatMap((rollup) => rollup.checklistRows)
   const completedChecklistRows = rollups.flatMap((rollup) => rollup.completedChecklistRows)
   const fileRows = rollups.flatMap((rollup) => rollup.fileRows)
+  const fileCoverRows = rollups.flatMap((rollup) => rollup.fileCoverRows)
   const commentRows = rollups.flatMap((rollup) => rollup.commentRows)
 
   const assignees = new Map<string, PersonSummary[]>()
@@ -102,17 +131,33 @@ export async function hydrateProductSummaryRollups(products: ProductSummary[]): 
   const checklist = countMap(checklistRows, 'product')
   const completedChecklist = countMap(completedChecklistRows, 'product')
   const files = countMap(fileRows, 'product')
+  const autoCovers = new Map<string, { coverUrl: string; coverThumbUrl?: string }>()
+  for (const row of fileCoverRows) {
+    const id = productId(row.product)
+    if (!id || autoCovers.has(id)) continue
+    const preview = filePreviewUrl(row)
+    if (!preview) continue
+    autoCovers.set(id, {
+      coverUrl: fileHref(row) ?? preview,
+      coverThumbUrl: preview,
+    })
+  }
   const comments = new Map<string, number>()
   for (const row of commentRows) increment(comments, row.item)
 
-  return products.map((product) => ({
-    ...product,
-    assignees: assignees.get(product.id) ?? product.assignees,
-    checklist: {
-      done: completedChecklist.get(product.id) ?? product.checklist.done,
-      total: checklist.get(product.id) ?? product.checklist.total,
-    },
-    comments: comments.get(product.id) ?? product.comments,
-    files: files.get(product.id) ?? product.files,
-  }))
+  return products.map((product) => {
+    const autoCover = product.coverUrl ? null : autoCovers.get(product.id)
+    return {
+      ...product,
+      assignees: assignees.get(product.id) ?? product.assignees,
+      checklist: {
+        done: completedChecklist.get(product.id) ?? product.checklist.done,
+        total: checklist.get(product.id) ?? product.checklist.total,
+      },
+      comments: comments.get(product.id) ?? product.comments,
+      files: files.get(product.id) ?? product.files,
+      coverUrl: product.coverUrl ?? autoCover?.coverUrl,
+      coverThumbUrl: product.coverThumbUrl ?? autoCover?.coverThumbUrl,
+    }
+  })
 }
