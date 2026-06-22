@@ -51,7 +51,7 @@ Then load additional docs only when relevant:
 | `src/pages/LoginPage.tsx` | login screen | owned |
 | `src/components/Sidebar.tsx`, `src/components/Topbar.tsx`, `src/components/PimTaskCard.tsx`, `src/components/TaskDetailModal.tsx` | core app shell, product card, and product detail/workflow modal | owned |
 | `src/components/ui/` | **shadcn/ui components — GENERATED** (Radix/new-york). Re-add/update via `npx shadcn@latest add <name>`; hand-edits get overwritten | generated (vendored) |
-| `src/features/pipeline/`, `src/features/control-room/`, `src/features/mywork/`, `src/features/projects/`, `src/features/designs/`, `src/features/submissions/`, `src/features/samples/`, `src/features/revisions/`, `src/features/orders/`, `src/features/accounts/`, `src/features/reports/`, `src/features/settings/` | business screens over real Directus data | owned |
+| `src/features/pipeline/`, `src/features/control-room/`, `src/features/mywork/`, `src/features/projects/`, `src/features/designs/`, `src/features/submissions/`, `src/features/samples/`, `src/features/revisions/`, `src/features/orders/`, `src/features/accounts/`, `src/features/reports/`, `src/features/settings/`, `src/features/operating/` | business screens and PM operating-record APIs over real Directus data | owned |
 | `src/features/board/` | lower-level product/collaboration API helpers (`api.ts`, `collab.ts`) kept for product cards/details | owned |
 | `src/App.tsx`, `src/main.tsx`, `src/index.css` | root gate/providers, entry, theme tokens (`index.css` holds the Design-provided OKLCH theme) | owned |
 | `index.html`, `vite.config.ts`, `tsconfig*.json`, `eslint.config.js`, `components.json` | build/tooling config | owned |
@@ -93,6 +93,7 @@ No files **outside project-owned areas** were modified — no third-party/framew
 | Change the product pipeline board | `src/features/pipeline/PipelinePage.tsx`, `src/components/PimTaskCard.tsx`, `src/features/pipeline/api.ts`, `src/domain/products/*` | `src/components/ui/*` by hand |
 | Change the product-detail modal | `src/components/TaskDetailModal.tsx`, `src/features/board/collab.ts`, `src/features/workflow/api.ts` | — |
 | Change workflow screens/actions | `src/features/workflow/api.ts`, `src/features/submissions/`, `src/features/samples/`, `src/features/revisions/`, `src/features/mywork/` | backend schema in the `directus` repo |
+| Change dependencies, decision records, reminders, or workflow templates | `src/features/operating/api.ts`, `src/components/TaskDetailModal.tsx`, `src/features/mywork/`, `src/features/settings/`, `src/features/reports/` | backend schema in the `directus` repo |
 | Change what data is fetched/written | feature `api.ts` files, `src/domain/products/*`, `src/lib/types.ts` | the backend schema (edit in the `directus` repo) |
 | Change auth/login | `src/auth/auth.tsx`, `src/pages/LoginPage.tsx`, `src/lib/directus.ts` | — |
 | Add a shadcn component | `npx shadcn@latest add <name>` (writes `src/components/ui/`) | hand-writing UI primitives |
@@ -113,6 +114,7 @@ This app only **reads/writes** the backend; the schema is defined in the `direct
 | Repo | `u2giants/poppim-web` | GitHub | |
 | Backend collections read | `product`, `project`, `design`, `design_collection`, `product_submission`, `product_sample`, `revision_request`, `order`, lookup collections | `directus` repo `pm-system/apply-schema.mjs` + `pm-system/add-workflow-model.mjs` | business screens |
 | Collaboration collections | `checklist_item`, `subtask`, `product_assignee` (M2M), native `directus_comments` | `directus` repo `pm-system/add-collaboration-model.mjs` | task-detail |
+| PM operating collections | `pm_dependency`, `pm_decision`, `pm_reminder`, `pm_workflow_template` | `directus` repo `pm-system/add-operating-model.mjs` | Product modal Operations tab, My Work reminders, Settings templates, Reports operating metrics |
 | Image field | `product.cover_url` | `directus` repo `pm-system/migration/clickup-to-spaces.mjs` | DigitalOcean Spaces original; thumbnail derived in `src/domain/products/adapters.ts` |
 | ClickUp board mirror fields | `product.clickup_list_name`, `clickup_parent_id`, `clickup_status_type`, `clickup_updated_at` | `directus` repo `pm-system/add-clickup-work-model.mjs` + `pm-system/migration/clickup-work-import.mjs` | Used by the Licensed pipeline to mirror ClickUp top-level open board cards |
 | ClickUp hierarchy/metadata fields | `product.clickup_space_id/name`, `clickup_folder_id/name`, `clickup_list_id`, `clickup_creator_id/name`, `clickup_time_estimate_ms`, `clickup_orderindex` | `directus` repo commit `45af984` (`add-clickup-hierarchy-fields.mjs` + `backfill-clickup-hierarchy.mjs`) | List filter + group-by-list, creator, time estimate, manual ordering. See §11 quirks for sparse/string caveats |
@@ -259,6 +261,16 @@ Matches the existing drag-to-stage / checklist optimistic pattern.
 Future sessions should:
 If a "field didn't save" bug is reported, check the Directus write/role permission and the network response — the UI gives no error signal, so a silent revert (value snaps back) is the symptom.
 
+### PM operating records are Directus collections, not local UI state
+What changed:
+Dependencies, decisions, reminders, and reusable workflow templates live in Directus (`pm_dependency`, `pm_decision`, `pm_reminder`, `pm_workflow_template`) and are surfaced through `src/features/operating/api.ts`. Product detail has an Operations tab; My Work lists reminders assigned to the signed-in user; Settings lists/creates workflow templates; Reports counts open dependencies/reminders, decisions, and active templates.
+
+Why:
+The PM system needs durable operational records for blockers, approvals/decisions, follow-ups, and repeatable stage/checklist patterns. A frontend-only implementation would lose the audit trail and would not be available to Reports/My Work.
+
+Future sessions should:
+Add schema fields in the `directus` repo first, then update `src/lib/types.ts` and `src/features/operating/api.ts`. External notification delivery is not implemented in this frontend; reminders are in-app records until a Directus Flow/worker is added.
+
 ### `retailer`/`buyer` are curated customer tables; the raw CRM dump lives in `ingested_*`
 What it is:
 The raw Twenty-CRM ingestion dumps were split out of `retailer`/`buyer` (directus repo migration `pm-system/migration/split-customers-from-ingested.sql`, 2026-06-18). End state:
@@ -325,6 +337,7 @@ No production incidents since the app moved to `pm.designflow.app`.
 | done | Wire TaskDetailModal to real Directus data | Comments, assignees, checklist, subtasks, files, imported fields, activity, and create-submission/sample/revision actions load/write through Directus; mock comments removed; 2026-06-14 |
 | done | Cover images on PimTaskCard | `cover_url` fetched and rendered as top banner when present; 2026-06-12 |
 | done | Business workflow screens | Control Room, My Work, Projects/Offers, Design Library, Design Collections, Submissions, Samples, Reviews/Revisions, Orders, Accounts, Reports, and Settings now use Directus data; 2026-06-14 |
+| done | PM operating model | Dependencies, decision records, reminders, workflow templates, ownership/evidence gaps, bulk pipeline actions, My Work reminders, Settings templates, and Reports operating metrics are backed by Directus; 2026-06-22 |
 | done | Delete leftover Vite-template assets + dead board files | `src/assets/*`, `public/icons.svg`, and 7 unreachable `features/board/` files removed; 2026-06-12 |
 | done | Production deploy at `pm.designflow.app` | live via Coolify service `ysvdyj3t7d5tyh5ogrvlka4y`; SSO + cert verified; raw-docker retired 2026-06-11 |
 | open | List / Timeline views | Table view exists; Timeline tab is a placeholder |

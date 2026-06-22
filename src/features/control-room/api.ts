@@ -24,6 +24,9 @@ export interface ControlRoomData {
   stageCounts: StageCount[]
   urgentProducts: ProductSummary[]
   upcomingProducts: ProductSummary[]
+  blockedProducts: ProductSummary[]
+  ownershipGapProducts: ProductSummary[]
+  evidenceGapProducts: ProductSummary[]
   activeProjectRows: Project[]
 }
 
@@ -81,6 +84,9 @@ export async function fetchControlRoomData(businessUnit: BusinessUnit): Promise<
     stageRows,
     urgentRows,
     upcomingRows,
+    blockedRows,
+    ownershipGapRows,
+    evidenceRows,
     activeProjectRows,
     stages,
   ] = await Promise.all([
@@ -112,7 +118,7 @@ export async function fetchControlRoomData(businessUnit: BusinessUnit): Promise<
     ) as unknown as Promise<Array<{ stage: string | null; count: { id: string } }>>,
     directus.request(
       readItems('product', {
-        fields: PRODUCT_SUMMARY_FIELDS,
+        fields: PRODUCT_SUMMARY_FIELDS as never,
         filter: {
           _and: [
             ...productBaseFilter(businessUnit)._and,
@@ -125,7 +131,7 @@ export async function fetchControlRoomData(businessUnit: BusinessUnit): Promise<
     ) as Promise<unknown[]>,
     directus.request(
       readItems('product', {
-        fields: PRODUCT_SUMMARY_FIELDS,
+        fields: PRODUCT_SUMMARY_FIELDS as never,
         filter: {
           _and: [
             ...productBaseFilter(businessUnit)._and,
@@ -139,6 +145,49 @@ export async function fetchControlRoomData(businessUnit: BusinessUnit): Promise<
         } as never,
         sort: ['pps_requested_date', 'on_shelf_date', 'name'],
         limit: 80,
+      }),
+    ) as Promise<unknown[]>,
+    directus.request(
+      readItems('product', {
+        fields: PRODUCT_SUMMARY_FIELDS as never,
+        filter: {
+          _and: [
+            ...productBaseFilter(businessUnit)._and,
+            {
+              _or: [
+                { blocker_reason: { _nempty: true } },
+                { waiting_on: { _nempty: true } },
+                { lifecycle_state: { _in: ['blocked', 'waiting'] } },
+              ],
+            },
+          ],
+        } as never,
+        sort: ['last_meaningful_update_at', 'pps_requested_date', 'name'],
+        limit: 80,
+      }),
+    ) as Promise<unknown[]>,
+    directus.request(
+      readItems('product', {
+        fields: PRODUCT_SUMMARY_FIELDS as never,
+        filter: {
+          _and: [
+            ...productBaseFilter(businessUnit)._and,
+            { next_action: { _nempty: true } },
+            { next_owner_user: { _null: true } },
+            { next_owner_role: { _null: true } },
+            { waiting_on: { _empty: true } },
+          ],
+        } as never,
+        sort: ['pps_requested_date', 'on_shelf_date', 'name'],
+        limit: 80,
+      }),
+    ) as Promise<unknown[]>,
+    directus.request(
+      readItems('product', {
+        fields: PRODUCT_SUMMARY_FIELDS as never,
+        filter: productBaseFilter(businessUnit) as never,
+        sort: ['-risk_level', 'pps_requested_date', 'on_shelf_date', 'name'],
+        limit: 300,
       }),
     ) as Promise<unknown[]>,
     directus.request(
@@ -162,6 +211,11 @@ export async function fetchControlRoomData(businessUnit: BusinessUnit): Promise<
     fetchStages(),
   ])
 
+  const evidenceGapProducts = evidenceRows
+    .map((row) => productToSummary(row as never))
+    .filter((product) => product.evidenceGaps.length > 0)
+    .slice(0, 80)
+
   return {
     totalProducts: countOf(totalRows[0]),
     activeProjects: countOf(projectRows[0]),
@@ -175,6 +229,9 @@ export async function fetchControlRoomData(businessUnit: BusinessUnit): Promise<
       .sort((a, b) => b.count - a.count),
     urgentProducts: urgentRows.map((row) => productToSummary(row as never)),
     upcomingProducts: upcomingRows.map((row) => productToSummary(row as never)),
+    blockedProducts: blockedRows.map((row) => productToSummary(row as never)),
+    ownershipGapProducts: ownershipGapRows.map((row) => productToSummary(row as never)),
+    evidenceGapProducts,
     activeProjectRows,
   }
 }

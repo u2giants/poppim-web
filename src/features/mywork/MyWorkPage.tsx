@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronRight, FilePenLine, Flag } from 'lucide-react'
+import { Bell, ChevronRight, FilePenLine, Flag } from 'lucide-react'
 import { useAuth } from '@/auth/auth'
 import { TaskDetailModal } from '@/components/TaskDetailModal'
 import { productToSummary } from '@/domain/products/adapters'
 import { hydrateProductSummaryRollups } from '@/domain/products/rollups'
 import type { ProductSummary } from '@/domain/products/types'
-import type { RevisionRequest } from '@/lib/types'
+import type { PmReminder, RevisionRequest } from '@/lib/types'
 import { CATEGORY_COLORS, CATEGORY_ICONS, LICENSOR_META, STAGE_COLORS, stageColor } from '@/domain/products/presentation'
-import { fetchMyRevisionWork, fetchMyWorkProducts } from './api'
+import { fetchMyReminders, fetchMyRevisionWork, fetchMyWorkProducts } from './api'
 
 function resolveStageColor(name: string) {
   return STAGE_COLORS[name] ?? stageColor(name)
@@ -32,6 +32,7 @@ export function MyWorkPage() {
   const [activeProduct, setActiveProduct] = useState<ProductSummary | null>(null)
   const [products, setProducts] = useState<ProductSummary[]>([])
   const [revisions, setRevisions] = useState<RevisionRequest[]>([])
+  const [reminders, setReminders] = useState<PmReminder[]>([])
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const userId = user?.id ?? null
@@ -40,19 +41,21 @@ export function MyWorkPage() {
   useEffect(() => {
     if (!userId) return
     let active = true
-    Promise.all([fetchMyWorkProducts(userId, roleId), fetchMyRevisionWork(userId)])
-      .then(async ([rows, revisionRows]) => {
+    Promise.all([fetchMyWorkProducts(userId, roleId), fetchMyRevisionWork(userId), fetchMyReminders(userId)])
+      .then(async ([rows, revisionRows, reminderRows]) => {
         if (!active) return
         const hydrated = await hydrateProductSummaryRollups(rows.map(productToSummary))
         if (!active) return
         setProducts(hydrated)
         setRevisions(revisionRows)
+        setReminders(reminderRows)
         setLoadedUserId(userId)
       })
       .catch(() => {
         if (!active) return
         setProducts([])
         setRevisions([])
+        setReminders([])
         setLoadedUserId(userId)
       })
     return () => { active = false }
@@ -95,16 +98,30 @@ export function MyWorkPage() {
             My work
           </h2>
           <p className="mt-1 text-[13.5px]" style={{ color: '#5A6883' }}>
-            Work owned by {userDisplayName(user)} · {visibleProducts.length} product{visibleProducts.length === 1 ? '' : 's'} · {revisions.length} revision{revisions.length === 1 ? '' : 's'}
+            Work owned by {userDisplayName(user)} · {visibleProducts.length} product{visibleProducts.length === 1 ? '' : 's'} · {revisions.length} revision{revisions.length === 1 ? '' : 's'} · {reminders.length} reminder{reminders.length === 1 ? '' : 's'}
           </p>
         </div>
 
-        {visibleProducts.length === 0 && revisions.length === 0 ? (
+        {visibleProducts.length === 0 && revisions.length === 0 && reminders.length === 0 ? (
           <div className="rounded-xl border px-5 py-8 text-[13.5px]" style={{ borderColor: '#EAEEF5', color: '#5A6883' }}>
-            No direct assignments, lifecycle-owned products, or revision requests are assigned to you yet.
+            No direct assignments, lifecycle-owned products, revision requests, or reminders are assigned to you yet.
           </div>
         ) : (
           <div className="space-y-4">
+            {reminders.length > 0 && (
+              <div className="overflow-hidden rounded-xl" style={{ border: '1px solid #EAEEF5' }}>
+                <div className="flex items-center gap-2.5 px-4 py-3" style={{ background: '#F6F8FC', borderBottom: '1px solid #EAEEF5' }}>
+                  <Bell className="size-4" style={{ color: '#5A6883' }} />
+                  <span className="text-[13px] font-bold" style={{ color: '#1B2840' }}>Reminders</span>
+                  <span className="rounded px-1.5 py-0.5 text-[11px] font-semibold" style={{ background: '#EAEEF5', color: '#5A6883' }}>
+                    {reminders.length}
+                  </span>
+                </div>
+                {reminders.map((reminder) => (
+                  <ReminderWorkRow key={reminder.id} reminder={reminder} onOpen={setActiveProduct} />
+                ))}
+              </div>
+            )}
             {groups.map(({ stage, items }) => {
               const stageStyle = resolveStageColor(stage)
               const isCollapsed = collapsed.has(stage)
@@ -153,6 +170,32 @@ export function MyWorkPage() {
 
       <TaskDetailModal task={activeProduct} onClose={() => setActiveProduct(null)} />
     </>
+  )
+}
+
+function ReminderWorkRow({ reminder, onOpen }: { reminder: PmReminder; onOpen: (p: ProductSummary) => void }) {
+  const product = reminder.product && typeof reminder.product === 'object' ? productToSummary(reminder.product) : null
+  return (
+    <div
+      className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-[#F6F8FC]"
+      style={{ borderBottom: '1px solid #EAEEF5' }}
+      onClick={() => { if (product) onOpen(product) }}
+    >
+      <div className="flex size-[24px] shrink-0 items-center justify-center rounded-lg" style={{ background: '#EAF4FF' }}>
+        <Bell className="size-3.5" style={{ color: '#2D7BD0' }} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="line-clamp-1 text-[13.5px] font-medium" style={{ color: '#1B2840' }}>
+          {reminder.title || 'Reminder'}
+        </p>
+        <p className="mt-0.5 line-clamp-1 text-[12px]" style={{ color: '#5A6883' }}>
+          {[product?.title, titleCase(reminder.reminder_type), titleCase(reminder.status)].filter(Boolean).join(' · ')}
+        </p>
+      </div>
+      <span className="shrink-0 text-[12px]" style={{ color: '#94A0B5' }}>
+        {formatDate(reminder.due_at)}
+      </span>
+    </div>
   )
 }
 

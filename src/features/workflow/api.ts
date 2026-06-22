@@ -85,6 +85,8 @@ export const PRODUCT_CONTEXT_FIELDS = [
   'business_unit',
   'lifecycle_state',
   'next_action',
+  { next_owner_user: ['id', 'first_name', 'last_name', 'email', 'avatar'] },
+  { next_owner_role: ['id', 'name'] },
   'waiting_on',
   'blocker_reason',
   'risk_level',
@@ -205,7 +207,7 @@ export async function fetchLifecycleOwnedProducts(userId: string, roleId: string
     : { next_owner_user: { _eq: userId } }
   return directus.request(
     readItems('product', {
-      fields: PRODUCT_SUMMARY_FIELDS,
+      fields: PRODUCT_SUMMARY_FIELDS as never,
       filter: ownership as never,
       limit: -1,
     }),

@@ -131,6 +131,12 @@ function userName(u: DirectusUser | string | null | undefined) {
   return [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email || 'Unknown'
 }
 
+function roleName(value: unknown): string | null {
+  if (!value || typeof value === 'string') return null
+  if (typeof value === 'object' && 'name' in value && typeof value.name === 'string') return value.name
+  return null
+}
+
 export function userInitials(name: string) {
   return name.split(' ').filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('') || '?'
 }
@@ -157,6 +163,21 @@ export function productToSummary(product: Product): ProductSummary {
   const dueSource = product.pps_requested_date ?? product.clickup_due_at ?? product.on_shelf_date
   const { due, dueOver } = formatDue(dueSource ?? null)
   const licensorName = normaliseLicensor(relationName(licensor))
+  const nextOwnerName = directusUserToPerson(product.next_owner_user)?.name ?? null
+  const nextOwnerRoleName = roleName(product.next_owner_role)
+  const businessUnit = normaliseBusinessUnit(product.business_unit)
+  const productTypeName = relationName(product.product_type as string | ProductType | null)
+  const projectId = relationId(project)
+  const retailerName = relationName(product.retailer as string | Retailer | null) ?? relationName(projectObject?.retailer as string | Retailer | null)
+  const buyerName = relationName(product.buyer as string | Buyer | null) ?? relationName(projectObject?.buyer as string | Buyer | null)
+  const evidenceGaps = [
+    !product.next_action ? 'Next action' : null,
+    !nextOwnerName && !nextOwnerRoleName && !product.waiting_on ? 'Owner / waiting-on' : null,
+    !productTypeName ? 'Product type' : null,
+    businessUnit !== 'Software' && !projectId ? 'Project' : null,
+    businessUnit === 'Licensed' && !licensorName ? 'Licensor' : null,
+    businessUnit === 'Generic' && !retailerName && !buyerName ? 'Account context' : null,
+  ].filter((value): value is string => Boolean(value))
 
   return {
     raw: product,
@@ -164,23 +185,26 @@ export function productToSummary(product: Product): ProductSummary {
     code: product.code,
     title,
     description: product.description ?? undefined,
-    businessUnit: normaliseBusinessUnit(product.business_unit),
+    businessUnit,
     lifecycleState: product.lifecycle_state ?? null,
     nextAction: product.next_action ?? null,
+    nextOwnerName,
+    nextOwnerRoleName,
     waitingOn: product.waiting_on ?? null,
     blockerReason: product.blocker_reason ?? null,
     riskLevel: product.risk_level ?? null,
+    evidenceGaps,
     stageId: relationId(stage),
     stageName: relationName(stage) ?? (typeof stage === 'string' ? stage : 'Unknown'),
     licensorId: relationId(licensor),
     licensorName,
     propertyName: relationName(product.property as string | Property | null),
-    productTypeName: relationName(product.product_type as string | ProductType | null),
+    productTypeName,
     retailerId: relationId(product.retailer as string | Retailer | null) ?? relationId(projectObject?.retailer as string | Retailer | null),
-    retailerName: relationName(product.retailer as string | Retailer | null) ?? relationName(projectObject?.retailer as string | Retailer | null),
+    retailerName,
     buyerId: relationId(product.buyer as string | Buyer | null) ?? relationId(projectObject?.buyer as string | Buyer | null),
-    buyerName: relationName(product.buyer as string | Buyer | null) ?? relationName(projectObject?.buyer as string | Buyer | null),
-    projectId: relationId(project),
+    buyerName,
+    projectId,
     projectTitle: relationName(project),
     designName: relationName(product.design as string | Design | null),
     designCollectionName: relationName(product.design_collection as string | DesignCollection | null),

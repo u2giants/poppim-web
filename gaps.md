@@ -190,9 +190,9 @@ Original gap: modal prominently showed ClickUp list/dates/original-task link.
 ## 2.23 Notifications are fake
 
 Original gap: topbar showed a hardcoded notification count of `12`.
-**Status (2026-06-21):** DONE (removed, not wired)
-**Evidence:** `src/components/Topbar.tsx` no longer renders any notification icon/badge or hardcoded `12`.
-**Remaining:** No real notification system (stage handoffs, mentions, review requests, SLA/licensor reminders) — the fake is gone but the real one is unimplemented.
+**Status (2026-06-22):** PARTIAL
+**Evidence:** `src/components/Topbar.tsx` no longer renders any notification icon/badge or hardcoded `12`. `pm_reminder` now exists in Directus (`directus` repo `pm-system/add-operating-model.mjs`), `src/features/operating/api.ts` can create/update reminders, the product modal Operations tab can add/complete them, and `src/features/mywork/MyWorkPage.tsx` lists open/snoozed reminders assigned to the signed-in user.
+**Remaining:** No external notification delivery (email/Teams/push), mentions, or Directus Flow/worker for automatic SLA/stuck/licensor reminders.
 
 ## 2.24 Sidebar collections are fake and potentially misleading
 
@@ -237,9 +237,9 @@ Original gap: no structured revision request/response workflow.
 ## 2.30 The app lacks evidence-completeness checks
 
 Original gap: no completeness checklist gating stage transitions or review queues.
-**Status (2026-06-21):** OPEN
-**Evidence:** Manual per-product checklists exist (`checklist_item`, `collab.ts`) and individual fields exist (`pi_status`, `brand_assurance_number`, sample `photo_urls`), but there is no computed completeness check or pre-transition validation.
-**Remaining:** Business-specific completeness rules that block/flag stage moves or review-queue entry when required evidence is missing.
+**Status (2026-06-22):** PARTIAL
+**Evidence:** Manual per-product checklists exist (`checklist_item`, `collab.ts`) and individual fields exist (`pi_status`, `brand_assurance_number`, sample `photo_urls`). `src/domain/products/adapters.ts` now computes `evidenceGaps` for key product context gaps; Control Room and Reports surface missing-evidence counts. `pm_workflow_template.required_evidence_json` exists for future reusable evidence rules.
+**Remaining:** No pre-transition validation or template-driven rule engine that blocks/flags stage moves by required evidence.
 
 ## 2.31 User permissions are not reflected in frontend UX
 
@@ -258,15 +258,15 @@ Original gap: no real creation/conversion flows.
 ## 2.33 The app lacks batch operations
 
 Original gap: only single-product stage movement; no batch assign/move/set/export.
-**Status (2026-06-21):** OPEN
-**Evidence:** `src/features/pipeline/PipelinePage.tsx` renders a per-card `Checkbox` but there is no selection state or batch action handler; no bulk assign/move/set-state/dates/export.
-**Remaining:** Multi-select state + batch actions (assign, validated move, set lifecycle/dates, note/tag, submission batch, export).
+**Status (2026-06-22):** PARTIAL
+**Evidence:** `src/features/pipeline/PipelinePage.tsx` now has table selection state and a bulk action bar for mark waiting, set high risk, clear blocker, set next action, and set waiting-on.
+**Remaining:** Bulk assign, validated stage move, date changes, note/tag, submission batches, and export.
 
 ## 2.34 The app lacks reporting and analytics
 
 Original gap: no real dashboards beyond board/table counts.
-**Status (2026-06-21):** PARTIAL
-**Evidence:** `src/features/reports/api.ts` + `ReportsPage.tsx` compute stage distribution, closure-reason histogram, recent stage handoffs, and totals; `src/features/control-room/api.ts` adds urgent/upcoming/active-project surfaces.
+**Status (2026-06-22):** PARTIAL
+**Evidence:** `src/features/reports/api.ts` + `ReportsPage.tsx` compute stage distribution, closure-reason histogram, recent stage handoffs, totals, blocked/waiting counts, owner gaps, evidence gaps, open revisions, waiting submissions, active samples, open dependencies, open reminders, recorded decisions, and active templates. `src/features/control-room/api.ts` adds urgent/upcoming/active-project plus blocked/waiting, owner-gap, and evidence-gap surfaces.
 **Remaining:** Missing stuck-by-stage-age, licensor response time, designer workload, concept-approved-no-PO, reusable-design inventory, factory/pricing & sample turnaround, cancellation-reason trends, bottleneck/seasonal-readiness analytics.
 
 ## 2.35 The app lacks AI-assistant surfaces
@@ -289,21 +289,21 @@ App screens still import from `src/lib/mockData.ts`.
 ## 3.2 Frontend types are a minimal hand-maintained slice
 
 Types omit many backend fields/collections.
-**Status (2026-06-21):** PARTIAL
-**Evidence:** `src/lib/types.ts` (~430 lines) now covers ~40 interfaces (Product, Project, Design, DesignCollection, ProductSubmission, ProductSample, Order, RevisionRequest, StageHistory, PmSavedView, plus a `Schema` map). Raw vs view-model is separated via `src/domain/products/{types,adapters}.ts`.
+**Status (2026-06-22):** PARTIAL
+**Evidence:** `src/lib/types.ts` now covers the product/project/design/workflow slice plus operating records (`PmDependency`, `PmDecision`, `PmReminder`, `PmWorkflowTemplate`) and the `Schema` map. Raw vs view-model is separated via `src/domain/products/{types,adapters}.ts`.
 **Remaining:** Still hand-maintained, not generated from the Directus schema; raw vs UI split only exists for products.
 
 ## 3.3 API layer is not organized by domain object
 
 APIs split around pipeline/projects/board.
 **Status (2026-06-21):** DONE
-**Evidence:** Domain-organized APIs exist: `src/features/{accounts,control-room,designs,mywork,orders,pipeline,projects,reports,views,workflow,settings}/api.ts` plus `src/domain/{products,reference}/`. (Submissions/samples/reviews are handled by `workflow/api.ts`.)
+**Evidence:** Domain-organized APIs exist: `src/features/{accounts,control-room,designs,mywork,operating,orders,pipeline,projects,reports,views,workflow,settings}/api.ts` plus `src/domain/{products,reference}/`. (Submissions/samples/reviews are handled by `workflow/api.ts`.)
 
 ## 3.4 Detail modal is doing too much
 
 `TaskDetailModal.tsx` fetches and renders everything inline.
-**Status (2026-06-21):** OPEN
-**Evidence:** `src/components/TaskDetailModal.tsx` is ~1,512 lines / 61KB — still a monolith, still named `Task`. Inline editing, lightbox, comments, checklist, subtasks, files, imported fields all live here.
+**Status (2026-06-22):** OPEN
+**Evidence:** `src/components/TaskDetailModal.tsx` is still a monolith and still named `Task`. Inline editing, lightbox, comments, checklist, subtasks, files, imported fields, and operating records all live here.
 **Remaining:** Rename away from `Task`; split into domain sections; add route/deep-link for object type+ID (only `?item=<uuid>` exists); no full-page detail option.
 
 ## 3.5 No client routing yet
@@ -513,4 +513,4 @@ Modal mixes ClickUp data with PM fields.
 
 The app has moved decisively past the prototype phase the original doc critiqued. All mock data and the `MockTask` abstraction are gone; every production screen reads real Directus data through a domain-organized API layer (`src/features/*/api.ts`, `src/domain/products`), and POP vs Spruce are hard-separated by a business-unit filter. First-class screens now exist for projects, designs, collections, submissions, samples, revisions, orders, accounts, reports, control room, and My Work, with lifecycle/next-action/owner/risk fields surfaced and inline-edited.
 
-The remaining gaps are **architectural maturity** rather than honesty: no client router (state-switch + `?item=` only), a ~1,500-line `TaskDetailModal` still named "Task", narrow pipeline search/filter, no server cursor pagination, quiet error handling (sonner installed but unused), and ClickUp metadata still prominent. The biggest missing capability is **automation/intelligence** — no stage-history logging, SLA/stuck/handoff alerts, role-named cockpits, or reuse/turnaround reporting — plus the looming **Directus→Supabase migration** (AGENTS.md §15). Net: a solid, honest, data-backed PM tool that now needs routing, modal decomposition, gated workflows, and the automation/analytics layer to fulfill the business graph the original doc envisioned.
+The remaining gaps are **architectural maturity** rather than honesty: no client router (state-switch + `?item=` only), a large `TaskDetailModal` still named "Task", narrow pipeline search/filter, no server cursor pagination, quiet error handling (sonner installed but unused), and ClickUp metadata still prominent. The biggest missing capability is **automation/intelligence** — no external notification delivery, stage-gate enforcement, SLA/stuck/handoff Flows, role-named cockpits, or reuse/turnaround reporting — plus the looming **Directus→Supabase migration** (AGENTS.md §15). Net: a solid, honest, data-backed PM tool that now has first-class operating records and needs routing, modal decomposition, gated workflows, and the automation/analytics layer to fulfill the business graph the original doc envisioned.

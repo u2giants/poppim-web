@@ -45,9 +45,12 @@ export interface ProductSummary {
   businessUnit: BusinessUnit
   lifecycleState: string | null
   nextAction: string | null
+  nextOwnerName: string | null
+  nextOwnerRoleName: string | null
   waitingOn: string | null
   blockerReason: string | null
   riskLevel: string | null
+  evidenceGaps: string[]
   stageId: string | null
   stageName: string
   licensorId: string | null

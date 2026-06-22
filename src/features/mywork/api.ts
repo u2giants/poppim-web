@@ -1,6 +1,6 @@
 import { readItems } from '@directus/sdk'
 import { directus } from '@/lib/directus'
-import type { Product, RevisionRequest } from '@/lib/types'
+import type { PmReminder, Product, RevisionRequest } from '@/lib/types'
 import { PRODUCT_SUMMARY_FIELDS } from '@/features/pipeline/api'
 import { fetchAssignedRevisions, fetchLifecycleOwnedProducts } from '@/features/workflow/api'
 
@@ -27,7 +27,7 @@ export async function fetchAssignedProducts(userId: string): Promise<Product[]> 
 
   return directus.request(
     readItems('product', {
-      fields: PRODUCT_SUMMARY_FIELDS,
+      fields: PRODUCT_SUMMARY_FIELDS as never,
       filter: { id: { _in: ids } },
       limit: -1,
     }),
@@ -46,4 +46,26 @@ export async function fetchMyWorkProducts(userId: string, roleId: string | null)
 
 export async function fetchMyRevisionWork(userId: string): Promise<RevisionRequest[]> {
   return fetchAssignedRevisions(userId)
+}
+
+export async function fetchMyReminders(userId: string): Promise<PmReminder[]> {
+  return directus.request(
+    readItems('pm_reminder', {
+      fields: [
+        'id',
+        'title',
+        'due_at',
+        'status',
+        'reminder_type',
+        'notes',
+        { product: PRODUCT_SUMMARY_FIELDS },
+      ] as never,
+      filter: {
+        assigned_to: { _eq: userId },
+        status: { _in: ['open', 'snoozed'] },
+      },
+      sort: ['due_at', 'title'],
+      limit: -1,
+    }),
+  ) as unknown as Promise<PmReminder[]>
 }

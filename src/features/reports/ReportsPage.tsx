@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BarChart3, Boxes, Briefcase, Images, ReceiptText, Shuffle } from 'lucide-react'
+import { AlertTriangle, BarChart3, Bell, Boxes, Briefcase, Clock3, Factory, FilePenLine, GitBranch, Images, ReceiptText, Scale, Send, Shuffle, UserCheck, Workflow } from 'lucide-react'
 import { productToSummary } from '@/domain/products/adapters'
 import { STAGE_COLORS, stageColor } from '@/domain/products/presentation'
 import { useAppState, type BusinessUnitFilter } from '@/lib/appState'
@@ -97,6 +97,26 @@ export function ReportsPage() {
           <Metric label="Orders" value={data.totals.orders} icon={ReceiptText} color="#F2A23C" />
         </div>
 
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <Metric label="Blocked / waiting" value={data.operational.blocked} icon={Clock3} color="#D2502B" />
+          <Metric label="Needs owner" value={data.operational.ownershipGaps} icon={UserCheck} color="#C8942A" />
+          <Metric label="Evidence gaps" value={data.operational.evidenceGaps} icon={AlertTriangle} color="#E0483A" />
+          <Metric label="Overdue dates" value={data.operational.overdueDates} icon={Clock3} color="#8B5CF6" />
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-3">
+          <Metric label="Open revisions" value={data.operational.openRevisions} icon={FilePenLine} color="#6B54C9" />
+          <Metric label="Waiting submissions" value={data.operational.waitingSubmissions} icon={Send} color="#2D7BD0" />
+          <Metric label="Active samples" value={data.operational.activeSamples} icon={Factory} color="#239281" />
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <Metric label="Open dependencies" value={data.operational.openDependencies} icon={GitBranch} color="#D2502B" />
+          <Metric label="Open reminders" value={data.operational.openReminders} icon={Bell} color="#2D7BD0" />
+          <Metric label="Decisions recorded" value={data.operational.recordedDecisions} icon={Scale} color="#10B981" />
+          <Metric label="Active templates" value={data.operational.activeTemplates} icon={Workflow} color="#8B5CF6" />
+        </div>
+
         <div className="grid gap-5 xl:grid-cols-[1fr_1fr]">
           <Panel title="Stage Distribution" icon={BarChart3}>
             <div className="space-y-3">
@@ -113,6 +133,32 @@ export function ReportsPage() {
               <div className="space-y-3">
                 {data.closureBuckets.map((bucket) => (
                   <GenericBucketRow key={bucket.key} bucket={bucket} max={maxClosure} />
+                ))}
+              </div>
+            )}
+          </Panel>
+        </div>
+
+        <div className="grid gap-5 xl:grid-cols-[1fr_1fr]">
+          <Panel title="Risk Mix" icon={AlertTriangle}>
+            {data.riskBuckets.length === 0 ? (
+              <EmptyState label="No risk levels recorded in this filter." />
+            ) : (
+              <div className="space-y-3">
+                {data.riskBuckets.map((bucket) => (
+                  <GenericBucketRow key={bucket.key} bucket={bucket} max={data.riskBuckets[0]?.count ?? 1} />
+                ))}
+              </div>
+            )}
+          </Panel>
+
+          <Panel title="Waiting On" icon={Clock3}>
+            {data.waitingBuckets.length === 0 ? (
+              <EmptyState label="No waiting-on values recorded in this filter." />
+            ) : (
+              <div className="space-y-3">
+                {data.waitingBuckets.slice(0, 12).map((bucket) => (
+                  <GenericBucketRow key={bucket.key} bucket={bucket} max={data.waitingBuckets[0]?.count ?? 1} />
                 ))}
               </div>
             )}

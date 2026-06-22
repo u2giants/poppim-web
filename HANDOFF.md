@@ -1,5 +1,27 @@
 # Handoff — ClickUp Parity Tail
 
+## PM Operating Model
+
+Status:
+done
+
+Done:
+- Added the live Directus operating collections via `/worksp/directus/pm-system/add-operating-model.mjs`: `pm_dependency`, `pm_decision`, `pm_reminder`, and `pm_workflow_template`.
+- Verified all four new collections are readable from `https://data.designflow.app` after migration.
+- Frontend types/API added in `src/lib/types.ts` and `src/features/operating/api.ts`.
+- Product detail now has an Operations tab for dependencies, decisions, and reminders.
+- My Work now lists open/snoozed reminders assigned to the signed-in user.
+- Settings now lists and creates workflow templates.
+- Reports now counts open dependencies, open reminders, recorded decisions, and active templates.
+- `npm run build` passed on 2026-06-22.
+
+Next action:
+No continuation action is required for the implemented in-app operating model. External delivery (email/Teams/push) would require a future Directus Flow or worker; this session did not implement external notifications.
+
+Risks / watchouts:
+- The new Directus schema script is additive and idempotent, but it is in the `directus` repo and must be committed there separately from the frontend.
+- Reminders are durable Directus records and My Work items, not an external notification-delivery system.
+
 ## ClickUp Product/Card Parity
 
 Status:
@@ -20,30 +42,34 @@ Risks / watchouts:
 ## Product-File Source Recovery
 
 Status:
-partial
+blocked on external source bytes (repo/app work complete for currently reachable files)
 
 Done:
 - Backend copied 20,234 / 20,281 imported `product_file` rows to DigitalOcean Spaces.
 - Product covers have 0 ClickUp URLs remaining.
 - Sampled remaining failures return either 404 or 200 with zero bytes, anonymously and with `CLICKUP_TOKEN`.
+- 2026-06-21 follow-up recovered one newly reachable file (`Women of the World`, `product_file` `58ee2054-accd-4a0d-bcd4-a7fa8b6fbc6c`) after fixing the Spaces migration extension parser for extensionless ClickUp files. Current count: 20,235 / 20,281 stored; 46 remain unstored.
 
 Next action:
-Recover the remaining 47 source files from an old ClickUp export, NAS, or user re-upload. After replacement source URLs/files exist, rerun `/worksp/directus/pm-system/migration/clickup-files-to-spaces.mjs`.
+Recover the remaining 46 source files from an old ClickUp export, NAS, or user re-upload. After replacement source URLs/files exist, rerun `/worksp/directus/pm-system/migration/clickup-files-to-spaces.mjs`.
 
 Risks / watchouts:
-- Rerunning the same current ClickUp URLs will not recover the 47 files unless ClickUp starts serving bytes again.
+- Rerunning the same current ClickUp URLs will not recover the 46 files unless ClickUp starts serving bytes again. A 2026-06-21 probe found no matching filenames under `/worksp`.
 
 ## ClickUp Activity / Time
 
 Status:
-partial
+time entries recovered where current products exist; activity blocked by unavailable ClickUp endpoint
 
 Done:
 - `clickup-work-import.mjs` attempts ClickUp history/activity/time-entry imports.
 - All 2026-06-14 runs still reported `activity 0` and `time 0`.
+- 2026-06-21 verified the empty time import was query-shape related: ClickUp returns workspace time entries only when `assignee` is provided. Patched `/worksp/directus/pm-system/migration/clickup-work-import.mjs` to query workspace members and include `assignee`, `include_task_tags`, and `include_location_names`.
+- Imported the 4 time entries whose ClickUp tasks map to current Directus `product` rows. `product_time_entry` now has 4 rows. The workspace has 10 time entries total across 8 ClickUp task ids; 5 task ids do not map to current `product` rows.
+- Verified task activity/history endpoints used by the old importer (`/api/v2/task/:id/history` and `/api/v3/task/:id/activity`) return 404 for sampled live tasks. `product_activity` remains 0 because ClickUp does not expose that activity-log endpoint to this token/API shape.
 
 Next action:
-Verify ClickUp API endpoints/permissions for task history/activity, and confirm whether the team used ClickUp time tracking. Do not debug this as a frontend rendering problem until the backend API returns records.
+No frontend action. If activity logs are still desired, find an officially supported ClickUp endpoint/export for task activity history or recover activity from a separate ClickUp export. If the 5 unmatched time-entry task ids matter, decide whether to create product/project homes for them or add a non-product time-entry model.
 
 Risks / watchouts:
 - Existing evidence docs already noted `time_entries` were empty; activity may need a different endpoint or may be unavailable with the current token.
@@ -65,18 +91,18 @@ Residual notes (not blockers):
 ## Hierarchy + Editing Frontend (deployed, not live-verified)
 
 Status:
-partial (code complete + deployed; live behavior unverified)
+done — live verified 2026-06-21
 
 Done:
 - Backend (directus 45af984): 8 new product fields added + backfilled; verification SQL passed (17,859 has_space/has_list_id; 17,705 has_folder; 123 has_time_estimate).
 - Frontend (`e487955`, live on `pm.designflow.app`): topbar List filter, group-by List/Folder, sidebar Spaces tree, card/modal breadcrumbs, time-estimate field, orderindex sort, inline-editable modal fields, image lightbox + set-as-cover, inline topbar search. `npm run build` clean.
+- Live login via the email/password path reached the deployed app (`pm.designflow.app`, build badge `da4a910`, Jun 21 2026 3:05 PM EDT).
+- Sidebar saved-list view click verified across departments: from Licensed, expanded Generic and clicked `General Presentations`; app switched to Generic and kept topbar `List 1` active, with Generic/General Presentations cards rendered.
+- Topbar/list-backed filtering rendered real list-filtered data in live Product Pipeline (`New Prod Development`, `Customer Refresh`, and `General Presentations` were spot-checked in the browser).
+- Reversible persistence smoke test passed through Directus: patched `next_action`, read it back, restored it; patched `cover_url` to an existing stored image, read it back, restored it. Product `7f795aee-28ec-4843-bb66-8923ed4ccf5d`, file `ffffa79e-9fc4-49e7-b142-f07d51ac044f`.
 
 Next action:
-Drive the live site (needs a real login — the Playwright/automated browser hits the Microsoft SSO gate and has no session) and spot-check:
-1. Sidebar tree counts match the topbar List-filter counts (e.g. Licensing Management ~11,575).
-2. Click a sidebar list in a *different* department → it switches department AND keeps the filter (regression check for the effect-ordering fix; see AGENTS.md §11).
-3. Edit a field, reopen the card → value persisted (silent revert = a failed Directus write/permission).
-4. Right-click an image → "Set as cover image" updates the card banner.
+No remaining frontend verification action from this handoff.
 
 Risks / watchouts:
 - orderindex order is exact per-list only and not for lists over the 5,000 load cap (Licensing Management). See AGENTS.md §11.

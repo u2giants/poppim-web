@@ -17,6 +17,7 @@ import { useAppState } from '@/lib/appState'
 import { CATEGORY_COLORS, CATEGORY_ICONS, LICENSOR_META, STAGE_COLORS } from '@/domain/products/presentation'
 import { PimTaskCard } from '@/components/PimTaskCard'
 import { TaskDetailModal } from '@/components/TaskDetailModal'
+import { updateProduct } from '@/features/board/collab'
 import { fetchStages, fetchPipelineProducts, setProductStage, countPipelineProducts } from './api'
 import { orderedStageNames, productToSummary } from '@/domain/products/adapters'
 import { hydrateProductSummaryRollups } from '@/domain/products/rollups'
@@ -174,6 +175,26 @@ export function PipelinePage() {
           total={totalCount}
           fetching={fetching}
           onOpen={openTask}
+          onBulkPatch={async (ids, patch) => {
+            const before = tasks
+            setTasks((prev) => prev.map((task) => (ids.includes(task.id) ? productToSummary({ ...task.raw, ...patch } as never) : task)))
+            try {
+              await Promise.all(ids.map((id) => updateProduct(id, patch)))
+              const opts: FetchProductsOpts = {
+                search: debouncedSearch.trim() || undefined,
+                licensorIds: filterLicensorIds.size > 0 ? [...filterLicensorIds] : undefined,
+                listNames: filterListNames.size > 0 ? [...filterListNames] : undefined,
+                businessUnit,
+                limit: 5000,
+              }
+              const products = await fetchPipelineProducts(opts)
+              const mapped = await hydrateProductSummaryRollups(products.map(productToSummary))
+              setTasks(mapped)
+            } catch (error) {
+              console.error(error)
+              setTasks(before)
+            }
+          }}
         />
       )}
       {/* Truncation notice (kanban only — table has its own footer) */}
@@ -318,6 +339,7 @@ function TableView({
   total,
   fetching,
   onOpen,
+  onBulkPatch,
 }: {
   tasks: ProductSummary[]
   stageNames: string[]
@@ -325,10 +347,13 @@ function TableView({
   total: number
   fetching: boolean
   onOpen: (t: ProductSummary) => void
+  onBulkPatch: (ids: string[], patch: Record<string, unknown>) => Promise<void>
 }) {
   const { groupBy } = useAppState()
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [page, setPage] = useState(0)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
 
   const groups = useMemo(() => {
     const map = new Map<string, ProductSummary[]>()
@@ -356,6 +381,9 @@ function TableView({
   const pageRows = useMemo(
     () => allRows.slice(safePage * TABLE_PAGE_SIZE, (safePage + 1) * TABLE_PAGE_SIZE),
     [allRows, safePage])
+  const pageIds = useMemo(() => pageRows.map((row) => row.id), [pageRows])
+  const selectedIds = useMemo(() => [...selected].filter((id) => tasks.some((task) => task.id === id)), [selected, tasks])
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id))
 
   // Determine which groups appear on this page (to render headers)
   const visibleGroups = useMemo(() => {
@@ -370,13 +398,53 @@ function TableView({
     return result
   }, [pageRows, groups])
 
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function togglePage() {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (allPageSelected) pageIds.forEach((id) => next.delete(id))
+      else pageIds.forEach((id) => next.add(id))
+      return next
+    })
+  }
+
+  async function applyBulk(patch: Record<string, unknown>) {
+    if (selectedIds.length === 0) return
+    setBulkBusy(true)
+    try {
+      await onBulkPatch(selectedIds, patch)
+      setSelected(new Set())
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
   return (
     <div className="flex h-full flex-col" style={{ opacity: fetching ? 0.55 : 1 }}>
+      {selectedIds.length > 0 && (
+        <BulkActionBar
+          count={selectedIds.length}
+          busy={bulkBusy}
+          onClearSelection={() => setSelected(new Set())}
+          onApply={applyBulk}
+        />
+      )}
       <div className="flex-1 overflow-auto">
         <table className="w-full text-left">
           <thead>
             <tr style={{ borderBottom: '1px solid #EAEEF5' }}>
-              {(['Task', 'Stage', 'Licensor', 'Due', 'Assignee'] as const).map((h) => (
+              <th className="sticky top-0 bg-white px-5 py-3" style={{ zIndex: 1, width: 44 }}>
+                <Checkbox checked={allPageSelected} onCheckedChange={togglePage} />
+              </th>
+              {(['Task', 'Stage', 'Licensor', 'Due', 'Owner / Waiting'] as const).map((h) => (
                 <th
                   key={h}
                   className="sticky top-0 bg-white px-5 py-3 text-[11px] font-bold uppercase tracking-[0.04em]"
@@ -398,7 +466,7 @@ function TableView({
                     onClick={() => setCollapsed((p) => { const n = new Set(p); if (n.has(key)) n.delete(key); else n.add(key); return n })}
                     style={{ background: '#F6F8FC', borderBottom: '1px solid #EAEEF5' }}
                   >
-                    <td colSpan={5} className="px-5 py-2.5">
+                    <td colSpan={6} className="px-5 py-2.5">
                       <div className="flex items-center gap-2">
                         <ChevronRight
                           className="size-4 transition-transform"
@@ -415,7 +483,7 @@ function TableView({
                     </td>
                   </tr>
                   {!collapsed.has(key) && groupItems.map((task) => (
-                    <TableTaskRow key={task.id} task={task} onOpen={onOpen} />
+                    <TableTaskRow key={task.id} task={task} selected={selected.has(task.id)} onToggleSelected={toggleSelected} onOpen={onOpen} />
                   ))}
                 </>
               )
@@ -462,10 +530,61 @@ function TableView({
   )
 }
 
-function TableTaskRow({ task, onOpen }: { task: ProductSummary; onOpen: (t: ProductSummary) => void }) {
+function BulkActionBar({
+  count,
+  busy,
+  onClearSelection,
+  onApply,
+}: {
+  count: number
+  busy: boolean
+  onClearSelection: () => void
+  onApply: (patch: Record<string, unknown>) => void
+}) {
+  function promptValue(label: string) {
+    const value = window.prompt(label)
+    return value?.trim()
+  }
+
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-5 py-2.5 text-[12px]" style={{ borderColor: '#EAEEF5', background: '#F6F8FC', color: '#5A6883' }}>
+      <span className="font-semibold" style={{ color: '#1B2840' }}>{count} selected</span>
+      <BulkButton disabled={busy} onClick={() => onApply({ lifecycle_state: 'waiting' })}>Mark waiting</BulkButton>
+      <BulkButton disabled={busy} onClick={() => onApply({ risk_level: 'high' })}>Set high risk</BulkButton>
+      <BulkButton disabled={busy} onClick={() => onApply({ blocker_reason: null, lifecycle_state: 'active' })}>Clear blocker</BulkButton>
+      <BulkButton disabled={busy} onClick={() => { const value = promptValue('Next action'); if (value) onApply({ next_action: value }) }}>Set next action</BulkButton>
+      <BulkButton disabled={busy} onClick={() => { const value = promptValue('Waiting on'); if (value) onApply({ waiting_on: value, lifecycle_state: 'waiting' }) }}>Set waiting on</BulkButton>
+      <button disabled={busy} onClick={onClearSelection} className="ml-auto rounded px-2 py-1 font-semibold transition-colors hover:bg-white disabled:opacity-50" style={{ color: '#5A6883' }}>
+        Clear selection
+      </button>
+    </div>
+  )
+}
+
+function BulkButton({ disabled, onClick, children }: { disabled: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button disabled={disabled} onClick={onClick} className="rounded-md border bg-white px-2.5 py-1 font-semibold transition-colors hover:bg-[#EAEEF5] disabled:opacity-50" style={{ borderColor: '#EAEEF5', color: '#1B2840' }}>
+      {children}
+    </button>
+  )
+}
+
+function TableTaskRow({
+  task,
+  selected,
+  onToggleSelected,
+  onOpen,
+}: {
+  task: ProductSummary
+  selected: boolean
+  onToggleSelected: (id: string) => void
+  onOpen: (t: ProductSummary) => void
+}) {
   const licMeta = task.licensorName ? LICENSOR_META[task.licensorName] : null
   const stageColors = resolveStageColor(task.stageName)
   const catColors = CATEGORY_COLORS[task.category]
+  const assigneeLabel = task.assignees.map((a) => a.name).join(', ')
+  const ownerLabel = (task.nextOwnerName ?? task.nextOwnerRoleName ?? assigneeLabel) || task.waitingOn || '—'
 
   return (
     <tr
@@ -473,10 +592,16 @@ function TableTaskRow({ task, onOpen }: { task: ProductSummary; onOpen: (t: Prod
       style={{ borderBottom: '1px solid #EAEEF5' }}
       onClick={() => onOpen(task)}
     >
+      <td className="px-5 py-3">
+        <Checkbox
+          checked={selected}
+          onClick={(e) => e.stopPropagation()}
+          onCheckedChange={() => onToggleSelected(task.id)}
+        />
+      </td>
       {/* Task */}
       <td className="px-5 py-3">
         <div className="flex items-center gap-3">
-          <Checkbox className="shrink-0" onClick={(e) => e.stopPropagation()} />
           <div
             className="flex size-[26px] shrink-0 items-center justify-center rounded-lg text-sm"
             style={{ background: catColors?.bg ?? '#F6F8FC' }}
@@ -527,9 +652,9 @@ function TableTaskRow({ task, onOpen }: { task: ProductSummary; onOpen: (t: Prod
           <span className="text-[13px]" style={{ color: task.dueOver ? '#D2502B' : '#5A6883' }}>{task.due}</span>
         )}
       </td>
-      {/* Assignee */}
+      {/* Owner / Waiting */}
       <td className="px-4 py-3 text-[13px]" style={{ color: '#5A6883' }}>
-        {task.assignees.map((a) => a.name).join(', ') || task.waitingOn || '—'}
+        {ownerLabel}
       </td>
     </tr>
   )

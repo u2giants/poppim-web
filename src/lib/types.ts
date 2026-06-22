@@ -283,6 +283,69 @@ export interface PmViewPref {
   hidden: boolean | null
 }
 
+export interface PmDependency {
+  id: string
+  product: string | Product | null
+  depends_on_product: string | Product | null
+  project: string | Project | null
+  title: string | null
+  dependency_type: 'blocked_by' | 'blocks' | 'related' | 'duplicate' | 'parent_child' | null
+  status: 'open' | 'waiting' | 'resolved' | 'canceled' | null
+  waiting_on: string | null
+  due_at: string | null
+  resolved_at: string | null
+  notes: string | null
+  source_system: string | null
+  source_id: string | null
+}
+
+export interface PmDecision {
+  id: string
+  product: string | Product | null
+  project: string | Project | null
+  object_collection: string | null
+  object_id: string | null
+  decision_type: string | null
+  status: 'proposed' | 'decided' | 'superseded' | 'canceled' | null
+  decided_by: string | DirectusUser | null
+  decided_at: string | null
+  reason: string | null
+  notes: string | null
+  evidence_url: string | null
+  source_system: string | null
+  source_id: string | null
+}
+
+export interface PmReminder {
+  id: string
+  product: string | Product | null
+  project: string | Project | null
+  object_collection: string | null
+  object_id: string | null
+  title: string | null
+  due_at: string | null
+  assigned_to: string | DirectusUser | null
+  status: 'open' | 'snoozed' | 'done' | 'canceled' | null
+  reminder_type: string | null
+  snoozed_until: string | null
+  completed_at: string | null
+  notes: string | null
+}
+
+export interface PmWorkflowTemplate {
+  id: string
+  name: string | null
+  business_unit: string | null
+  object_type: 'product' | 'project' | 'submission' | 'sample' | 'revision' | null
+  template_type: 'checklist' | 'stage_gate' | 'project' | 'submission' | 'sample' | null
+  active: boolean | null
+  description: string | null
+  checklist_json: unknown
+  required_evidence_json: unknown
+  default_next_action: string | null
+  default_owner_role: string | DirectusRole | null
+}
+
 // The canonical filter payload stored in pm_saved_view.filters_json.
 export interface ViewFilters {
   search?: string
@@ -447,4 +510,8 @@ export interface Schema {
   revision_request: RevisionRequest[]
   pm_saved_view: PmSavedView[]
   pm_view_pref: PmViewPref[]
+  pm_dependency: PmDependency[]
+  pm_decision: PmDecision[]
+  pm_reminder: PmReminder[]
+  pm_workflow_template: PmWorkflowTemplate[]
 }

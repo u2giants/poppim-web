@@ -14,6 +14,8 @@ export const PRODUCT_SUMMARY_FIELDS = [
   'business_unit',
   'lifecycle_state',
   'next_action',
+  { next_owner_user: ['id', 'first_name', 'last_name', 'email', 'avatar'] },
+  { next_owner_role: ['id', 'name'] },
   'waiting_on',
   'blocker_reason',
   'risk_level',
@@ -121,7 +123,7 @@ export async function fetchPipelineProducts(opts: FetchProductsOpts = {}): Promi
   const { limit = 300 } = opts
   return directus.request(
     readItems('product', {
-      fields: PRODUCT_SUMMARY_FIELDS,
+      fields: PRODUCT_SUMMARY_FIELDS as never,
       filter: buildFilter(opts) as never,
       sort: ['-clickup_updated_at', 'name'],
       limit,

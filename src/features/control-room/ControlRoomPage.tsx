@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Activity, AlertTriangle, ArrowRight, Briefcase, Clock3, Layers3, PackageCheck } from 'lucide-react'
+import { Activity, AlertTriangle, ArrowRight, Briefcase, CheckCircle2, Clock3, Layers3, PackageCheck, UserCheck } from 'lucide-react'
 import { useAppState, type BusinessUnitFilter } from '@/lib/appState'
 import { CATEGORY_COLORS, CATEGORY_ICONS, PRIORITY_COLORS, STAGE_COLORS, stageColor } from '@/domain/products/presentation'
 import type { ProductSummary } from '@/domain/products/types'
@@ -45,6 +45,9 @@ export function ControlRoomPage() {
   const topStages = useMemo(() => data?.stageCounts.slice(0, 7) ?? [], [data])
   const visibleUrgent = data?.urgentProducts.slice(0, 8) ?? []
   const visibleUpcoming = data?.upcomingProducts.slice(0, 8) ?? []
+  const visibleBlocked = data?.blockedProducts.slice(0, 8) ?? []
+  const visibleOwnershipGaps = data?.ownershipGapProducts.slice(0, 8) ?? []
+  const visibleEvidenceGaps = data?.evidenceGapProducts.slice(0, 8) ?? []
 
   if (loading) {
     return (
@@ -96,7 +99,7 @@ export function ControlRoomPage() {
           <Metric label="Open products" value={formatNumber(data.totalProducts)} icon={PackageCheck} color="#0094FF" />
           <Metric label="Active projects" value={formatNumber(data.activeProjects)} icon={Briefcase} color="#10B981" />
           <Metric label="Urgent / high" value={formatNumber(data.urgentProducts.length)} icon={AlertTriangle} color="#E0483A" />
-          <Metric label="Next 21 days" value={formatNumber(data.upcomingProducts.length)} icon={Clock3} color="#F2A23C" />
+          <Metric label="Blocked / waiting" value={formatNumber(data.blockedProducts.length)} icon={Clock3} color="#F2A23C" />
         </div>
 
         <div className="grid min-h-0 gap-5 xl:grid-cols-[1.1fr_0.9fr]">
@@ -121,6 +124,38 @@ export function ControlRoomPage() {
                 <StageLoadRow key={stage.id} stage={stage} max={topStages[0]?.count ?? 1} />
               ))}
             </div>
+          </Section>
+        </div>
+
+        <div className="grid gap-5 xl:grid-cols-[1fr_1fr_1fr]">
+          <Section title="Blocked / waiting" icon={Clock3}>
+            {visibleBlocked.length > 0 ? (
+              <div className="divide-y" style={{ borderColor: '#EAEEF5' }}>
+                {visibleBlocked.map((product) => <ProductRow key={product.id} product={product} mode="blocked" />)}
+              </div>
+            ) : (
+              <EmptyState label="No blocked or waiting products in this filter." />
+            )}
+          </Section>
+
+          <Section title="Needs an owner" icon={UserCheck}>
+            {visibleOwnershipGaps.length > 0 ? (
+              <div className="divide-y" style={{ borderColor: '#EAEEF5' }}>
+                {visibleOwnershipGaps.map((product) => <ProductRow key={product.id} product={product} mode="owner" />)}
+              </div>
+            ) : (
+              <EmptyState label="Every product with a next action has an owner or waiting-on value." />
+            )}
+          </Section>
+
+          <Section title="Missing evidence" icon={CheckCircle2}>
+            {visibleEvidenceGaps.length > 0 ? (
+              <div className="divide-y" style={{ borderColor: '#EAEEF5' }}>
+                {visibleEvidenceGaps.map((product) => <ProductRow key={product.id} product={product} mode="evidence" />)}
+              </div>
+            ) : (
+              <EmptyState label="No evidence gaps detected in the sampled work." />
+            )}
           </Section>
         </div>
 
@@ -221,11 +256,17 @@ function Section({
   )
 }
 
-function ProductRow({ product, mode }: { product: ProductSummary; mode: 'priority' | 'deadline' }) {
+function ProductRow({ product, mode }: { product: ProductSummary; mode: 'priority' | 'deadline' | 'blocked' | 'owner' | 'evidence' }) {
   const category = CATEGORY_COLORS[product.category] ?? CATEGORY_COLORS.unknown
   const priorityColor = PRIORITY_COLORS[product.priority] ?? PRIORITY_COLORS.normal
   const meta = mode === 'deadline'
     ? [product.ppsRequestedDate ? `PPS ${formatDate(product.ppsRequestedDate)}` : null, product.onShelfDate ? `Shelf ${formatDate(product.onShelfDate)}` : null]
+    : mode === 'blocked'
+      ? [product.blockerReason, product.waitingOn ? `Waiting on ${product.waitingOn}` : null, product.nextAction]
+    : mode === 'owner'
+      ? [product.nextAction, product.waitingOn]
+    : mode === 'evidence'
+      ? product.evidenceGaps.slice(0, 3)
     : [product.priority !== 'normal' ? product.priority : null, product.waitingOn, product.nextAction]
 
   return (
