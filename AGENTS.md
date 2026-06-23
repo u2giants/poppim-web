@@ -46,6 +46,43 @@ Then load additional docs only when relevant:
 
 The cross-project infrastructure/server operating reference lives in [`u2giants/albert-standards`](https://github.com/u2giants/albert-standards), especially [`infrastructure/README.md`](https://github.com/u2giants/albert-standards/blob/main/infrastructure/README.md), [`infrastructure/CLAUDE.md`](https://github.com/u2giants/albert-standards/blob/main/infrastructure/CLAUDE.md), and [`.ai/AI_INFRASTRUCTURE_GUIDE.md`](https://github.com/u2giants/albert-standards/blob/main/.ai/AI_INFRASTRUCTURE_GUIDE.md). When this repo changes non-code infrastructure, hosting, server topology, deploy mechanics, runtime ownership, domains, or operations decisions that apply beyond one source file, update those standards docs in the same session.
 
+## Shared-backend startup/shutdown hygiene
+
+Why this exists:
+`poppim-web`, `popcrm-web`, and `popdam3` all depend on the same Supabase backend.
+An unfinished migration or dirty canonical `u2giants/shared-db` checkout can block
+unrelated app commits or, worse, ship a database change without the right preview
+checks. Future AI sessions must keep shared-db work isolated and leave the
+workspace clean enough for the next vibe-coding session.
+
+Startup checklist:
+
+1. Run `git status --short` in this repo before editing.
+2. If the task may touch Supabase schema, RLS, API views/RPCs, generated database
+   types, or cross-app data contracts, also run `git status --short` in
+   `/worksp/shared-db` before editing.
+3. Treat `shared-db/` inside this repo as a read-only mirror. Do not create or
+   edit migrations there; use canonical `/worksp/shared-db`.
+4. If `/worksp/shared-db` has untracked migrations or unrelated dirty files, stop
+   and report them before creating new database work. Do not mix another
+   session's shared-db changes into this app's commit.
+5. Before creating a shared-db migration, create/switch to a dedicated
+   `/worksp/shared-db` branch named for the database change. App repos commit to
+   `main`; shared-db uses branch + PR.
+
+Shutdown checklist:
+
+1. Run `git status --short` in this repo and, if touched or inspected for backend
+   work, in `/worksp/shared-db`.
+2. No untracked shared-db migration may remain. Every shared-db migration must be
+   committed on its own branch, stashed with a clear name, or removed if
+   abandoned.
+3. If shared-db work is incomplete, leave durable handoff text that names the
+   branch/stash, migration file, preview/prod apply status, and the next exact
+   action.
+4. Final reports must separate app commits from shared-db status so the owner can
+   keep vibe-coding without becoming the git janitor.
+
 ## 4. Repository structure
 
 | Path | What | Ownership |
