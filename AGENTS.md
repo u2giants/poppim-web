@@ -38,6 +38,7 @@ Then load additional docs only when relevant:
 | Investigate a bug/incident | `AGENTS.md` §11 + §14, `HANDOFF.md` if present | unrelated docs |
 | Continue unfinished work | `AGENTS.md` §15, **`HANDOFF.md`** (required reading when present) | docs outside the handoff scope |
 | Product scope / "what's built vs. missing" / roadmap | **`gaps.md`** — reconciled current-state: every gap re-checked against the live code on 2026-06-21 and tagged DONE/PARTIAL/OPEN with file evidence (authoritative for what exists). `docs/architecture-update-implementation-plan.md` is the original aspirational roadmap/spec, kept for historical reference only | day-to-day screen/deploy docs |
+| Pull secrets from 1Password (MCP server or `op` CLI), service-account tokens, `op://` references | **`docs/1password.md`** | unrelated app/deploy docs |
 | Claude Code session | `CLAUDE.md`, then `AGENTS.md` | other docs unless needed |
 | Documentation-only cleanup | `AGENTS.md`, `README.md`, affected `docs/` | source except to verify accuracy |
 
