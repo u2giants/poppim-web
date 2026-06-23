@@ -104,7 +104,7 @@ export function SettingsPage() {
           Settings
         </h2>
         <p className="mt-1 max-w-3xl text-[13.5px] leading-relaxed" style={{ color: '#5A6883' }}>
-          Reference-data editing is intentionally not exposed in this frontend yet. These records live in Directus and need role-aware forms before they become safe production workflows here.
+          Reference-data editing is intentionally not exposed in this frontend yet. These records live in Supabase and need role-aware forms before they become safe production workflows here.
         </p>
       </div>
 
@@ -195,7 +195,7 @@ export function SettingsPage() {
           <div key={area} className="rounded-xl border p-4" style={{ borderColor: '#EAEEF5', background: '#fff' }}>
             <div className="text-[14px] font-bold" style={{ color: '#1B2840' }}>{area}</div>
             <div className="mt-1 text-[12.5px]" style={{ color: '#94A0B5' }}>
-              Planned Directus-backed admin surface
+              Planned Supabase-backed admin surface
             </div>
           </div>
         ))}

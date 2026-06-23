@@ -1,32 +1,6 @@
-import { aggregate, readItems } from '@directus/sdk'
-import { directus } from '@/lib/directus'
+import { pim, unwrap } from '@/lib/supabaseQuery'
 import type { Design, DesignCollection } from '@/lib/types'
 import type { BusinessUnit } from '@/domain/products/types'
-
-export const DESIGN_FIELDS = [
-  'id',
-  'name',
-  'business_unit',
-  'status',
-  'theme',
-  'nas_path',
-  'thumbnail_url',
-  { licensor: ['id', 'name'] },
-  { property: ['id', 'name'] },
-  { product_type: ['id', 'name'] },
-  { season: ['id', 'name', 'year', 'business_unit'] },
-  { first_offered_to: ['id', 'name'] },
-] as const
-
-export const DESIGN_COLLECTION_FIELDS = [
-  'id',
-  'name',
-  'format',
-  'theme',
-  'business_unit',
-  'version_date',
-  { account_specific_for: ['id', 'name'] },
-] as const
 
 export interface FetchDesignOpts {
   search?: string
@@ -34,76 +8,57 @@ export interface FetchDesignOpts {
   limit?: number
 }
 
-function businessUnitClause(businessUnit: BusinessUnit | undefined): unknown[] {
-  if (!businessUnit || businessUnit === 'Unknown') return []
-  if (businessUnit === 'Licensed') return [{ business_unit: { _in: ['POP', 'POP Creations'] } }]
-  if (businessUnit === 'Generic') return [{ business_unit: { _in: ['Spruce', 'Spruce Line'] } }]
-  return [{ business_unit: { _eq: 'Software' } }]
-}
-
-function searchClause(search: string | undefined): unknown[] {
-  const q = search?.trim()
-  if (!q) return []
-  return [{
-    _or: [
-      { name: { _icontains: q } },
-      { theme: { _icontains: q } },
-      { nas_path: { _icontains: q } },
-    ],
-  }]
-}
-
 export async function fetchDesigns(opts: FetchDesignOpts = {}): Promise<Design[]> {
-  const { limit = 300 } = opts
-  return directus.request(
-    readItems('design', {
-      fields: DESIGN_FIELDS,
-      filter: { _and: [...businessUnitClause(opts.businessUnit), ...searchClause(opts.search)] } as never,
-      sort: ['status', 'name'],
-      limit,
-    }),
-  ) as Promise<Design[]>
+  const { data, error } = await (pim() as any).from('design').select('*').order('status').order('title').limit(opts.limit ?? 300)
+  const q = opts.search?.trim().toLowerCase()
+  return unwrap<any[]>({ data, error })
+    .filter((row) => !q || [row.title, row.status, row.nas_path].filter(Boolean).join(' ').toLowerCase().includes(q))
+    .map((row) => ({
+      id: row.id,
+      name: row.title,
+      business_unit: row.metadata?.business_unit ?? null,
+      status: row.status,
+      theme: row.metadata?.theme ?? null,
+      nas_path: row.nas_path,
+      thumbnail_url: row.thumbnail_url,
+      licensor: null,
+      property: null,
+      product_type: null,
+      season: null,
+      first_offered_to: null,
+    }))
 }
 
 export async function fetchDesignCollections(opts: FetchDesignOpts = {}): Promise<DesignCollection[]> {
-  const { limit = 300 } = opts
-  return directus.request(
-    readItems('design_collection', {
-      fields: DESIGN_COLLECTION_FIELDS,
-      filter: {
-        _and: [
-          ...businessUnitClause(opts.businessUnit),
-          ...(opts.search?.trim()
-            ? [{ _or: [{ name: { _icontains: opts.search.trim() } }, { theme: { _icontains: opts.search.trim() } }, { format: { _icontains: opts.search.trim() } }] }]
-            : []),
-        ],
-      } as never,
-      sort: ['-version_date', 'name'],
-      limit,
-    }),
-  ) as Promise<DesignCollection[]>
+  const { data, error } = await (pim() as any).from('design_collection').select('*').order('updated_at', { ascending: false }).limit(opts.limit ?? 300)
+  const q = opts.search?.trim().toLowerCase()
+  return unwrap<any[]>({ data, error })
+    .filter((row) => !q || [row.name, row.season, row.status].filter(Boolean).join(' ').toLowerCase().includes(q))
+    .map((row) => ({
+      id: row.id,
+      name: row.name,
+      format: row.metadata?.format ?? null,
+      theme: row.metadata?.theme ?? null,
+      business_unit: row.metadata?.business_unit ?? null,
+      version_date: row.updated_at,
+      account_specific_for: row.company_id,
+    }))
 }
 
 export async function fetchProductCountsByDesign(): Promise<Map<string, number>> {
-  const rows = await directus.request(
-    aggregate('product', {
-      aggregate: { count: 'id' },
-      groupBy: ['design'] as never,
-      filter: { design: { _nnull: true } } as never,
-    }),
-  ) as unknown as Array<{ design: string | null; count: { id: string } }>
-
-  return new Map(rows.filter((row) => row.design).map((row) => [row.design!, parseInt(row.count.id, 10)]))
+  const { data, error } = await (pim() as any).from('product').select('design_id')
+  const counts = new Map<string, number>()
+  for (const row of unwrap<Array<{ design_id: string | null }>>({ data, error })) {
+    if (row.design_id) counts.set(row.design_id, (counts.get(row.design_id) ?? 0) + 1)
+  }
+  return counts
 }
 
 export async function fetchProjectCountsByDesignCollection(): Promise<Map<string, number>> {
-  const rows = await directus.request(
-    aggregate('project', {
-      aggregate: { count: 'id' },
-      groupBy: ['design_collection'] as never,
-      filter: { design_collection: { _nnull: true } } as never,
-    }),
-  ) as unknown as Array<{ design_collection: string | null; count: { id: string } }>
-
-  return new Map(rows.filter((row) => row.design_collection).map((row) => [row.design_collection!, parseInt(row.count.id, 10)]))
+  const { data, error } = await (pim() as any).from('project').select('design_collection_id')
+  const counts = new Map<string, number>()
+  for (const row of unwrap<Array<{ design_collection_id: string | null }>>({ data, error })) {
+    if (row.design_collection_id) counts.set(row.design_collection_id, (counts.get(row.design_collection_id) ?? 0) + 1)
+  }
+  return counts
 }

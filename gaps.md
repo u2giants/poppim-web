@@ -3,13 +3,13 @@
 > **This is the reconciled, current-state version of the gap analysis.** It began as an aspirational gap analysis of the app vs. the business's needs. On **2026-06-21** every item was re-checked **line-by-line against the live codebase** and tagged `DONE` / `PARTIAL` / `OPEN` / `OBSOLETE` with file-path evidence. Treat this as the authoritative "what's built vs. what's still missing" reference.
 >
 > - For the original aspirational roadmap/spec, see `docs/architecture-update-implementation-plan.md` (kept for historical reference; that doc points back here for current status).
-> - Backend is migrating to a shared **Supabase** database — see `shared-db/AGENTS.md` and `AGENTS.md` §15.
+> - Backend is now the shared **Supabase.com** project `qsllyeztdwjgirsysgai`; schema/RLS/realtime changes belong in `u2giants/shared-db`.
 >
 > **Legend:** `DONE` = built & verified · `PARTIAL` = partially built · `OPEN` = not built · `OBSOLETE` = the premise no longer applies.
 
-**Scope of the original analysis.** Compared the `poppim-web` frontend against what the business actually needs (offers/projects, SKUs/style numbers, designs, design collections, licensor submissions, buyer selections, samples, POs/orders, revisions, compliance artifacts, factories, account rules, lifecycle states), drawing on the codebase and the Directus backend docs.
+**Scope of the original analysis.** Compared the `poppim-web` frontend against what the business actually needs (offers/projects, SKUs/style numbers, designs, design collections, licensor submissions, buyer selections, samples, POs/orders, revisions, compliance artifacts, factories, account rules, lifecycle states), drawing on the codebase and the Supabase backend docs.
 
-**Headline (2026-06-21).** The app has moved decisively past the prototype the original doc critiqued: all mock data and the `MockTask` abstraction are gone, every production screen reads real Directus data through a domain-organized API layer, POP/Spruce are hard-separated, and first-class screens exist for projects, designs, collections, submissions, samples, revisions, orders, accounts, reports, control room, and My Work. Remaining work is mostly **architectural maturity** (router, modal decomposition, broader search/filter, server pagination, louder error handling) and the **automation/intelligence layer** (stage-history logging, SLA/stuck alerts, role-named cockpits, reuse/turnaround analytics), plus the looming Directus→Supabase migration.
+**Headline (2026-06-21).** The app has moved decisively past the prototype the original doc critiqued: all mock data and the `MockTask` abstraction are gone, every production screen reads real Supabase data through a domain-organized API layer, POP/Spruce are hard-separated, and first-class screens exist for projects, designs, collections, submissions, samples, revisions, orders, accounts, reports, control room, and My Work. Remaining work is mostly **architectural maturity** (router, modal decomposition, broader search/filter, server pagination, louder error handling) and the **automation/intelligence layer** (stage-history logging, SLA/stuck alerts, role-named cockpits, reuse/turnaround analytics), plus shared-db schema/data parity follow-through where gaps remain.
 
 ---
 
@@ -21,7 +21,7 @@ The fit summary is mostly historical narrative. Reconciling the few falsifiable 
 
 Original: lists existing strengths (session auth, real pipeline/projects data, evidence-preserving modal, UI shell, builds).
 **Status (2026-06-21):** DONE
-**Evidence:** Session auth in `src/lib/directus.ts` (`authentication('session', …)`); real data in `src/features/pipeline/api.ts`, `src/features/projects/api.ts`; modal at `src/components/TaskDetailModal.tsx`. AGENTS.md §15 confirms build/deploy live at `pm.designflow.app`. Note: the lint "no errors" claim is stale — `npm run build` is the gate (`tsc -b && vite build`).
+**Evidence:** Supabase Auth/client setup in `src/lib/supabase.ts`; real data in `src/features/pipeline/api.ts`, `src/features/projects/api.ts`; modal at `src/components/TaskDetailModal.tsx`. AGENTS.md §15 confirms build/deploy live at `pm.designflow.app`. Note: the lint "no errors" claim is stale — `npm run build` is the gate (`tsc -b && vite build`).
 
 ### 1.2 What the current app is primarily optimized for
 
@@ -42,9 +42,9 @@ Original: enumerates the questions the system must answer (object type, business
 
 ## 2.1 The app still flattens business objects into "tasks"
 
-Original gap: real Directus rows were flattened into a generic `MockTask` via `pipeline/adapter.ts`, losing business-object shape.
+Original gap: real Supabase rows were flattened into a generic `MockTask` via `pipeline/adapter.ts`, losing business-object shape.
 **Status (2026-06-21):** DONE
-**Evidence:** `MockTask` and `src/features/pipeline/adapter.ts` are gone (grep for `MockTask` across `src/` returns nothing). The board/detail view model is now `ProductSummary` in `src/domain/products/types.ts`, adapted from raw Directus in `src/domain/products/adapters.ts`. Distinct object models exist across feature areas. AGENTS.md §11 documents the removal.
+**Evidence:** `MockTask` and `src/features/pipeline/adapter.ts` are gone (grep for `MockTask` across `src/` returns nothing). The board/detail view model is now `ProductSummary` in `src/domain/products/types.ts`, adapted from raw Supabase in `src/domain/products/adapters.ts`. Distinct object models exist across feature areas. AGENTS.md §11 documents the removal.
 
 ## 2.2 POP and Spruce are not separated enough
 
@@ -63,7 +63,7 @@ Original gap: `design` collection existed in backend but had no frontend nav/typ
 
 Original gap: `design_collection` (Spruce) existed in backend but not exposed.
 **Status (2026-06-21):** PARTIAL
-**Evidence:** `src/features/designs/DesignCollectionsPage.tsx` + sidebar "Design collections" entry read `design_collection` from Directus.
+**Evidence:** `src/features/designs/DesignCollectionsPage.tsx` + sidebar "Design collections" entry read `design_collection` from Supabase.
 **Remaining:** Conversion of selected designs into account projects / style-numbered products and account-specific branch/general-presentation views not confirmed (read-only listing observed); verify whether buyer-feedback and conversion-history are surfaced.
 
 ## 2.5 Lifecycle state is missing or under-modeled in the frontend
@@ -139,14 +139,14 @@ Original gap: `NotesPage` displayed static mock notes.
 
 Original gap: `PeoplePage` displayed fake people from `mockData`.
 **Status (2026-06-21):** PARTIAL (mock removed; real version not built)
-**Evidence:** `src/features/people/PeoplePage.tsx` is a placeholder noting mock cards were removed and the real view will use Directus users/roles/assignments.
-**Remaining:** Not wired to real Directus users/roles/workload; still a placeholder.
+**Evidence:** `src/features/people/PeoplePage.tsx` is a placeholder noting mock cards were removed and the real view will use Supabase users/roles/assignments.
+**Remaining:** Not wired to real Supabase users/roles/workload; still a placeholder.
 
 ## 2.16 Settings page is local-only and misleading
 
 Original gap: Settings used mock licensors/customers and stored logos only in React state.
 **Status (2026-06-21):** DONE (repurposed) / OBSOLETE as described
-**Evidence:** `src/features/settings/SettingsPage.tsx` + `api.ts` no longer touch mock master data or logo data-URLs; the page now manages real Directus `pm_saved_view` records.
+**Evidence:** `src/features/settings/SettingsPage.tsx` + `api.ts` no longer touch mock master data or logo data-URLs; the page now manages real Supabase `pm_saved_view` records.
 **Remaining:** It is now a saved-views screen, not a master-data admin. Full reference-data management (retailer/buyer/licensor/property/factory/product_type/season/stage) is net-new scope if still wanted.
 
 ## 2.17 The Add New button is nonfunctional and underspecified
@@ -159,7 +159,7 @@ Original gap: Topbar had a no-op `Add new` button.
 
 Original gap: filter used `LICENSORS` from `mockData` mapped via a hardcoded object.
 **Status (2026-06-21):** DONE
-**Evidence:** `src/domain/reference/api.ts` `fetchLicensors()` reads the Directus `licensor` collection (with turnaround/PI/resale metadata). `src/features/pipeline/api.ts` filters server-side by licensor **id** (`licensor: { id: { _in: licensorIds } }`). No `LICENSORS`/`mockData` references remain.
+**Evidence:** `src/domain/reference/api.ts` `fetchLicensors()` reads the Supabase `licensor` collection (with turnaround/PI/resale metadata). `src/features/pipeline/api.ts` filters server-side by licensor **id** (`licensor: { id: { _in: licensorIds } }`). No `LICENSORS`/`mockData` references remain.
 
 ## 2.19 Category is inferred from product title
 
@@ -172,7 +172,7 @@ Original gap: `inferCategory()` guesses category from title regexes instead of a
 
 Original gap: adapter set `assignees: []`; avatars came from mock people.
 **Status (2026-06-21):** DONE
-**Evidence:** `src/domain/products/rollups.ts` (`hydrateProductSummaryRollups`) batch-fetches `product_assignee` and maps real Directus users onto each `ProductSummary`; called by `src/features/pipeline/PipelinePage.tsx`. Cards render avatars (`src/components/PimTaskCard.tsx`); table shows assignee names.
+**Evidence:** `src/domain/products/rollups.ts` (`hydrateProductSummaryRollups`) batch-fetches `product_assignee` and maps real Supabase users onto each `ProductSummary`; called by `src/features/pipeline/PipelinePage.tsx`. Cards render avatars (`src/components/PimTaskCard.tsx`); table shows assignee names.
 
 ## 2.21 Checklist/comment/file counts are zeroed on cards
 
@@ -191,8 +191,8 @@ Original gap: modal prominently showed ClickUp list/dates/original-task link.
 
 Original gap: topbar showed a hardcoded notification count of `12`.
 **Status (2026-06-22):** PARTIAL
-**Evidence:** `src/components/Topbar.tsx` no longer renders any notification icon/badge or hardcoded `12`. `pm_reminder` now exists in Directus (`directus` repo `pm-system/add-operating-model.mjs`), `src/features/operating/api.ts` can create/update reminders, the product modal Operations tab can add/complete them, and `src/features/mywork/MyWorkPage.tsx` lists open/snoozed reminders assigned to the signed-in user.
-**Remaining:** No external notification delivery (email/Teams/push), mentions, or Directus Flow/worker for automatic SLA/stuck/licensor reminders.
+**Evidence:** `src/components/Topbar.tsx` no longer renders any notification icon/badge or hardcoded `12`. `src/features/operating/api.ts` can create/update reminder records through shared Supabase `app.notification`, the product modal Operations tab can add/complete them, and `src/features/mywork/MyWorkPage.tsx` lists open reminders assigned to the signed-in user.
+**Remaining:** No external notification delivery (email/Teams/push), mentions, or Supabase Flow/worker for automatic SLA/stuck/licensor reminders.
 
 ## 2.24 Sidebar collections are fake and potentially misleading
 
@@ -238,14 +238,14 @@ Original gap: no structured revision request/response workflow.
 
 Original gap: no completeness checklist gating stage transitions or review queues.
 **Status (2026-06-22):** PARTIAL
-**Evidence:** Manual per-product checklists exist (`checklist_item`, `collab.ts`) and individual fields exist (`pi_status`, `brand_assurance_number`, sample `photo_urls`). `src/domain/products/adapters.ts` now computes `evidenceGaps` for key product context gaps; Control Room and Reports surface missing-evidence counts. `pm_workflow_template.required_evidence_json` exists for future reusable evidence rules.
+**Evidence:** Manual per-product checklists exist (`pim.checklist_item`, `collab.ts`) and individual fields exist in shared product metadata/workflow records. `src/domain/products/adapters.ts` now computes `evidenceGaps` for key product context gaps; Control Room and Reports surface missing-evidence counts. Workflow-template config in `pim.saved_view` can carry future reusable evidence rules.
 **Remaining:** No pre-transition validation or template-driven rule engine that blocks/flags stage moves by required evidence.
 
 ## 2.31 User permissions are not reflected in frontend UX
 
 Original gap: no role-aware navigation/dashboards/actions; pricing not hidden from designers.
 **Status (2026-06-21):** OPEN
-**Evidence:** Directus role is loaded (`src/auth/auth.tsx`) and used only to filter ownership in My Work / revision assignment. No screen, nav item, dashboard, or action is gated by role; no pricing-hiding logic (no pricing fields exist either).
+**Evidence:** Supabase role is loaded (`src/auth/auth.tsx`) and used only to filter ownership in My Work / revision assignment. No screen, nav item, dashboard, or action is gated by role; no pricing-hiding logic (no pricing fields exist either).
 **Remaining:** Role-based nav/dashboards/actions; backend stays source of truth.
 
 ## 2.32 The app lacks creation/conversion workflows
@@ -284,14 +284,14 @@ Original gap: no assistant UI / NL query panel.
 
 App screens still import from `src/lib/mockData.ts`.
 **Status (2026-06-21):** OBSOLETE
-**Evidence:** `src/lib/mockData.ts` no longer exists; grep for `mockData`/`MockTask` returns zero hits. Schedule/Notes/People are stub pages explaining the mock removal. All production pages read Directus via per-feature `api.ts`.
+**Evidence:** `src/lib/mockData.ts` no longer exists; grep for `mockData`/`MockTask` returns zero hits. Schedule/Notes/People are stub pages explaining the mock removal. All production pages read Supabase via per-feature `api.ts`.
 
 ## 3.2 Frontend types are a minimal hand-maintained slice
 
 Types omit many backend fields/collections.
 **Status (2026-06-22):** PARTIAL
 **Evidence:** `src/lib/types.ts` now covers the product/project/design/workflow slice plus operating records (`PmDependency`, `PmDecision`, `PmReminder`, `PmWorkflowTemplate`) and the `Schema` map. Raw vs view-model is separated via `src/domain/products/{types,adapters}.ts`.
-**Remaining:** Still hand-maintained, not generated from the Directus schema; raw vs UI split only exists for products.
+**Remaining:** Still hand-maintained, not generated from the Supabase schema; raw vs UI split only exists for products.
 
 ## 3.3 API layer is not organized by domain object
 
@@ -378,7 +378,7 @@ Modal mixes ClickUp data with PM fields.
 ### 5.3 Hardcoding operational master data
 
 **Status (2026-06-21):** DONE
-**Evidence:** No `const LICENSORS/PEOPLE/STAGES/COLLECTIONS` arrays in `src`. Stages/licensors/properties/types come from `src/domain/reference/api.ts` and Directus relations. (Color/icon maps in `presentation.ts` are cosmetic.)
+**Evidence:** No `const LICENSORS/PEOPLE/STAGES/COLLECTIONS` arrays in `src`. Stages/licensors/properties/types come from `src/domain/reference/api.ts` and Supabase relations. (Color/icon maps in `presentation.ts` are cosmetic.)
 
 ### 5.4 Treating stage as the primary truth
 
@@ -511,6 +511,6 @@ Modal mixes ClickUp data with PM fields.
 
 ## 8. Final Assessment
 
-The app has moved decisively past the prototype phase the original doc critiqued. All mock data and the `MockTask` abstraction are gone; every production screen reads real Directus data through a domain-organized API layer (`src/features/*/api.ts`, `src/domain/products`), and POP vs Spruce are hard-separated by a business-unit filter. First-class screens now exist for projects, designs, collections, submissions, samples, revisions, orders, accounts, reports, control room, and My Work, with lifecycle/next-action/owner/risk fields surfaced and inline-edited.
+The app has moved decisively past the prototype phase the original doc critiqued. All mock data and the `MockTask` abstraction are gone; every production screen reads real Supabase data through a domain-organized API layer (`src/features/*/api.ts`, `src/domain/products`), and POP vs Spruce are hard-separated by a business-unit filter. First-class screens now exist for projects, designs, collections, submissions, samples, revisions, orders, accounts, reports, control room, and My Work, with lifecycle/next-action/owner/risk fields surfaced and inline-edited.
 
-The remaining gaps are **architectural maturity** rather than honesty: no client router (state-switch + `?item=` only), a large `TaskDetailModal` still named "Task", narrow pipeline search/filter, no server cursor pagination, quiet error handling (sonner installed but unused), and ClickUp metadata still prominent. The biggest missing capability is **automation/intelligence** — no external notification delivery, stage-gate enforcement, SLA/stuck/handoff Flows, role-named cockpits, or reuse/turnaround reporting — plus the looming **Directus→Supabase migration** (AGENTS.md §15). Net: a solid, honest, data-backed PM tool that now has first-class operating records and needs routing, modal decomposition, gated workflows, and the automation/analytics layer to fulfill the business graph the original doc envisioned.
+The remaining gaps are **architectural maturity** rather than honesty: no client router (state-switch + `?item=` only), a large `TaskDetailModal` still named "Task", narrow pipeline search/filter, no server cursor pagination, quiet error handling (sonner installed but unused), and ClickUp metadata still prominent. The biggest missing capability is **automation/intelligence** — no external notification delivery, stage-gate enforcement, SLA/stuck/handoff Flows, role-named cockpits, or reuse/turnaround reporting — plus the looming **Supabase→Supabase migration** (AGENTS.md §15). Net: a solid, honest, data-backed PM tool that now has first-class operating records and needs routing, modal decomposition, gated workflows, and the automation/analytics layer to fulfill the business graph the original doc envisioned.

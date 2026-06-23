@@ -14,5 +14,7 @@ Before any shared Supabase database, schema, migration, or cross-app change, rea
 ## Deploy
 Deploy = **`git push` to `main`**. The pipeline (`.github/workflows/deploy.yml`, `docs/cicd.md`) runs Actions → GHCR → Coolify (service `ysvdyj3t7d5tyh5ogrvlka4y`) which pulls + runs the image at `pm.designflow.app`. Do **not** SSH into the server or `docker run` on it as a deploy — the legacy raw-docker path was removed. Runtime config (domain, env, restart) belongs in Coolify, not shell.
 
+Infrastructure/server standards live in `u2giants/albert-standards` (`.ai/AI_INFRASTRUCTURE_GUIDE.md`, `infrastructure/README.md`, `infrastructure/CLAUDE.md`). When deploy/runtime/hosting decisions change here, update those shared docs too.
+
 ## Commit style
 Short imperative subject (`add`/`fix`/`update`/`remove`), no trailing period; body only for non-obvious rationale. Commit + push on `main` (no force push). Git author must be `Albert Hazan <u2giants@users.noreply.github.com>` — GitHub blocks the gmail address.

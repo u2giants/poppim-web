@@ -1,22 +1,12 @@
-import { aggregate, readItems } from '@directus/sdk'
 import { productToSummary } from '@/domain/products/adapters'
+import { supabaseProductToProduct } from '@/domain/products/supabaseAdapter'
 import type { BusinessUnit, ProductSummary } from '@/domain/products/types'
-import { directus } from '@/lib/directus'
-import type { Project, Stage } from '@/lib/types'
-import { PRODUCT_SUMMARY_FIELDS } from '@/features/pipeline/api'
+import { pim, unwrap } from '@/lib/supabaseQuery'
+import type { Project } from '@/lib/types'
 import { fetchStages } from '@/domain/reference/api'
 
-export interface StageCount {
-  id: string
-  name: string
-  count: number
-}
-
-export interface UnitCount {
-  unit: string
-  count: number
-}
-
+export interface StageCount { id: string; name: string; count: number }
+export interface UnitCount { unit: string; count: number }
 export interface ControlRoomData {
   totalProducts: number
   activeProjects: number
@@ -30,208 +20,41 @@ export interface ControlRoomData {
   activeProjectRows: Project[]
 }
 
-function dateOnly(date: Date): string {
-  return date.toISOString().slice(0, 10)
-}
-
-function addDays(date: Date, days: number): Date {
-  const copy = new Date(date)
-  copy.setDate(copy.getDate() + days)
-  return copy
-}
-
-function countOf(row: { count?: { '*'?: string; id?: string } } | undefined): number {
-  return parseInt(row?.count?.['*'] ?? row?.count?.id ?? '0', 10)
-}
-
-function businessUnitClause(businessUnit: BusinessUnit): unknown[] {
-  if (businessUnit === 'Unknown') return []
-  if (businessUnit === 'Licensed') return [{ business_unit: { _in: ['POP', 'POP Creations'] } }]
-  if (businessUnit === 'Generic') return [{ business_unit: { _in: ['Spruce', 'Spruce Line'] } }]
-  return [{ business_unit: { _eq: 'Software' } }]
-}
-
-function productBaseFilter(businessUnit: BusinessUnit) {
-  return {
-    _and: [
-      { stage: { _nnull: true } },
-      ...businessUnitClause(businessUnit),
-    ],
-  }
-}
-
-function projectBaseFilter(businessUnit: BusinessUnit) {
-  return {
-    _and: [
-      { status: { _eq: 'active' } },
-      ...businessUnitClause(businessUnit),
-    ],
-  }
-}
-
-function stageName(stageId: string, stages: Stage[]): string {
-  return stages.find((stage) => stage.id === stageId)?.name ?? 'No stage'
+function unit(row: any) { return row.metadata?.business_unit ?? row.metadata?.department ?? 'Unknown' }
+function includeUnit(row: any, businessUnit: BusinessUnit) {
+  if (businessUnit === 'Unknown') return true
+  const value = String(unit(row)).toLowerCase()
+  if (businessUnit === 'Licensed') return ['licensed', 'pop', 'pop creations'].includes(value)
+  if (businessUnit === 'Generic') return ['generic', 'spruce', 'spruce line'].includes(value)
+  return value === 'software'
 }
 
 export async function fetchControlRoomData(businessUnit: BusinessUnit): Promise<ControlRoomData> {
-  const today = dateOnly(new Date())
-  const horizon = dateOnly(addDays(new Date(), 21))
-
-  const [
-    totalRows,
-    projectRows,
-    businessRows,
-    stageRows,
-    urgentRows,
-    upcomingRows,
-    blockedRows,
-    ownershipGapRows,
-    evidenceRows,
-    activeProjectRows,
-    stages,
-  ] = await Promise.all([
-    directus.request(
-      aggregate('product', {
-        aggregate: { count: '*' },
-        filter: productBaseFilter(businessUnit) as never,
-      }),
-    ) as Promise<Array<{ count: { '*': string } }>>,
-    directus.request(
-      aggregate('project', {
-        aggregate: { count: '*' },
-        filter: projectBaseFilter(businessUnit) as never,
-      }),
-    ) as Promise<Array<{ count: { '*': string } }>>,
-    directus.request(
-      aggregate('product', {
-        aggregate: { count: 'id' },
-        groupBy: ['business_unit'] as never,
-        filter: productBaseFilter(businessUnit) as never,
-      }),
-    ) as unknown as Promise<Array<{ business_unit: string | null; count: { id: string } }>>,
-    directus.request(
-      aggregate('product', {
-        aggregate: { count: 'id' },
-        groupBy: ['stage'] as never,
-        filter: productBaseFilter(businessUnit) as never,
-      }),
-    ) as unknown as Promise<Array<{ stage: string | null; count: { id: string } }>>,
-    directus.request(
-      readItems('product', {
-        fields: PRODUCT_SUMMARY_FIELDS as never,
-        filter: {
-          _and: [
-            ...productBaseFilter(businessUnit)._and,
-            { _or: [{ priority: { _icontains: 'urgent' } }, { priority: { _icontains: 'high' } }] },
-          ],
-        } as never,
-        sort: ['pps_requested_date', 'on_shelf_date', 'name'],
-        limit: 80,
-      }),
-    ) as Promise<unknown[]>,
-    directus.request(
-      readItems('product', {
-        fields: PRODUCT_SUMMARY_FIELDS as never,
-        filter: {
-          _and: [
-            ...productBaseFilter(businessUnit)._and,
-            {
-              _or: [
-                { pps_requested_date: { _between: [today, horizon] } },
-                { on_shelf_date: { _between: [today, horizon] } },
-              ],
-            },
-          ],
-        } as never,
-        sort: ['pps_requested_date', 'on_shelf_date', 'name'],
-        limit: 80,
-      }),
-    ) as Promise<unknown[]>,
-    directus.request(
-      readItems('product', {
-        fields: PRODUCT_SUMMARY_FIELDS as never,
-        filter: {
-          _and: [
-            ...productBaseFilter(businessUnit)._and,
-            {
-              _or: [
-                { blocker_reason: { _nempty: true } },
-                { waiting_on: { _nempty: true } },
-                { lifecycle_state: { _in: ['blocked', 'waiting'] } },
-              ],
-            },
-          ],
-        } as never,
-        sort: ['last_meaningful_update_at', 'pps_requested_date', 'name'],
-        limit: 80,
-      }),
-    ) as Promise<unknown[]>,
-    directus.request(
-      readItems('product', {
-        fields: PRODUCT_SUMMARY_FIELDS as never,
-        filter: {
-          _and: [
-            ...productBaseFilter(businessUnit)._and,
-            { next_action: { _nempty: true } },
-            { next_owner_user: { _null: true } },
-            { next_owner_role: { _null: true } },
-            { waiting_on: { _empty: true } },
-          ],
-        } as never,
-        sort: ['pps_requested_date', 'on_shelf_date', 'name'],
-        limit: 80,
-      }),
-    ) as Promise<unknown[]>,
-    directus.request(
-      readItems('product', {
-        fields: PRODUCT_SUMMARY_FIELDS as never,
-        filter: productBaseFilter(businessUnit) as never,
-        sort: ['-risk_level', 'pps_requested_date', 'on_shelf_date', 'name'],
-        limit: 300,
-      }),
-    ) as Promise<unknown[]>,
-    directus.request(
-      readItems('project', {
-        fields: [
-          'id',
-          'title',
-          'status',
-          'business_unit',
-          'on_shelf_date',
-          'pps_requested_date',
-          { retailer: ['id', 'name'] },
-          { buyer: ['id', 'name', 'samples_required'] },
-          { design_collection: ['id', 'name', 'format', 'theme'] },
-        ],
-        filter: projectBaseFilter(businessUnit) as never,
-        sort: ['pps_requested_date', 'on_shelf_date', 'title'],
-        limit: 40,
-      }),
-    ) as Promise<Project[]>,
+  const [productResult, projectResult, stages] = await Promise.all([
+    (pim() as any).from('product').select('*').limit(5000),
+    (pim() as any).from('project').select('*').limit(500),
     fetchStages(),
   ])
-
-  const evidenceGapProducts = evidenceRows
-    .map((row) => productToSummary(row as never))
-    .filter((product) => product.evidenceGaps.length > 0)
-    .slice(0, 80)
-
+  const products = unwrap<any[]>({ data: productResult.data, error: productResult.error }).filter((row) => includeUnit(row, businessUnit))
+  const projects = unwrap<any[]>({ data: projectResult.data, error: projectResult.error }).filter((row) => includeUnit(row, businessUnit))
+  const summaries = products.map((row) => productToSummary(supabaseProductToProduct(row)))
+  const stageCounts = new Map<string, number>()
+  const unitCounts = new Map<string, number>()
+  for (const row of products) {
+    stageCounts.set(row.stage ?? 'No stage', (stageCounts.get(row.stage ?? 'No stage') ?? 0) + 1)
+    unitCounts.set(unit(row), (unitCounts.get(unit(row)) ?? 0) + 1)
+  }
+  const stageNameById = new Map(stages.map((stage) => [stage.id, stage.name]))
   return {
-    totalProducts: countOf(totalRows[0]),
-    activeProjects: countOf(projectRows[0]),
-    businessUnits: businessRows.map((row) => ({ unit: row.business_unit ?? 'Unknown', count: countOf(row) })),
-    stageCounts: stageRows
-      .map((row) => ({
-        id: row.stage ?? 'none',
-        name: row.stage ? stageName(row.stage, stages) : 'No stage',
-        count: countOf(row),
-      }))
-      .sort((a, b) => b.count - a.count),
-    urgentProducts: urgentRows.map((row) => productToSummary(row as never)),
-    upcomingProducts: upcomingRows.map((row) => productToSummary(row as never)),
-    blockedProducts: blockedRows.map((row) => productToSummary(row as never)),
-    ownershipGapProducts: ownershipGapRows.map((row) => productToSummary(row as never)),
-    evidenceGapProducts,
-    activeProjectRows,
+    totalProducts: products.length,
+    activeProjects: projects.filter((project) => (project.status ?? '').toLowerCase() === 'active').length,
+    businessUnits: [...unitCounts].map(([unit, count]) => ({ unit, count })),
+    stageCounts: [...stageCounts].map(([id, count]) => ({ id, name: stageNameById.get(id) ?? id, count })).sort((a, b) => b.count - a.count),
+    urgentProducts: summaries.filter((p) => p.priority === 'urgent' || p.priority === 'high').slice(0, 80),
+    upcomingProducts: summaries.filter((p) => p.due).slice(0, 80),
+    blockedProducts: summaries.filter((p) => p.blockerReason || p.waitingOn || p.lifecycleState === 'blocked' || p.lifecycleState === 'waiting').slice(0, 80),
+    ownershipGapProducts: summaries.filter((p) => p.nextAction && !p.nextOwnerName && !p.nextOwnerRoleName && !p.waitingOn).slice(0, 80),
+    evidenceGapProducts: summaries.filter((p) => p.evidenceGaps.length > 0).slice(0, 80),
+    activeProjectRows: projects.slice(0, 40).map((row) => ({ id: row.id, title: row.title, status: row.status, business_unit: unit(row), retailer: row.company_id, buyer: row.primary_contact_id, on_shelf_date: row.metadata?.on_shelf_date ?? null, brief: row.metadata?.brief ?? null, restrictions: row.metadata?.restrictions ?? null })),
   }
 }

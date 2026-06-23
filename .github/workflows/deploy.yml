@@ -42,6 +42,9 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build # tsc -b && vite build — fails on type errors
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
   # 2) Publish — build the production image and push it to GHCR (immutable + mutable tags).
   publish:
@@ -71,6 +74,8 @@ jobs:
             VCS_REF=${{ github.sha }}
             COMMIT_DATE=${{ steps.commit.outputs.date }}
             BUILD_RUN=${{ github.run_id }}
+            VITE_SUPABASE_URL=${{ vars.VITE_SUPABASE_URL }}
+            VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
           # sha-<commit> is the immutable audit/rollback tag; main is the convenience pointer (§6.2/§18).
           tags: |
             ${{ env.IMAGE }}:main

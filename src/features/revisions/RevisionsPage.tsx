@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, FilePenLine, Paperclip, UserRoundCheck } from 'lucide-react'
 import { productToSummary } from '@/domain/products/adapters'
 import { useAppState } from '@/lib/appState'
-import type { DirectusUser, Product, RevisionRequest } from '@/lib/types'
+import type { AppUser, Product, RevisionRequest } from '@/lib/types'
 import { fetchRevisions, updateRevisionStatus } from '@/features/workflow/api'
 
 function titleCase(value: string | null | undefined) {
@@ -21,7 +21,7 @@ function relationName(value: unknown): string | null {
   return null
 }
 
-function userName(value: string | DirectusUser | null | undefined) {
+function userName(value: string | AppUser | null | undefined) {
   if (!value || typeof value === 'string') return null
   return [value.first_name, value.last_name].filter(Boolean).join(' ') || value.email
 }

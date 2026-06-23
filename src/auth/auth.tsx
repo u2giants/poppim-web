@@ -1,12 +1,12 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { readMe } from '@directus/sdk'
-import { directus } from '@/lib/directus'
-import type { DirectusUser } from '@/lib/types'
+import { signInWithMicrosoft, supabase } from '@/lib/supabase'
+import type { AppUser } from '@/lib/types'
 
 interface AuthState {
-  user: DirectusUser | null
+  user: AppUser | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
+  loginWithMicrosoft: () => Promise<void>
   logout: () => Promise<void>
   refresh: () => Promise<void>
 }
@@ -14,16 +14,46 @@ interface AuthState {
 const AuthContext = createContext<AuthState | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<{ user: DirectusUser | null; loading: boolean }>({ user: null, loading: true })
+  const [state, setState] = useState<{ user: AppUser | null; loading: boolean }>({ user: null, loading: true })
 
-  async function fetchMe(): Promise<DirectusUser | null> {
+  function fallbackUser(id: string, email: string | null): AppUser {
+    return {
+      id,
+      first_name: null,
+      last_name: null,
+      email,
+      avatar: null,
+      role: null,
+    }
+  }
+
+  async function fetchMe(): Promise<AppUser | null> {
+    const { data: sessionData } = await supabase.auth.getSession()
+    const session = sessionData.session
+    if (!session) return null
     try {
-      const me = await directus.request(
-        readMe({ fields: ['id', 'first_name', 'last_name', 'email', 'avatar', { role: ['id', 'name'] }] }),
-      )
-      return me as unknown as DirectusUser
+      const { data, error } = await supabase.schema('api').rpc('current_user_profile')
+      if (error) throw error
+      const profile = data as {
+        id?: string | null
+        email?: string | null
+        display_name?: string | null
+        avatar_url?: string | null
+        roles?: string[] | null
+      } | null
+      if (!profile?.id) return fallbackUser(session.user.id, session.user.email ?? null)
+      const parts = (profile.display_name ?? '').trim().split(/\s+/).filter(Boolean)
+      const primaryRole = profile.roles?.[0] ?? null
+      return {
+        id: profile.id,
+        first_name: parts[0] ?? null,
+        last_name: parts.length > 1 ? parts.slice(1).join(' ') : null,
+        email: profile.email ?? session.user.email ?? null,
+        avatar: profile.avatar_url ?? null,
+        role: primaryRole ? { id: primaryRole, name: primaryRole } : null,
+      }
     } catch {
-      return null
+      return fallbackUser(session.user.id, session.user.email ?? null)
     }
   }
 
@@ -32,7 +62,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetchMe().then((user) => {
       if (active) setState({ user, loading: false })
     })
-    return () => { active = false }
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        void refresh()
+      }
+    })
+    return () => {
+      active = false
+      sub.subscription.unsubscribe()
+    }
   }, [])
 
   async function refresh() {
@@ -41,21 +79,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function login(email: string, password: string) {
-    await directus.login(email, password)
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) throw error
     const user = await fetchMe()
     setState({ user, loading: false })
   }
 
+  async function loginWithMicrosoft() {
+    const { error } = await signInWithMicrosoft()
+    if (error) throw error
+  }
+
   async function logout() {
     try {
-      await directus.logout()
+      await supabase.auth.signOut()
     } finally {
       setState({ user: null, loading: false })
     }
   }
 
   return (
-    <AuthContext.Provider value={{ user: state.user, loading: state.loading, login, logout, refresh }}>
+    <AuthContext.Provider value={{ user: state.user, loading: state.loading, login, loginWithMicrosoft, logout, refresh }}>
       {children}
     </AuthContext.Provider>
   )

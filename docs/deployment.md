@@ -2,7 +2,9 @@
 
 > **The live deploy path is the CI pipeline — see [`docs/cicd.md`](./cicd.md).** A `git push` to `main` builds the image (GHCR) and Coolify pulls + runs it at `pm.designflow.app`. This file is kept for **history**: it documents the temporary raw-docker path that was used before the pipeline, and which was **removed at cutover (2026-06-11)**. Do not reintroduce it.
 
-**One permanent fact from the cutover:** `pm.designflow.app` was moved off the Directus backend — the backend dropped `pm` from its Coolify sub-app `fqdn` (`service_applications` id=16, now `data.designflow.app` only) and `pm` is in `AUTH_MICROSOFT_REDIRECT_ALLOW_LIST`. Directus Data Studio now lives only at `data.designflow.app`.
+> Shared server/operations standards live in [`u2giants/albert-standards`](https://github.com/u2giants/albert-standards). Any future infrastructure or deployment decision here that affects the operating environment should be reflected there too.
+
+**Current backend fact:** `pm.designflow.app` is the human frontend URL and the app now reads/writes the shared Supabase.com backend (`https://qsllyeztdwjgirsysgai.supabase.co`). Do not document or operate PIM as depending on a retired backend service.
 
 ---
 

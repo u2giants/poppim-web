@@ -1,52 +1,47 @@
-import { readItems, updateItem } from '@directus/sdk'
-import { directus } from '@/lib/directus'
+import { pim, unwrap } from '@/lib/supabaseQuery'
 import type { Product, Stage } from '@/lib/types'
+import { supabaseProductToProduct } from '@/domain/products/supabaseAdapter'
 
 export async function setProductStage(productId: string, stageId: string | null) {
-  return directus.request(updateItem('product', productId, { stage: stageId }))
+  const stage = stageId ? await stageName(stageId) : null
+  const { data, error } = await (pim() as any)
+    .from('product')
+    .update({ stage })
+    .eq('id', productId)
+    .select('*')
+    .single()
+  return unwrap<Record<string, unknown>>({ data, error })
+}
+
+async function stageName(stageId: string): Promise<string | null> {
+  const { data, error } = await (pim() as any).from('stage').select('name').eq('id', stageId).maybeSingle()
+  const row = unwrap<{ name: string } | null>({ data, error })
+  return row?.name ?? null
 }
 
 export async function fetchStages(): Promise<Stage[]> {
-  return directus.request(
-    readItems('stage', { sort: ['stage_order'], limit: -1 }),
-  ) as Promise<Stage[]>
+  const { fetchStages } = await import('@/domain/reference/api')
+  return fetchStages()
 }
 
-// First slice loads a capped page of products; filtering/pagination comes next.
 export async function fetchProducts(limit = 500): Promise<Product[]> {
-  return directus.request(
-    readItems('product', {
-      fields: [
-        'id',
-        'code',
-        'name',
-        'business_unit',
-        'on_shelf_date',
-        'pi_status',
-        'cover_url',
-        { stage: ['id', 'name'] },
-        { retailer: ['id', 'name'] },
-        { licensor: ['id', 'name'] },
-      ],
-      limit,
-    }),
-  ) as Promise<Product[]>
+  const { data, error } = await (pim() as any)
+    .from('product')
+    .select('*')
+    .order('updated_at', { ascending: false })
+    .limit(limit)
+  return unwrap<Array<Record<string, unknown>>>({ data, error }).map((row) => supabaseProductToProduct(row as never))
 }
 
-// Assignee membership for the loaded products (sparse), for the Assignee filter.
 export async function fetchAssigneeMap() {
-  const rows = (await directus.request(
-    readItems('product_assignee', {
-      fields: ['product', { directus_user: ['id'] }] as never,
-      limit: -1,
-    }),
-  )) as unknown as Array<{ product: string; directus_user: { id: string } | string }>
+  const rows = unwrap<Array<{ product_id: string; profile_id: string }>>(await (pim() as any)
+    .from('product_assignee')
+    .select('product_id,profile_id'))
   const map = new Map<string, Set<string>>()
-  for (const r of rows) {
-    const uid = typeof r.directus_user === 'string' ? r.directus_user : r.directus_user?.id
-    if (!r.product || !uid) continue
-    if (!map.has(r.product)) map.set(r.product, new Set())
-    map.get(r.product)!.add(uid)
+  for (const row of rows) {
+    if (!row.product_id || !row.profile_id) continue
+    if (!map.has(row.product_id)) map.set(row.product_id, new Set())
+    map.get(row.product_id)!.add(row.profile_id)
   }
   return map
 }

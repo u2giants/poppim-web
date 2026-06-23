@@ -22,7 +22,7 @@ npm run lint      # eslint
 `build` runs `tsc -b` first, so type errors fail the build. `noUnusedLocals`/`noUnusedParameters` are on — keep imports/params used.
 
 ## Backend connection
-`VITE_DIRECTUS_URL` (in `.env`) points the SDK at the backend; default `https://data.designflow.app`. To run the SPA against the live backend in a browser, that backend must allow the dev origin in CORS — `localhost` dev typically needs the backend's `CORS_ORIGIN` to include it (managed on the `directus` Coolify service).
+`VITE_SUPABASE_URL` (in `.env`) points the SDK at the backend; use `https://qsllyeztdwjgirsysgai.supabase.co` for the shared production project. Local browser auth depends on the Supabase project's site URL / redirect URL configuration.
 
 ## shadcn/ui components
 UI primitives in `src/components/ui/` are **generated**. Add/update them with the CLI, not by hand:

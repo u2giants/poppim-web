@@ -2,7 +2,7 @@ import type {
   Buyer,
   Design,
   DesignCollection,
-  DirectusUser,
+  AppUser,
   Factory,
   Licensor,
   Product,
@@ -126,7 +126,7 @@ function normalisePriority(priority: string | null): Priority {
   return 'normal'
 }
 
-function userName(u: DirectusUser | string | null | undefined) {
+function userName(u: AppUser | string | null | undefined) {
   if (!u || typeof u === 'string') return 'Unknown'
   return [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email || 'Unknown'
 }
@@ -141,7 +141,7 @@ export function userInitials(name: string) {
   return name.split(' ').filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('') || '?'
 }
 
-export function directusUserToPerson(u: DirectusUser | string | null | undefined): PersonSummary | null {
+export function appUserToPerson(u: AppUser | string | null | undefined): PersonSummary | null {
   if (!u || typeof u === 'string') return null
   const name = userName(u)
   return { id: u.id, name, initials: userInitials(name), email: u.email }
@@ -163,7 +163,7 @@ export function productToSummary(product: Product): ProductSummary {
   const dueSource = product.pps_requested_date ?? product.clickup_due_at ?? product.on_shelf_date
   const { due, dueOver } = formatDue(dueSource ?? null)
   const licensorName = normaliseLicensor(relationName(licensor))
-  const nextOwnerName = directusUserToPerson(product.next_owner_user)?.name ?? null
+  const nextOwnerName = appUserToPerson(product.next_owner_user)?.name ?? null
   const nextOwnerRoleName = roleName(product.next_owner_role)
   const businessUnit = normaliseBusinessUnit(product.business_unit)
   const productTypeName = relationName(product.product_type as string | ProductType | null)

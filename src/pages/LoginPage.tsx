@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { useAuth } from '@/auth/auth'
-import { microsoftLoginUrl } from '@/lib/directus'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export function LoginPage() {
-  const { login } = useAuth()
+  const { login, loginWithMicrosoft } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -32,7 +31,7 @@ export function LoginPage() {
           <CardTitle className="text-xl">POP PIM</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Button variant="outline" className="w-full" onClick={() => (window.location.href = microsoftLoginUrl())}>
+          <Button variant="outline" className="w-full" onClick={() => void loginWithMicrosoft()}>
             <MicrosoftIcon />
             Log in with Microsoft
           </Button>

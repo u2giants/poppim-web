@@ -2,6 +2,8 @@
 
 The org's full CI/CD operating rules apply; this file records **how they're implemented for this app** and the **one normal release path**. Read `AGENTS.md` and `docs/deployment.md` alongside this.
 
+Shared infrastructure/server standards live in [`u2giants/albert-standards`](https://github.com/u2giants/albert-standards). If you change the deploy trigger, image/tag policy, Coolify ownership, service UUIDs, domains, or other operations behavior here, update the relevant standards docs there in the same session (`.ai/AI_INFRASTRUCTURE_GUIDE.md`, `infrastructure/README.md`, and/or `infrastructure/CLAUDE.md`).
+
 ## System of truth (§2)
 | Concern | Owner |
 |---|---|
@@ -34,7 +36,7 @@ Why:
 The top bar needs to show which commit is running and when that commit was made. The same build metadata also gives CI an auditable production verification target.
 
 Future sessions should:
-Keep build metadata as build-time data. The top bar formats the commit timestamp in `America/New_York`; do not move this into runtime env or Directus data.
+Keep build metadata as build-time data. The top bar formats the commit timestamp in `America/New_York`; do not move this into runtime env or backend data.
 
 ## Branch policy (§4)
 Single-branch: `main` is the only release branch. No staging/promotion model.
@@ -50,12 +52,14 @@ Redeploy a prior immutable tag through Coolify — point the service image at `g
 | Stored in | What | Why |
 |---|---|---|
 | GitHub Secrets | `COOLIFY_TOKEN` (Coolify API token) | deploy trigger |
+| GitHub Secrets | `VITE_SUPABASE_ANON_KEY` (publishable Supabase anon key) | static SPA build |
+| GitHub Variables | `VITE_SUPABASE_URL` (`https://qsllyeztdwjgirsysgai.supabase.co`) | static SPA build |
 | GitHub (automatic) | `GITHUB_TOKEN` w/ `packages: write` | push to GHCR — **no PAT needed** |
 | Coolify | runtime env (none secret here; `VITE_*` is build-time) | runtime config |
 No production SSH keys are stored in GitHub (none are used by the deploy path — §10).
 
 ## Build vs runtime (§19)
-`VITE_DIRECTUS_URL` is **build-time** (baked into the static bundle by the `publish` job). There is no runtime app env. Domain/restart/health are Coolify-owned.
+`VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are **build-time** (baked into the static bundle by the `publish` job). There is no runtime app env. Domain/restart/health are Coolify-owned.
 
 ## Coolify direct-action (§20/§21)
 AI/operators **may** change in Coolify directly: the service's domain binding, restart policy, health checks, and (if any were added) runtime env. AI **must not** change code/Dockerfile/workflow in Coolify — those live in GitHub.
@@ -99,7 +103,7 @@ Do **not** attempt to fix this by reconfiguring Caddy labels — the Caddy confi
 ## Coolify topology to recreate (§17)
 - Platform: **Coolify** at `http://178.156.180.212:8000`, server `onwp0kd7w1w74w9yeotnoihp`, project **POP PIM** (`jdq36h5dq74o6ddhich9l796`).
 - Service: **`poppim-web`** uuid **`ysvdyj3t7d5tyh5ogrvlka4y`** — a compose service running `image: ghcr.io/u2giants/poppim-web:main`, port 80.
-- Domain: `pm.designflow.app`. Bound via the Coolify sub-app `fqdn` (`service_applications.fqdn = https://<host>:80`) — the §11 quirk documented in the `directus` repo AGENTS.md.
+- Domain: `pm.designflow.app`. Bound via the Coolify sub-app `fqdn` (`service_applications.fqdn = https://<host>:80`).
 - Deploy trigger (in the workflow): `PATCH` docker_compose_raw to `:sha-<commit>`, then `GET /restart` (see §QUIRK-1, §QUIRK-3).
 
 ## 2026-06-12 stale deploy incident

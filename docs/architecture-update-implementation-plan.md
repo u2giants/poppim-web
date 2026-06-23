@@ -1,7 +1,7 @@
 # Architecture Update and Implementation Plan
 
 > **Status (2026-06-21): original roadmap/spec — kept for historical reference. Do not bulk-load (~52KB).**
-> This is the original aspirational roadmap. **For the current build status (what's actually done vs. missing, line-by-line with file evidence), see [`../gaps.md`](../gaps.md) — reconciled 2026-06-21, the authoritative current-state doc.** This plan predates the completed business screens (`AGENTS.md` §15) and the planned shared-**Supabase** migration (`shared-db/AGENTS.md`); use it only for original intent/spec context, not as a current to-do list.
+> This is the original aspirational roadmap. **For the current build status (what's actually done vs. missing, line-by-line with file evidence), see [`../gaps.md`](../gaps.md) — reconciled 2026-06-21, the authoritative current-state doc.** This plan predates the completed business screens (`AGENTS.md` §15) and the shared **Supabase.com** cutover (`shared-db/AGENTS.md`); use it only for original intent/spec context, not as a current to-do list.
 
 **Purpose.** This document defines the architecture update and implementation plan required to turn `poppim-web` from a phase-one ClickUp-board replacement into the project management system POP Creations actually needs.
 
@@ -10,21 +10,18 @@ It is intentionally detailed. Future engineering sessions should be able to use 
 **Companion documents:**
 
 - `../gaps.md` in this repo: detailed gap analysis of the current frontend.
-- `/worksp/directus/docs/business-process.md`: how the business actually works.
-- `/worksp/directus/docs/product-flow-evidence-pack.md`: evidence from ClickUp/D1/interviews.
-- `/worksp/directus/docs/pm-system-design.md`: product/workflow spec for the ideal PM system.
-- `/worksp/directus/docs/data-model.md`: backend schema target.
-- `/worksp/directus/AGENTS.md`: backend operating guide and deployment constraints.
+- `/worksp/shared-db/docs/`: shared Supabase schema, migration, and cross-app coordination docs.
+- `/worksp/shared-db/AGENTS.md`: backend operating guide and deployment constraints.
 
 **Core thesis.** The application must stop being organized around generic tasks and become organized around the company's real business objects: projects/offers, products/SKUs/style numbers, designs, design collections, submissions, samples, pricing/factory requests, orders, revisions, stage history, and lifecycle state.
 
 ### 2026-06-14 Implementation Note
 
 What changed:
-The first large implementation slice of this plan was committed in `0f1cc5a`. Runtime code now uses Directus-backed product/domain adapters instead of `MockTask`, and the app includes real-data screens for Control Room, My Work, projects/offers, designs, design collections, submissions, samples, revisions, orders, accounts, reports, and settings.
+The first large implementation slice of this plan was committed in `0f1cc5a`. Runtime code now uses Supabase-backed product/domain adapters instead of `MockTask`, and the app includes real-data screens for Control Room, My Work, projects/offers, designs, design collections, submissions, samples, revisions, orders, accounts, reports, and settings.
 
 Why:
-The backend workflow model was added and backfilled in the `directus` repo, so the frontend could move from a ClickUp-board replacement toward the business-object PM system described below.
+The backend workflow model is now represented in the shared Supabase schema, so the frontend could move from a ClickUp-board replacement toward the business-object PM system described below.
 
 Future sessions should:
 Treat this document as the broader target architecture, not a claim that every planned capability is complete. Verify current implementation in `src/domain/`, `src/features/workflow/api.ts`, and the feature screen folders before starting the next slice.
@@ -99,7 +96,7 @@ Boards, tables, calendars, dashboards, and queues are views over business object
 
 Frontend architecture should reflect this:
 
-- Raw Directus collections are API data.
+- Raw Supabase collections are API data.
 - Domain models represent business objects.
 - View models shape domain data for a particular screen.
 - Screens compose reusable domain sections and actions.
@@ -110,15 +107,15 @@ Do not use one generic `Task` model for everything.
 
 The backend remains the source of truth:
 
-- Directus owns data, auth, roles, permissions, schema, Flows, and API.
+- Supabase owns data, auth, roles, permissions, schema, Flows, and API.
 - `poppim-web` owns the PM/PIM human experience.
 - CRM and DAM frontends are sibling apps, not data owners.
 
-The PM frontend should read and write only through Directus APIs or approved backend services.
+The PM frontend should read and write only through Supabase APIs or approved backend services.
 
-## 2.3 Security lives in Directus
+## 2.3 Security lives in Supabase
 
-The frontend can make the UI cleaner by hiding unavailable controls, but security must be enforced in Directus:
+The frontend can make the UI cleaner by hiding unavailable controls, but security must be enforced in Supabase:
 
 - Field-level pricing restrictions.
 - Role permissions.
@@ -311,26 +308,26 @@ The frontend should have explicit domain types and view models.
 
 ## 4.1 Raw API types
 
-Raw API types map directly to Directus collections:
+Raw API types map directly to shared Supabase tables/views:
 
-- `DirectusProduct`
-- `DirectusProject`
-- `DirectusDesign`
-- `DirectusDesignCollection`
-- `DirectusStage`
-- `DirectusStageHistory`
-- `DirectusRetailer`
-- `DirectusBuyer`
-- `DirectusLicensor`
-- `DirectusProperty`
-- `DirectusFactory`
-- `DirectusProductType`
-- `DirectusOrder`
-- `DirectusSubmission`
-- `DirectusSample`
-- `DirectusRevision`
-- `DirectusFile`
-- `DirectusComment`
+- `PimProductRow`
+- `PimProjectRow`
+- `PimDesignRow`
+- `PimDesignCollectionRow`
+- `PimStageRow`
+- `PimStageHistoryRow`
+- `CoreCompanyRow`
+- `CoreContactRow`
+- `CoreLicensorRow`
+- `CorePropertyRow`
+- `CoreFactoryRow`
+- `CoreProductTypeRow`
+- `PimOrderRow`
+- `PimSubmissionRow`
+- `PimSampleRow`
+- `PimRevisionRow`
+- `PimFileRow`
+- `AppCommentRow`
 
 These types should not be used directly by complex UI components unless the component is purely generic.
 
@@ -541,11 +538,11 @@ This prevents domain logic from leaking into visual components.
 
 ## 5. Backend Schema Updates Needed
 
-Some required features depend on backend schema work in `/worksp/directus`. The frontend plan should track these dependencies explicitly.
+Some required features depend on backend schema work in `/worksp/shared-db`. The frontend plan should track these dependencies explicitly.
 
 ## 5.1 Confirm existing collections and fields
 
-Before implementation, verify production Directus contains:
+Before implementation, verify production Supabase contains:
 
 - `retailer`
 - `buyer`
@@ -781,7 +778,7 @@ The PM frontend should support both:
 
 ## 5.8 Add saved views
 
-Create a saved view/preferences model if Directus presets are not sufficient for the custom frontend.
+Create a saved view/preferences model if Supabase presets are not sufficient for the custom frontend.
 
 Fields:
 
@@ -838,7 +835,7 @@ src/
     auth.tsx
     roles.ts
   lib/
-    directus.ts
+    supabase.ts
     utils.ts
     buildInfo.ts
   domain/
@@ -1966,7 +1963,7 @@ Use aggregate queries for:
 - Count by owner.
 - Counts for card badges where possible.
 
-If Directus API aggregate becomes cumbersome, add backend SQL views or summary collections.
+If Supabase API aggregate becomes cumbersome, add backend SQL views or summary collections.
 
 ## 9.4 Pagination
 
@@ -2116,7 +2113,7 @@ Stop treating real products as mock tasks.
 ### Tasks
 
 1. Add `src/domain/products`.
-2. Add raw Directus product types and product summary/detail types.
+2. Add raw Supabase product types and product summary/detail types.
 3. Add product adapters.
 4. Replace `MockTask` usage in pipeline.
 5. Rename `PimTaskCard` to `ProductCard`.
@@ -2160,7 +2157,7 @@ Let people work from real assigned queues.
 
 ### Tasks
 
-1. Use current Directus user from auth.
+1. Use current Supabase user from auth.
 2. Fetch product assignments.
 3. Fetch assigned subtasks.
 4. Fetch review queues by role.
@@ -2296,7 +2293,7 @@ Use the data to improve planning.
 4. Add reusable design reports.
 5. Add cancellation reason reports.
 6. Add licensor/factory turnaround.
-7. Add assistant panel backed by Directus/worker query layer.
+7. Add assistant panel backed by Supabase/worker query layer.
 
 ### Acceptance criteria
 
@@ -2590,7 +2587,7 @@ Goal:
 6. Which lifecycle values should be final?
 7. Which stage gates should hard-block versus warn?
 8. Should role queues be materialized backend views or built from frontend queries?
-9. How should saved views be stored: Directus presets, custom collection, or local user prefs?
+9. How should saved views be stored: Supabase presets, custom collection, or local user prefs?
 10. Which reports are needed first by leadership?
 
 ---

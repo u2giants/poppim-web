@@ -1,88 +1,12 @@
-import { readItems, aggregate } from '@directus/sdk'
-import { directus } from '@/lib/directus'
 import type { Product, Stage } from '@/lib/types'
 import type { BusinessUnit } from '@/domain/products/types'
+import { supabaseProductToProduct } from '@/domain/products/supabaseAdapter'
+import { api, metadata, unwrap } from '@/lib/supabaseQuery'
+
 export { fetchStages } from '@/domain/reference/api'
 export { setProductStage, stageId } from '../board/api'
 
-export const PRODUCT_SUMMARY_FIELDS = [
-  'id',
-  'code',
-  'name',
-  'description',
-  'priority',
-  'business_unit',
-  'lifecycle_state',
-  'next_action',
-  { next_owner_user: ['id', 'first_name', 'last_name', 'email', 'avatar'] },
-  { next_owner_role: ['id', 'name'] },
-  'waiting_on',
-  'blocker_reason',
-  'risk_level',
-  'blocked_since',
-  'last_meaningful_update_at',
-  'on_shelf_date',
-  'pps_requested_date',
-  'pi_status',
-  'brand_assurance_number',
-  'closure_reason',
-  'cover_url',
-  'clickup_url',
-  'clickup_list_id',
-  'clickup_list_name',
-  'clickup_folder_id',
-  'clickup_folder_name',
-  'clickup_space_id',
-  'clickup_space_name',
-  'clickup_creator_name',
-  'clickup_time_estimate_ms',
-  'clickup_orderindex',
-  'clickup_parent_id',
-  'clickup_top_level_parent_id',
-  'clickup_status',
-  'clickup_status_type',
-  'clickup_status_color',
-  'clickup_status_order',
-  'clickup_created_at',
-  'clickup_updated_at',
-  'clickup_closed_at',
-  'clickup_start_at',
-  'clickup_due_at',
-  { stage: ['id', 'name'] },
-  { licensor: ['id', 'name'] },
-  { property: ['id', 'name'] },
-  { product_type: ['id', 'name'] },
-  { project: ['id', 'title', 'status', 'business_unit', 'on_shelf_date', { retailer: ['id', 'name'] }, { buyer: ['id', 'name', 'samples_required'] }] },
-  { design: ['id', 'name', 'status', 'theme', 'thumbnail_url'] },
-  { factory: ['id', 'name'] },
-] as const
-
-function buildFilter(opts: Omit<FetchProductsOpts, 'limit'> = {}): Record<string, unknown> {
-  const { search, licensorIds, listNames, businessUnit, lifecycleStates } = opts
-  const and: unknown[] = [{ stage: { _nnull: true } }]
-  if (search?.trim()) {
-    and.push({ _or: [{ name: { _icontains: search.trim() } }, { code: { _icontains: search.trim() } }] })
-  }
-  if (licensorIds?.length) and.push({ licensor: { id: { _in: licensorIds } } })
-  if (listNames?.length) and.push({ clickup_list_name: { _in: listNames } })
-  if (businessUnit === 'Licensed') {
-    and.push({ business_unit: { _in: ['POP', 'POP Creations'] } })
-    and.push({ clickup_status_type: { _in: ['open', 'custom'] } })
-    and.push({ clickup_parent_id: { _null: true } })
-  }
-  if (businessUnit === 'Generic') {
-    and.push({ business_unit: { _in: ['Spruce', 'Spruce Line'] } })
-    and.push({ clickup_status_type: { _in: ['open', 'custom'] } })
-    and.push({ clickup_parent_id: { _null: true } })
-  }
-  if (businessUnit === 'Software') {
-    and.push({ business_unit: { _eq: 'Software' } })
-    and.push({ clickup_status_type: { _in: ['open', 'custom'] } })
-    and.push({ clickup_parent_id: { _null: true } })
-  }
-  void lifecycleStates
-  return { _and: and }
-}
+export const PRODUCT_SUMMARY_FIELDS = ['*'] as const
 
 export interface FetchProductsOpts {
   search?: string
@@ -99,46 +23,67 @@ export interface ListFacet {
   count: number
 }
 
-// Distinct ClickUp lists (with their folder + product count) for the active
-// department — powers the List filter. One aggregate query, no row payload.
+function businessUnitMatches(row: Record<string, unknown>, unit?: BusinessUnit): boolean {
+  if (!unit || unit === 'Unknown') return true
+  const meta = metadata(row)
+  const value = String(meta.business_unit ?? meta.department ?? '').toLowerCase()
+  if (unit === 'Licensed') return ['licensed', 'pop', 'pop creations'].includes(value)
+  if (unit === 'Generic') return ['generic', 'spruce', 'spruce line'].includes(value)
+  return value === 'software'
+}
+
+function rowMatches(row: Record<string, unknown>, opts: Omit<FetchProductsOpts, 'limit'>): boolean {
+  const meta = metadata(row)
+  const q = opts.search?.trim().toLowerCase()
+  if (q) {
+    const haystack = [row.name, row.code, row.project_title, row.company_name, row.licensor_name, meta.clickup_list_name]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+    if (!haystack.includes(q)) return false
+  }
+  if (opts.licensorIds?.length && !opts.licensorIds.includes(String(row.licensor_id ?? ''))) return false
+  if (opts.listNames?.length && !opts.listNames.includes(String(meta.clickup_list_name ?? ''))) return false
+  if (!businessUnitMatches(row, opts.businessUnit)) return false
+  const statusType = String(meta.clickup_status_type ?? '').toLowerCase()
+  if (statusType && !['open', 'custom'].includes(statusType)) return false
+  if (meta.clickup_parent_id) return false
+  return true
+}
+
+async function fetchBoardRows(opts: FetchProductsOpts = {}) {
+  const { data, error } = await (api() as any)
+    .from('pm_product_board')
+    .select('*')
+    .order('updated_at', { ascending: false })
+    .limit(opts.limit ?? 5000)
+  const rows = unwrap<Array<Record<string, unknown>>>({ data, error })
+  return rows.filter((row) => rowMatches(row, opts))
+}
+
 export async function fetchListFacets(businessUnit?: BusinessUnit): Promise<ListFacet[]> {
-  const rows = (await directus.request(
-    aggregate('product', {
-      aggregate: { count: '*' },
-      groupBy: ['clickup_folder_name', 'clickup_list_name'] as never,
-      filter: buildFilter({ businessUnit }) as never,
-    }),
-  )) as unknown as Array<{ clickup_folder_name: string | null; clickup_list_name: string | null; count: { '*': string } }>
-  return rows
-    .filter((r) => r.clickup_list_name)
-    .map((r) => ({
-      folderName: r.clickup_folder_name,
-      listName: r.clickup_list_name as string,
-      count: parseInt(r.count?.['*'] ?? '0', 10),
-    }))
-    .sort((a, b) => b.count - a.count)
+  const rows = await fetchBoardRows({ businessUnit, limit: 10000 })
+  const counts = new Map<string, ListFacet>()
+  for (const row of rows) {
+    const meta = metadata(row)
+    const listName = typeof meta.clickup_list_name === 'string' ? meta.clickup_list_name : null
+    if (!listName) continue
+    const folderName = typeof meta.clickup_folder_name === 'string' ? meta.clickup_folder_name : null
+    const existing = counts.get(listName) ?? { folderName, listName, count: 0 }
+    existing.count += 1
+    counts.set(listName, existing)
+  }
+  return [...counts.values()].sort((a, b) => b.count - a.count)
 }
 
 export async function fetchPipelineProducts(opts: FetchProductsOpts = {}): Promise<Product[]> {
-  const { limit = 300 } = opts
-  return directus.request(
-    readItems('product', {
-      fields: PRODUCT_SUMMARY_FIELDS as never,
-      filter: buildFilter(opts) as never,
-      sort: ['-clickup_updated_at', 'name'],
-      limit,
-    }),
-  ) as Promise<Product[]>
+  const rows = await fetchBoardRows(opts)
+  return rows.map((row) => supabaseProductToProduct(row as never))
 }
 
 export async function countPipelineProducts(opts: Omit<FetchProductsOpts, 'limit'> = {}): Promise<number> {
-  const result = await directus.request(
-    aggregate('product', {
-      aggregate: { count: '*' },
-      filter: buildFilter(opts) as never,
-    }),
-  ) as Array<{ count: { '*': string } }>
-  return parseInt(result[0]?.count?.['*'] ?? '0', 10)
+  const rows = await fetchBoardRows({ ...opts, limit: 10000 })
+  return rows.length
 }
 
 export function stageById(stages: Stage[]): Map<string, Stage> {

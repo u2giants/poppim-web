@@ -867,8 +867,8 @@ function AssigneesField({ productId }: { productId: string }) {
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex">
           {rows.slice(0, 5).map((r, i) => {
-            const initials = userInitials(r.directus_user)
-            const name = userName(r.directus_user)
+            const initials = userInitials(r.profile)
+            const name = userName(r.profile)
             return (
               <div
                 key={r.id}
@@ -882,7 +882,7 @@ function AssigneesField({ productId }: { productId: string }) {
           })}
         </div>
         <span className="text-[13px]" style={{ color: '#1B2840' }}>
-          {rows.map((r) => userName(r.directus_user).split(' ')[0]).join(', ')}
+          {rows.map((r) => userName(r.profile).split(' ')[0]).join(', ')}
         </span>
       </div>
     </ModalField>

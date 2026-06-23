@@ -1,5 +1,4 @@
-import { readItems } from '@directus/sdk'
-import { directus } from '@/lib/directus'
+import { pim, unwrap } from '@/lib/supabaseQuery'
 import type { Order } from '@/lib/types'
 import type { BusinessUnit } from '@/domain/products/types'
 
@@ -9,54 +8,18 @@ export interface FetchOrdersOpts {
   limit?: number
 }
 
-function businessUnitClause(businessUnit: BusinessUnit | undefined): unknown[] {
-  if (!businessUnit || businessUnit === 'Unknown') return []
-  if (businessUnit === 'Licensed') return [{ product: { business_unit: { _in: ['POP', 'POP Creations'] } } }]
-  if (businessUnit === 'Generic') return [{ product: { business_unit: { _in: ['Spruce', 'Spruce Line'] } } }]
-  return [{ product: { business_unit: { _eq: 'Software' } } }]
-}
-
-function searchClause(search: string | undefined): unknown[] {
-  const q = search?.trim()
-  if (!q) return []
-  return [{
-    _or: [
-      { order_number: { _icontains: q } },
-      { product: { code: { _icontains: q } } },
-      { product: { name: { _icontains: q } } },
-    ],
-  }]
-}
-
 export async function fetchOrders(opts: FetchOrdersOpts = {}): Promise<Order[]> {
-  const { limit = 300 } = opts
-  return directus.request(
-    readItems('order', {
-      fields: [
-        'id',
-        'order_number',
-        'order_date',
-        'quantity',
-        { retailer: ['id', 'name'] },
-        { buyer: ['id', 'name'] },
-        {
-          product: [
-            'id',
-            'code',
-            'name',
-            'business_unit',
-            { stage: ['id', 'name'] },
-            { project: ['id', 'title', { retailer: ['id', 'name'] }, { buyer: ['id', 'name'] }] },
-            { design: ['id', 'name', 'status', 'theme'] },
-            { licensor: ['id', 'name'] },
-            { property: ['id', 'name'] },
-            { product_type: ['id', 'name'] },
-          ],
-        },
-      ],
-      filter: { _and: [...businessUnitClause(opts.businessUnit), ...searchClause(opts.search)] } as never,
-      sort: ['-order_date', 'order_number'],
-      limit,
-    }),
-  ) as Promise<Order[]>
+  const { data, error } = await (pim() as any).from('customer_order').select('*').order('order_date', { ascending: false }).limit(opts.limit ?? 300)
+  const q = opts.search?.trim().toLowerCase()
+  return unwrap<any[]>({ data, error })
+    .filter((row) => !q || [row.order_number, row.status, row.notes].filter(Boolean).join(' ').toLowerCase().includes(q))
+    .map((row) => ({
+      id: row.id,
+      order_number: row.order_number,
+      order_date: row.order_date,
+      quantity: row.metadata?.quantity ?? null,
+      retailer: row.company_id,
+      buyer: null,
+      product: row.product_id,
+    })) as Order[]
 }

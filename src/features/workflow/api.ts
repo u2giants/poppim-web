@@ -1,8 +1,7 @@
-import { createItem, readItems, updateItem } from '@directus/sdk'
-import { directus } from '@/lib/directus'
+import { pim, unwrap } from '@/lib/supabaseQuery'
 import type { Product, ProductSample, ProductSubmission, RevisionRequest } from '@/lib/types'
 import type { BusinessUnit } from '@/domain/products/types'
-import { PRODUCT_SUMMARY_FIELDS } from '@/features/pipeline/api'
+import { supabaseProductToProduct } from '@/domain/products/supabaseAdapter'
 
 export interface WorkflowFetchOpts {
   search?: string
@@ -10,309 +9,141 @@ export interface WorkflowFetchOpts {
   limit?: number
 }
 
-const USER_FIELDS = ['id', 'first_name', 'last_name', 'email', 'avatar'] as const
-const FILE_FIELDS = ['id', 'filename_download', 'title', 'type'] as const
+export const PRODUCT_CONTEXT_FIELDS = ['*'] as const
 
-function unitValues(unit?: BusinessUnit): string[] | null {
-  if (!unit || unit === 'Unknown') return null
-  if (unit === 'Licensed') return ['POP', 'POP Creations']
-  if (unit === 'Generic') return ['Spruce', 'Spruce Line']
-  return ['Software']
+function matchesSearch(row: any, search?: string) {
+  const q = search?.trim().toLowerCase()
+  if (!q) return true
+  return [row.status, row.body, row.notes, row.metadata?.notes, row.metadata?.portal_reference].filter(Boolean).join(' ').toLowerCase().includes(q)
 }
 
-function productUnitFilter(unit?: BusinessUnit) {
-  const values = unitValues(unit)
-  return values ? [{ product: { business_unit: { _in: values } } }] : []
+function submission(row: any): ProductSubmission {
+  return {
+    id: row.id,
+    product: row.product_id,
+    project: row.metadata?.project_id ?? null,
+    business_unit: row.metadata?.business_unit ?? null,
+    submission_type: row.metadata?.submission_type ?? null,
+    recipient_type: row.metadata?.recipient_type ?? null,
+    licensor: row.licensor_id,
+    submitted_by: row.metadata?.submitted_by ?? null,
+    submitted_at: row.submitted_at,
+    expected_response_at: row.metadata?.expected_response_at ?? null,
+    status: row.status,
+    response_at: row.approved_at ?? row.rejected_at,
+    response_summary: row.metadata?.response_summary ?? null,
+    brand_assurance_number: row.metadata?.brand_assurance_number ?? null,
+    brand_assurance_file: null,
+    portal_url: row.metadata?.portal_url ?? null,
+    portal_reference: row.metadata?.portal_reference ?? null,
+    revision_required: row.metadata?.revision_required ?? null,
+    revision: null,
+    notes: row.metadata?.notes ?? null,
+  }
 }
 
-function directUnitFilter(unit?: BusinessUnit) {
-  const values = unitValues(unit)
-  return values ? [{ business_unit: { _in: values } }] : []
+function sample(row: any): ProductSample {
+  return {
+    id: row.id,
+    product: row.product_id,
+    project: row.metadata?.project_id ?? null,
+    factory: row.factory_id,
+    sample_type: row.sample_type,
+    requested_by: row.metadata?.requested_by ?? null,
+    requested_at: row.requested_at,
+    expected_at: row.metadata?.expected_at ?? null,
+    received_at: row.received_at,
+    sent_to_buyer_at: row.metadata?.sent_to_buyer_at ?? null,
+    sent_to_licensor_at: row.metadata?.sent_to_licensor_at ?? null,
+    status: row.status,
+    primary_photo: null,
+    photo_urls: row.metadata?.photo_urls ?? null,
+    notes: row.metadata?.notes ?? null,
+    revision_required: row.metadata?.revision_required ?? null,
+    revision_reason: row.metadata?.revision_reason ?? null,
+    revision: null,
+  }
 }
 
-function submissionSearchFilter(search?: string) {
-  const q = search?.trim()
-  if (!q) return []
-  return [{
-    _or: [
-      { product: { code: { _icontains: q } } },
-      { product: { name: { _icontains: q } } },
-      { project: { title: { _icontains: q } } },
-      { notes: { _icontains: q } },
-      { body: { _icontains: q } },
-      { response_summary: { _icontains: q } },
-      { portal_reference: { _icontains: q } },
-      { brand_assurance_number: { _icontains: q } },
-    ],
-  }]
+function revision(row: any): RevisionRequest {
+  return {
+    id: row.id,
+    object_collection: 'product',
+    object_id: row.product_id,
+    product: row.product_id,
+    project: row.metadata?.project_id ?? null,
+    design: row.metadata?.design_id ?? null,
+    submission: row.submission_id,
+    source: row.metadata?.source ?? null,
+    requested_by_user: row.requested_by_profile_id,
+    requested_by_external: row.metadata?.requested_by_external ?? null,
+    requested_at: row.requested_at,
+    assigned_to: row.metadata?.assigned_to ?? null,
+    due_at: row.metadata?.due_at ?? null,
+    status: row.status,
+    body: row.body,
+    markup_file: null,
+    resolved_at: row.resolved_at,
+    resolution_note: row.metadata?.resolution_note ?? null,
+  }
 }
-
-function sampleSearchFilter(search?: string) {
-  const q = search?.trim()
-  if (!q) return []
-  return [{
-    _or: [
-      { product: { code: { _icontains: q } } },
-      { product: { name: { _icontains: q } } },
-      { project: { title: { _icontains: q } } },
-      { notes: { _icontains: q } },
-      { revision_reason: { _icontains: q } },
-    ],
-  }]
-}
-
-function revisionSearchFilter(search?: string) {
-  const q = search?.trim()
-  if (!q) return []
-  return [{
-    _or: [
-      { product: { code: { _icontains: q } } },
-      { product: { name: { _icontains: q } } },
-      { project: { title: { _icontains: q } } },
-      { body: { _icontains: q } },
-      { requested_by_external: { _icontains: q } },
-      { resolution_note: { _icontains: q } },
-    ],
-  }]
-}
-
-export const PRODUCT_CONTEXT_FIELDS = [
-  'id',
-  'code',
-  'name',
-  'description',
-  'priority',
-  'business_unit',
-  'lifecycle_state',
-  'next_action',
-  { next_owner_user: ['id', 'first_name', 'last_name', 'email', 'avatar'] },
-  { next_owner_role: ['id', 'name'] },
-  'waiting_on',
-  'blocker_reason',
-  'risk_level',
-  'on_shelf_date',
-  'pps_requested_date',
-  'pi_status',
-  'brand_assurance_number',
-  'closure_reason',
-  'cover_url',
-  'clickup_due_at',
-  { stage: ['id', 'name'] },
-  { licensor: ['id', 'name'] },
-  { property: ['id', 'name'] },
-  { product_type: ['id', 'name'] },
-  { factory: ['id', 'name'] },
-  { project: ['id', 'title', 'status', 'business_unit', 'on_shelf_date', { retailer: ['id', 'name'] }, { buyer: ['id', 'name', 'samples_required'] }] },
-  { design: ['id', 'name', 'status', 'theme', 'thumbnail_url'] },
-] as const
 
 export async function fetchSubmissions(opts: WorkflowFetchOpts = {}): Promise<ProductSubmission[]> {
-  const { limit = 300 } = opts
-  return directus.request(
-    readItems('product_submission', {
-      fields: [
-        'id',
-        'business_unit',
-        'submission_type',
-        'recipient_type',
-        'submitted_at',
-        'expected_response_at',
-        'status',
-        'response_at',
-        'response_summary',
-        'brand_assurance_number',
-        'portal_url',
-        'portal_reference',
-        'revision_required',
-        'notes',
-        { product: PRODUCT_CONTEXT_FIELDS },
-        { project: ['id', 'title', 'business_unit', { retailer: ['id', 'name'] }, { buyer: ['id', 'name'] }] },
-        { licensor: ['id', 'name'] },
-        { submitted_by: USER_FIELDS },
-        { brand_assurance_file: FILE_FIELDS },
-        { revision: ['id', 'status', 'source', 'due_at'] },
-      ] as never,
-      filter: { _and: [...directUnitFilter(opts.businessUnit), ...submissionSearchFilter(opts.search)] } as never,
-      sort: ['expected_response_at', '-submitted_at'],
-      limit,
-    }),
-  ) as Promise<ProductSubmission[]>
+  const { data, error } = await (pim() as any).from('product_submission').select('*').order('submitted_at', { ascending: false }).limit(opts.limit ?? 300)
+  return unwrap<any[]>({ data, error }).filter((row) => matchesSearch(row, opts.search)).map(submission)
 }
 
 export async function fetchSamples(opts: WorkflowFetchOpts = {}): Promise<ProductSample[]> {
-  const { limit = 300 } = opts
-  return directus.request(
-    readItems('product_sample', {
-      fields: [
-        'id',
-        'sample_type',
-        'requested_at',
-        'expected_at',
-        'received_at',
-        'sent_to_buyer_at',
-        'sent_to_licensor_at',
-        'status',
-        'photo_urls',
-        'notes',
-        'revision_required',
-        'revision_reason',
-        { product: PRODUCT_CONTEXT_FIELDS },
-        { project: ['id', 'title', 'business_unit', { retailer: ['id', 'name'] }, { buyer: ['id', 'name'] }] },
-        { factory: ['id', 'name', 'china_team_contact'] },
-        { requested_by: USER_FIELDS },
-        { primary_photo: FILE_FIELDS },
-        { revision: ['id', 'status', 'source', 'due_at'] },
-      ] as never,
-      filter: { _and: [...productUnitFilter(opts.businessUnit), ...sampleSearchFilter(opts.search)] } as never,
-      sort: ['expected_at', '-requested_at'],
-      limit,
-    }),
-  ) as Promise<ProductSample[]>
+  const { data, error } = await (pim() as any).from('product_sample').select('*').order('requested_at', { ascending: false }).limit(opts.limit ?? 300)
+  return unwrap<any[]>({ data, error }).filter((row) => matchesSearch(row, opts.search)).map(sample)
 }
 
 export async function fetchRevisions(opts: WorkflowFetchOpts = {}): Promise<RevisionRequest[]> {
-  const { limit = 300 } = opts
-  return directus.request(
-    readItems('revision_request', {
-      fields: [
-        'id',
-        'object_collection',
-        'object_id',
-        'source',
-        'requested_by_external',
-        'requested_at',
-        'due_at',
-        'status',
-        'body',
-        'resolved_at',
-        'resolution_note',
-        { product: PRODUCT_CONTEXT_FIELDS },
-        { project: ['id', 'title', 'business_unit', { retailer: ['id', 'name'] }, { buyer: ['id', 'name'] }] },
-        { design: ['id', 'name', 'business_unit', 'status', 'theme', 'thumbnail_url'] },
-        { submission: ['id', 'submission_type', 'status', 'expected_response_at'] },
-        { requested_by_user: USER_FIELDS },
-        { assigned_to: USER_FIELDS },
-        { markup_file: FILE_FIELDS },
-      ] as never,
-      filter: { _and: [...productUnitFilter(opts.businessUnit), ...revisionSearchFilter(opts.search)] } as never,
-      sort: ['due_at', '-requested_at'],
-      limit,
-    }),
-  ) as Promise<RevisionRequest[]>
+  const { data, error } = await (pim() as any).from('revision_request').select('*').order('requested_at', { ascending: false }).limit(opts.limit ?? 300)
+  return unwrap<any[]>({ data, error }).filter((row) => matchesSearch(row, opts.search)).map(revision)
 }
 
 export async function fetchLifecycleOwnedProducts(userId: string, roleId: string | null): Promise<Product[]> {
-  const ownership = roleId
-    ? { _or: [{ next_owner_user: { _eq: userId } }, { next_owner_role: { _eq: roleId } }] }
-    : { next_owner_user: { _eq: userId } }
-  return directus.request(
-    readItems('product', {
-      fields: PRODUCT_SUMMARY_FIELDS as never,
-      filter: ownership as never,
-      limit: -1,
-    }),
-  ) as Promise<Product[]>
+  const { data, error } = await (pim() as any).from('product').select('*').or(`metadata->>next_owner_user.eq.${userId},metadata->>next_owner_role.eq.${roleId ?? ''}`)
+  return unwrap<any[]>({ data, error }).map((row) => supabaseProductToProduct(row))
 }
 
 export async function fetchAssignedRevisions(userId: string): Promise<RevisionRequest[]> {
-  return directus.request(
-    readItems('revision_request', {
-      fields: [
-        'id',
-        'source',
-        'requested_at',
-        'due_at',
-        'status',
-        'body',
-        { product: PRODUCT_CONTEXT_FIELDS },
-        { assigned_to: USER_FIELDS },
-      ] as never,
-      filter: {
-        _and: [
-          { assigned_to: { _eq: userId } },
-          { status: { _nin: ['resolved', 'accepted', 'rejected', 'canceled'] } },
-        ],
-      } as never,
-      sort: ['due_at', '-requested_at'],
-      limit: -1,
-    }),
-  ) as Promise<RevisionRequest[]>
+  const { data, error } = await (pim() as any).from('revision_request').select('*').eq('metadata->>assigned_to', userId).not('status', 'in', '("resolved","accepted","rejected","canceled")').order('requested_at')
+  return unwrap<any[]>({ data, error }).map(revision)
 }
 
-function relationId(value: unknown): string | null {
-  if (!value) return null
-  if (typeof value === 'string') return value
-  if (typeof value === 'object' && 'id' in value && typeof value.id === 'string') return value.id
-  return null
-}
-
-function businessUnitValue(product: Product): string | null {
-  if (product.business_unit === 'Licensed') return 'POP Creations'
-  if (product.business_unit === 'Generic') return 'Spruce Line'
-  if (product.business_unit === 'Software') return 'Software'
-  return product.business_unit ?? null
+function productId(product: Product): string {
+  return product.id
 }
 
 export async function createSubmissionForProduct(product: Product): Promise<ProductSubmission> {
-  return directus.request(
-    createItem('product_submission', {
-      product: product.id,
-      project: relationId(product.project),
-      business_unit: businessUnitValue(product),
-      submission_type: 'concept',
-      recipient_type: product.licensor ? 'licensor' : 'buyer',
-      licensor: relationId(product.licensor),
-      status: 'ready',
-      expected_response_at: product.pps_requested_date ?? product.on_shelf_date ?? null,
-      brand_assurance_number: product.brand_assurance_number ?? null,
-      revision_required: false,
-      notes: 'Created from product detail in PM frontend.',
-    } as never),
-  ) as Promise<ProductSubmission>
+  const { data, error } = await (pim() as any).from('product_submission').insert({ product_id: productId(product), licensor_id: typeof product.licensor === 'string' ? product.licensor : product.licensor?.id ?? null, property_id: typeof product.property === 'string' ? product.property : product.property?.id ?? null, status: 'ready', metadata: { project_id: typeof product.project === 'string' ? product.project : product.project?.id ?? null, submission_type: 'concept', recipient_type: product.licensor ? 'licensor' : 'buyer', expected_response_at: product.pps_requested_date ?? product.on_shelf_date ?? null, brand_assurance_number: product.brand_assurance_number ?? null, revision_required: false, notes: 'Created from product detail in PM frontend.' } }).select('*').single()
+  return submission(unwrap<any>({ data, error }))
 }
 
 export async function createSampleForProduct(product: Product): Promise<ProductSample> {
-  return directus.request(
-    createItem('product_sample', {
-      product: product.id,
-      project: relationId(product.project),
-      factory: relationId(product.factory),
-      sample_type: product.licensor ? 'pps' : 'factory',
-      status: 'needed',
-      expected_at: product.pps_requested_date ?? product.on_shelf_date ?? null,
-      revision_required: false,
-      notes: 'Created from product detail in PM frontend.',
-    } as never),
-  ) as Promise<ProductSample>
+  const { data, error } = await (pim() as any).from('product_sample').insert({ product_id: productId(product), factory_id: typeof product.factory === 'string' ? product.factory : product.factory?.id ?? null, sample_type: product.licensor ? 'pps' : 'factory', status: 'needed', metadata: { project_id: typeof product.project === 'string' ? product.project : product.project?.id ?? null, expected_at: product.pps_requested_date ?? product.on_shelf_date ?? null, revision_required: false, notes: 'Created from product detail in PM frontend.' } }).select('*').single()
+  return sample(unwrap<any>({ data, error }))
 }
 
 export async function createRevisionForProduct(product: Product): Promise<RevisionRequest> {
-  return directus.request(
-    createItem('revision_request', {
-      object_collection: 'product',
-      object_id: product.id,
-      product: product.id,
-      project: relationId(product.project),
-      design: relationId(product.design),
-      source: 'internal',
-      status: 'open',
-      due_at: product.pps_requested_date ?? product.on_shelf_date ?? null,
-      body: 'Revision created from product detail in PM frontend.',
-    } as never),
-  ) as Promise<RevisionRequest>
+  const { data, error } = await (pim() as any).from('revision_request').insert({ product_id: productId(product), status: 'open', body: 'Revision created from product detail in PM frontend.', metadata: { project_id: typeof product.project === 'string' ? product.project : product.project?.id ?? null, design_id: typeof product.design === 'string' ? product.design : product.design?.id ?? null, source: 'internal', due_at: product.pps_requested_date ?? product.on_shelf_date ?? null } }).select('*').single()
+  return revision(unwrap<any>({ data, error }))
 }
 
 export async function updateSubmissionStatus(id: string, status: string): Promise<ProductSubmission> {
-  return directus.request(updateItem('product_submission', id, { status } as never)) as Promise<ProductSubmission>
+  const { data, error } = await (pim() as any).from('product_submission').update({ status }).eq('id', id).select('*').single()
+  return submission(unwrap<any>({ data, error }))
 }
 
 export async function updateSampleStatus(id: string, status: string): Promise<ProductSample> {
-  return directus.request(updateItem('product_sample', id, { status } as never)) as Promise<ProductSample>
+  const { data, error } = await (pim() as any).from('product_sample').update({ status }).eq('id', id).select('*').single()
+  return sample(unwrap<any>({ data, error }))
 }
 
 export async function updateRevisionStatus(id: string, status: string): Promise<RevisionRequest> {
-  const patch = status === 'resolved'
-    ? { status, resolved_at: new Date().toISOString() }
-    : { status }
-  return directus.request(updateItem('revision_request', id, patch as never)) as Promise<RevisionRequest>
+  const patch = status === 'resolved' ? { status, resolved_at: new Date().toISOString() } : { status }
+  const { data, error } = await (pim() as any).from('revision_request').update(patch).eq('id', id).select('*').single()
+  return revision(unwrap<any>({ data, error }))
 }

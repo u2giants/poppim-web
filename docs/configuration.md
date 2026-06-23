@@ -1,11 +1,14 @@
 # Configuration — poppim-web
 
-See `AGENTS.md` first. The frontend has **no secrets** (browser app; auth is the backend session cookie).
+See `AGENTS.md` first. The frontend has **no secrets** (browser app; Supabase publishable anon keys are client-safe, but service-role keys must never be exposed).
+
+Shared infrastructure/environment standards live in [`u2giants/albert-standards`](https://github.com/u2giants/albert-standards). If backend URLs, CORS/cookie/SSO expectations, runtime ownership, or environment handling change in a way future operators need to know, update the relevant standards docs there too.
 
 ## Frontend env vars
 | Variable | Purpose | Where | Notes |
 |---|---|---|---|
-| `VITE_DIRECTUS_URL` | Backend API base URL | `.env` / `.env.example` | Build-time only (baked into the static bundle). Default `https://data.designflow.app` is hardcoded in `src/lib/directus.ts`. |
+| `VITE_SUPABASE_URL` | Supabase project URL | `.env` / `.env.example` | Build-time only (baked into the static bundle). Production project: `https://qsllyeztdwjgirsysgai.supabase.co`. |
+| `VITE_SUPABASE_ANON_KEY` | Supabase publishable anon key | `.env` / `.env.example` | Build-time only. Client-safe publishable key; never use a service-role key in the frontend. |
 | `VITE_BUILD_GIT_SHA` | Commit SHA shown in the top bar and embedded in `index.html` as `build-sha` | CI Docker build args; local fallback in `vite.config.ts` | Build-time only. Do not set as runtime env. |
 | `VITE_BUILD_COMMIT_DATE` | Commit timestamp shown in the top bar | CI Docker build args; local fallback in `vite.config.ts` | Formatted in the UI using `America/New_York`. |
 | `VITE_BUILD_RUN` | GitHub Actions run id/debug marker | CI Docker build args; local fallback `local` | Used for traceability/debugging. |
@@ -23,9 +26,4 @@ See `AGENTS.md` first. The frontend has **no secrets** (browser app; auth is the
 | `src/index.css` | Tailwind v4 import + the brand OKLCH theme tokens (`:root`/`.dark`, stage colors) |
 
 ## Backend-side config this app requires (NOT set here)
-These live on the **`directus`** Coolify service and must include this app's origin:
-- `CORS_ORIGIN` must list this app's origin; `CORS_CREDENTIALS=true`.
-- `AUTH_MICROSOFT_REDIRECT_ALLOW_LIST` must include this app's URL (for SSO return).
-- Session/refresh cookie domain `.designflow.app`, `*_SECURE=true`, `*_SAME_SITE=lax`.
-
-See `directus` repo `AGENTS.md` §11 (cross-subdomain SSO) and §12.
+The backend is the shared Supabase.com project `qsllyeztdwjgirsysgai`. Shared schema, RLS, realtime, and migration decisions belong in `u2giants/shared-db`, then the frontend types/API are updated here. Supabase service-role keys and backend secrets must not be exposed through Vite env vars.

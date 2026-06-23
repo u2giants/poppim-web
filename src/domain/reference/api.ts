@@ -1,30 +1,24 @@
-import { readItems } from '@directus/sdk'
-import { directus } from '@/lib/directus'
+import { core, pim, unwrap } from '@/lib/supabaseQuery'
 import type { Licensor, Retailer, Stage } from '@/lib/types'
 
 export async function fetchLicensors(): Promise<Licensor[]> {
-  return directus.request(
-    readItems('licensor', {
-      fields: ['id', 'name', 'turnaround_days_min', 'turnaround_days_max', 'requires_pi', 'prohibits_resale'],
-      sort: ['name'],
-      limit: -1,
-    }),
-  ) as Promise<Licensor[]>
+  const { data, error } = await (core() as any).from('licensor').select('id,name').order('name')
+  return unwrap<Array<Licensor>>({ data, error })
 }
 
 export async function fetchRetailers(): Promise<Retailer[]> {
-  return directus.request(
-    readItems('retailer', {
-      fields: ['id', 'name', 'resale_restriction', 'notes'],
-      sort: ['name'],
-      limit: -1,
-    }),
-  ) as Promise<Retailer[]>
+  const { data, error } = await (core() as any).from('company').select('id,name,customer_status').order('name')
+  return unwrap<Array<Retailer>>({ data, error })
 }
 
 export async function fetchStages(): Promise<Stage[]> {
-  return directus.request(
-    readItems('stage', { sort: ['stage_order'], limit: -1 }),
-  ) as Promise<Stage[]>
+  const { data, error } = await (pim() as any).from('stage').select('id,name,sort_order,pipeline,metadata').order('sort_order')
+  const rows = unwrap<Array<{ id: string; name: string; sort_order: number | null; pipeline: string | null; metadata?: unknown }>>({ data, error })
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    stage_order: row.sort_order,
+    category: null,
+    business_unit: row.pipeline,
+  }))
 }
-

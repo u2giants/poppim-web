@@ -1,44 +1,16 @@
-import { aggregate, readComments, readItems } from '@directus/sdk'
-import { directusUserToPerson } from './adapters'
+import { appUserToPerson } from './adapters'
 import type { PersonSummary, ProductSummary } from './types'
-import { directus } from '@/lib/directus'
-import type { DirectusUser } from '@/lib/types'
+import { appSchema, pim, unwrap } from '@/lib/supabaseQuery'
+import type { AppUser } from '@/lib/types'
 
-const USER_FIELDS = ['id', 'first_name', 'last_name', 'email', 'avatar'] as const
 const ROLLUP_BATCH_SIZE = 200
 
 interface ProductFileCoverCandidate {
-  product: string | { id: string } | null
-  mime_type: string | null
+  product_id: string | null
+  metadata?: Record<string, unknown> | null
   source_url: string | null
   thumbnail_url: string | null
   stored_url: string | null
-}
-
-function productId(value: unknown): string | null {
-  if (!value) return null
-  if (typeof value === 'string') return value
-  if (typeof value === 'object' && 'id' in value && typeof value.id === 'string') return value.id
-  return null
-}
-
-function countValue(row: { count?: { id?: string; '*'?: string } } | undefined): number {
-  return parseInt(row?.count?.id ?? row?.count?.['*'] ?? '0', 10)
-}
-
-function countMap<T extends Record<string, unknown>>(rows: T[], key: keyof T): Map<string, number> {
-  const map = new Map<string, number>()
-  for (const row of rows) {
-    const id = productId(row[key])
-    if (!id) continue
-    map.set(id, countValue(row as never))
-  }
-  return map
-}
-
-function increment(map: Map<string, number>, id: string | null) {
-  if (!id) return
-  map.set(id, (map.get(id) ?? 0) + 1)
 }
 
 function chunks<T>(values: T[], size: number): T[][] {
@@ -52,98 +24,91 @@ function fileHref(file: ProductFileCoverCandidate): string | null {
 }
 
 function filePreviewUrl(file: ProductFileCoverCandidate): string | null {
+  const mime = typeof file.metadata?.mime_type === 'string' ? file.metadata.mime_type : null
   if (file.thumbnail_url?.includes('digitaloceanspaces.com')) return file.thumbnail_url
-  if (file.mime_type?.startsWith('image/') && file.stored_url) return file.stored_url
+  if (mime?.startsWith('image/') && file.stored_url) return file.stored_url
   if (file.thumbnail_url) return file.thumbnail_url
-  if (file.mime_type?.startsWith('image/')) return fileHref(file)
+  if (mime?.startsWith('image/')) return fileHref(file)
   return null
+}
+
+function profileToUser(row: any): AppUser {
+  const parts = (row.display_name ?? '').trim().split(/\s+/).filter(Boolean)
+  return {
+    id: row.id,
+    first_name: row.first_name ?? parts[0] ?? null,
+    last_name: row.last_name ?? (parts.length > 1 ? parts.slice(1).join(' ') : null),
+    email: row.email ?? null,
+    avatar: row.avatar_url ?? null,
+    role: null,
+  }
+}
+
+function increment(map: Map<string, number>, id: string | null) {
+  if (!id) return
+  map.set(id, (map.get(id) ?? 0) + 1)
 }
 
 export async function hydrateProductSummaryRollups(products: ProductSummary[]): Promise<ProductSummary[]> {
   const ids = products.map((product) => product.id)
   if (ids.length === 0) return products
 
-  const batches = chunks(ids, ROLLUP_BATCH_SIZE)
-  const rollups = await Promise.all(batches.map(async (batch) => {
-    const [assigneeRows, checklistRows, completedChecklistRows, fileRows, fileCoverRows, commentRows] = await Promise.all([
-      directus.request(
-        readItems('product_assignee', {
-          fields: ['id', 'product', { directus_user: USER_FIELDS }] as never,
-          filter: { product: { _in: batch } },
-          limit: -1,
-        }),
-      ) as unknown as Promise<Array<{ product: string | { id: string } | null; directus_user: DirectusUser | string | null }>>,
-      directus.request(
-        aggregate('checklist_item', {
-          aggregate: { count: 'id' },
-          groupBy: ['product'] as never,
-          filter: { product: { _in: batch } } as never,
-        }),
-      ) as unknown as Promise<Array<{ product: string | { id: string } | null; count: { id: string } }>>,
-      directus.request(
-        aggregate('checklist_item', {
-          aggregate: { count: 'id' },
-          groupBy: ['product'] as never,
-          filter: { _and: [{ product: { _in: batch } }, { done: { _eq: true } }] } as never,
-        }),
-      ) as unknown as Promise<Array<{ product: string | { id: string } | null; count: { id: string } }>>,
-      directus.request(
-        aggregate('product_file', {
-          aggregate: { count: 'id' },
-          groupBy: ['product'] as never,
-          filter: { product: { _in: batch } } as never,
-        }),
-      ) as unknown as Promise<Array<{ product: string | { id: string } | null; count: { id: string } }>>,
-      directus.request(
-        readItems('product_file', {
-          fields: ['product', 'mime_type', 'source_url', 'thumbnail_url', 'stored_url'] as never,
-          filter: { product: { _in: batch } },
-          sort: ['uploaded_at', 'title'],
-          limit: -1,
-        }),
-      ) as unknown as Promise<ProductFileCoverCandidate[]>,
-      directus.request(
-        readComments({
-          filter: { collection: { _eq: 'product' }, item: { _in: batch } },
-          fields: ['id', 'item'] as never,
-          limit: -1,
-        }),
-      ) as unknown as Promise<Array<{ item: string | null }>>,
+  const rollups = await Promise.all(chunks(ids, ROLLUP_BATCH_SIZE).map(async (batch) => {
+    const [assigneeResult, checklistResult, fileResult, commentResult] = await Promise.all([
+      (pim() as any)
+        .from('product_assignee')
+        .select('product_id,profile:profile_id(id,display_name,email,avatar_url)')
+        .in('product_id', batch),
+      (pim() as any)
+        .from('checklist_item')
+        .select('product_id,status')
+        .in('product_id', batch),
+      (pim() as any)
+        .from('product_file')
+        .select('product_id,stored_url,source_url,thumbnail_url,metadata')
+        .in('product_id', batch)
+        .order('created_at'),
+      (appSchema() as any)
+        .from('comment')
+        .select('target_id')
+        .eq('target_schema', 'pim')
+        .eq('target_table', 'product')
+        .in('target_id', batch),
     ])
-    return { assigneeRows, checklistRows, completedChecklistRows, fileRows, fileCoverRows, commentRows }
+    return {
+      assigneeRows: unwrap<any[]>({ data: assigneeResult.data, error: assigneeResult.error }),
+      checklistRows: unwrap<Array<{ product_id: string | null; status: string | null }>>({ data: checklistResult.data, error: checklistResult.error }),
+      fileRows: unwrap<ProductFileCoverCandidate[]>({ data: fileResult.data, error: fileResult.error }),
+      commentRows: unwrap<Array<{ target_id: string | null }>>({ data: commentResult.data, error: commentResult.error }),
+    }
   }))
 
-  const assigneeRows = rollups.flatMap((rollup) => rollup.assigneeRows)
-  const checklistRows = rollups.flatMap((rollup) => rollup.checklistRows)
-  const completedChecklistRows = rollups.flatMap((rollup) => rollup.completedChecklistRows)
-  const fileRows = rollups.flatMap((rollup) => rollup.fileRows)
-  const fileCoverRows = rollups.flatMap((rollup) => rollup.fileCoverRows)
-  const commentRows = rollups.flatMap((rollup) => rollup.commentRows)
-
   const assignees = new Map<string, PersonSummary[]>()
-  for (const row of assigneeRows) {
-    const id = productId(row.product)
-    const person = directusUserToPerson(row.directus_user)
-    if (!id || !person) continue
-    ;(assignees.get(id) ?? assignees.set(id, []).get(id)!).push(person)
-  }
-
-  const checklist = countMap(checklistRows, 'product')
-  const completedChecklist = countMap(completedChecklistRows, 'product')
-  const files = countMap(fileRows, 'product')
-  const autoCovers = new Map<string, { coverUrl: string; coverThumbUrl?: string }>()
-  for (const row of fileCoverRows) {
-    const id = productId(row.product)
-    if (!id || autoCovers.has(id)) continue
-    const preview = filePreviewUrl(row)
-    if (!preview) continue
-    autoCovers.set(id, {
-      coverUrl: fileHref(row) ?? preview,
-      coverThumbUrl: preview,
-    })
-  }
+  const checklist = new Map<string, number>()
+  const completedChecklist = new Map<string, number>()
+  const files = new Map<string, number>()
   const comments = new Map<string, number>()
-  for (const row of commentRows) increment(comments, row.item)
+  const autoCovers = new Map<string, { coverUrl: string; coverThumbUrl?: string }>()
+
+  for (const rollup of rollups) {
+    for (const row of rollup.assigneeRows) {
+      const person = row.profile ? appUserToPerson(profileToUser(row.profile)) : null
+      if (!row.product_id || !person) continue
+      ;(assignees.get(row.product_id) ?? assignees.set(row.product_id, []).get(row.product_id)!).push(person)
+    }
+    for (const row of rollup.checklistRows) {
+      increment(checklist, row.product_id)
+      if ((row.status ?? '').toLowerCase() === 'done') increment(completedChecklist, row.product_id)
+    }
+    for (const row of rollup.fileRows) {
+      increment(files, row.product_id)
+      if (!row.product_id || autoCovers.has(row.product_id)) continue
+      const preview = filePreviewUrl(row)
+      if (!preview) continue
+      autoCovers.set(row.product_id, { coverUrl: fileHref(row) ?? preview, coverThumbUrl: preview })
+    }
+    for (const row of rollup.commentRows) increment(comments, row.target_id)
+  }
 
   return products.map((product) => {
     const autoCover = product.coverUrl ? null : autoCovers.get(product.id)

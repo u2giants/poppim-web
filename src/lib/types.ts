@@ -1,5 +1,5 @@
-// Minimal slice of the shared Directus schema that poppim-web reads.
-// Backend collections live in the `directus` repo (pm-system/apply-schema.mjs).
+// Minimal slice of the shared Supabase schema that poppim-web reads.
+// Backend tables live in the shared Supabase project and canonical shared-db migrations.
 
 export interface Stage {
   id: string
@@ -65,12 +65,12 @@ export interface Season {
   business_unit: string | null
 }
 
-export interface DirectusRole {
+export interface AppRole {
   id: string
   name: string | null
 }
 
-export interface DirectusFile {
+export interface AppFile {
   id: string
   filename_download?: string | null
   title?: string | null
@@ -80,8 +80,8 @@ export interface DirectusFile {
 export interface WorkflowFields {
   lifecycle_state?: string | null
   next_action?: string | null
-  next_owner_user?: string | DirectusUser | null
-  next_owner_role?: string | DirectusRole | null
+  next_owner_user?: string | AppUser | null
+  next_owner_role?: string | AppRole | null
   waiting_on?: string | null
   blocker_reason?: string | null
   blocked_since?: string | null
@@ -89,7 +89,7 @@ export interface WorkflowFields {
   last_meaningful_update_at?: string | null
   closure_reason?: string | null
   closed_at?: string | null
-  closed_by?: string | DirectusUser | null
+  closed_by?: string | AppUser | null
 }
 
 export interface Project extends WorkflowFields {
@@ -199,14 +199,14 @@ export interface ProductSubmission {
   submission_type: string | null
   recipient_type: string | null
   licensor: string | Licensor | null
-  submitted_by: string | DirectusUser | null
+  submitted_by: string | AppUser | null
   submitted_at: string | null
   expected_response_at: string | null
   status: string | null
   response_at: string | null
   response_summary: string | null
   brand_assurance_number: string | null
-  brand_assurance_file: string | DirectusFile | null
+  brand_assurance_file: string | AppFile | null
   portal_url: string | null
   portal_reference: string | null
   revision_required: boolean | null
@@ -220,14 +220,14 @@ export interface ProductSample {
   project: string | Project | null
   factory: string | Factory | null
   sample_type: string | null
-  requested_by: string | DirectusUser | null
+  requested_by: string | AppUser | null
   requested_at: string | null
   expected_at: string | null
   received_at: string | null
   sent_to_buyer_at: string | null
   sent_to_licensor_at: string | null
   status: string | null
-  primary_photo: string | DirectusFile | null
+  primary_photo: string | AppFile | null
   photo_urls: string | null
   notes: string | null
   revision_required: boolean | null
@@ -244,22 +244,22 @@ export interface RevisionRequest {
   design: string | Design | null
   submission: string | ProductSubmission | null
   source: string | null
-  requested_by_user: string | DirectusUser | null
+  requested_by_user: string | AppUser | null
   requested_by_external: string | null
   requested_at: string | null
-  assigned_to: string | DirectusUser | null
+  assigned_to: string | AppUser | null
   due_at: string | null
   status: string | null
   body: string | null
-  markup_file: string | DirectusFile | null
+  markup_file: string | AppFile | null
   resolved_at: string | null
   resolution_note: string | null
 }
 
 export interface PmSavedView {
   id: string
-  user: string | DirectusUser | null
-  role: string | DirectusRole | null
+  user: string | AppUser | null
+  role: string | AppRole | null
   name: string | null
   screen: string | null
   business_unit: string | null
@@ -267,7 +267,7 @@ export interface PmSavedView {
   sort_json: unknown
   columns_json: unknown
   is_default: boolean | null
-  shared_with_role: string | DirectusRole | null
+  shared_with_role: string | AppRole | null
   visibility: 'personal' | 'shared' | null
   origin: 'user' | 'clickup_list' | null
   color: string | null
@@ -276,7 +276,7 @@ export interface PmSavedView {
 
 export interface PmViewPref {
   id: string
-  user: string | DirectusUser | null
+  user: string | AppUser | null
   view: string | PmSavedView | null
   sort_order: number | null
   color: string | null
@@ -307,7 +307,7 @@ export interface PmDecision {
   object_id: string | null
   decision_type: string | null
   status: 'proposed' | 'decided' | 'superseded' | 'canceled' | null
-  decided_by: string | DirectusUser | null
+  decided_by: string | AppUser | null
   decided_at: string | null
   reason: string | null
   notes: string | null
@@ -324,7 +324,7 @@ export interface PmReminder {
   object_id: string | null
   title: string | null
   due_at: string | null
-  assigned_to: string | DirectusUser | null
+  assigned_to: string | AppUser | null
   status: 'open' | 'snoozed' | 'done' | 'canceled' | null
   reminder_type: string | null
   snoozed_until: string | null
@@ -343,7 +343,7 @@ export interface PmWorkflowTemplate {
   checklist_json: unknown
   required_evidence_json: unknown
   default_next_action: string | null
-  default_owner_role: string | DirectusRole | null
+  default_owner_role: string | AppRole | null
 }
 
 // The canonical filter payload stored in pm_saved_view.filters_json.
@@ -363,13 +363,13 @@ export interface StageHistory {
   changed_at: string | null
 }
 
-export interface DirectusUser {
+export interface AppUser {
   id: string
   first_name: string | null
   last_name: string | null
   email: string | null
   avatar: string | null
-  role: DirectusRole | null
+  role: AppRole | null
 }
 
 export interface ChecklistItem {
@@ -388,7 +388,7 @@ export interface Subtask {
   product: string
   title: string | null
   done: boolean
-  assignee: string | DirectusUser | null
+  assignee: string | AppUser | null
   due_date: string | null
   sort: number | null
 }
@@ -396,14 +396,14 @@ export interface Subtask {
 export interface ProductAssignee {
   id: string
   product: string
-  directus_user: DirectusUser | string
+  profile: AppUser | string
 }
 
 export interface Comment {
   id: string
   comment: string
   date_created: string
-  user_created: DirectusUser | string | null
+  user_created: AppUser | string | null
 }
 
 export interface ProductFile {
