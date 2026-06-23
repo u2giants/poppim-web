@@ -369,3 +369,15 @@ No production incidents since the app moved to `pm.designflow.app`.
 | done | ClickUp work-data import | 2026-06-14: backend importer hydrated live ClickUp files/comments/custom fields/checklists/tags/links for 17,859 product external ids; ClickUp activity/time APIs still returned 0 records and are tracked in `HANDOFF.md`. |
 
 Create `HANDOFF.md` only for an active, unresolved continuation item.
+<!-- ansible-host-policy: managed rollout from u2giants/ansible -->
+## Host / server changes — do NOT make them here
+
+The `hetz` server's host/OS layer is managed by **Ansible** in **[`u2giants/ansible`](https://github.com/u2giants/ansible)**.
+To change the server (packages, users, firewall, DNS, Docker *engine* config, system cron,
+systemd units, Cloudflare Tunnel 1, the backup watchdog), **open a PR there** and let CI apply
+it — **never** SSH into the box and hand-edit it. Manual changes are drift and get reverted by
+the next apply. See [`u2giants/ansible/AGENTS.md`](https://github.com/u2giants/ansible/blob/main/AGENTS.md).
+
+This repo is **not** the host layer. Its own changes belong here and deploy through their normal
+pipeline (e.g. Coolify). Don't put host-level changes here, and don't manage this service's
+container with Ansible. Scope boundary: **Ansible owns the host; Coolify owns the apps.**
