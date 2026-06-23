@@ -141,6 +141,16 @@ Do not load these into AI context: `node_modules/`, `dist/`, `.env`, `*.local`, 
 
 ## 11. Intentional quirks and non-obvious decisions
 
+### Supabase is the backend API/database, not the frontend runtime
+What changed:
+The 2026-06-22/23 migration removed the old backend SDK client from this repo and rewired the React app to use `@supabase/supabase-js` against `https://qsllyeztdwjgirsysgai.supabase.co`.
+
+Why:
+The frontend is still the custom React/TypeScript SPA in this repo, built by GitHub Actions and served by Coolify/nginx at `pm.designflow.app`. Supabase owns auth, API, database schema, RLS, realtime, and storage; it is not where the SPA is hosted.
+
+Future sessions should:
+When describing or changing this app, say "frontend data/auth layer uses Supabase" rather than "frontend runs on Supabase." Frontend runtime/deploy issues belong in this repo/Coolify; schema/RLS/migration issues belong in canonical `u2giants/shared-db`.
+
 ### shadcn uses the `new-york` (Radix) style, not the CLI default
 Looks like: `components.json` has `style: "new-york"` and components import from `radix-ui`, even though `npx shadcn init` now defaults to `base-nova` (Base UI).
 Actually: we deliberately switched to the Radix-based `new-york` style.
@@ -297,6 +307,8 @@ The frontend holds **no secrets** (it's a browser app; Supabase anon keys are pu
 | `VITE_BUILD_GIT_SHA`, `VITE_BUILD_COMMIT_DATE`, `VITE_BUILD_RUN` | Build metadata displayed in the top bar and used for deploy verification | Set by Docker build args in CI; local fallback in `vite.config.ts` | no | set by workflow |
 
 **Backend-side config this app depends on:** shared schema, RLS, realtime, and migrations live in `u2giants/shared-db` and are applied to the Supabase.com project. Do not expose service-role keys through frontend env.
+
+**Shared-db migration credential:** the direct Postgres migration password is stored in 1Password, vault `vibe_coding`, item `Supabase DB Password - shared POP database`, field `password`. Use it as `SUPABASE_DB_PASSWORD` for `supabase db push --dry-run` / `supabase db push`; never print or commit the value. Verified on 2026-06-22/23: `supabase link --project-ref qsllyeztdwjgirsysgai` and `SUPABASE_DB_PASSWORD=... supabase db push --dry-run` succeeded and reported the remote database up to date.
 
 ## 13. Deployment
 

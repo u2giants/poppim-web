@@ -27,3 +27,12 @@ Shared infrastructure/environment standards live in [`u2giants/albert-standards`
 
 ## Backend-side config this app requires (NOT set here)
 The backend is the shared Supabase.com project `qsllyeztdwjgirsysgai`. Shared schema, RLS, realtime, and migration decisions belong in `u2giants/shared-db`, then the frontend types/API are updated here. Supabase service-role keys and backend secrets must not be exposed through Vite env vars.
+
+## Shared-db migration password
+Schema migrations are not run from this frontend repo. When a future session works in canonical `u2giants/shared-db`, the Supabase direct Postgres password is available from 1Password:
+
+- Vault: `vibe_coding`
+- Item: `Supabase DB Password - shared POP database`
+- Field: `password`
+
+Use it only as the `SUPABASE_DB_PASSWORD` environment variable for Supabase CLI migration validation/apply commands, for example `supabase db push --dry-run`. Do not print the password, add it to `.env`, or expose it through any `VITE_*` variable. Verified on 2026-06-22/23: linking to project `qsllyeztdwjgirsysgai` and running a dry run with that password succeeded and reported the remote database up to date.

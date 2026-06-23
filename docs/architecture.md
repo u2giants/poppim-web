@@ -5,6 +5,8 @@ See `AGENTS.md` first. This doc covers system design and data flow.
 ## Shape
 A **React 19 + Vite SPA** that is a pure client of the shared **Supabase** API. It holds no data and no business database — Supabase owns the schema, auth, permissions, and storage.
 
+The SPA does **not** run on Supabase. It is still built from this repository, published as a GHCR image, and served by the Coolify/nginx service at `pm.designflow.app`; Supabase is the backend API/database/auth target the browser calls.
+
 ```
 Browser (pm-dev / pm.designflow.app)
   └─ poppim-web (this repo, static SPA served by nginx)
