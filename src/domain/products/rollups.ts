@@ -1,13 +1,13 @@
 import { appUserToPerson } from './adapters'
 import type { PersonSummary, ProductSummary } from './types'
-import { appSchema, pim, unwrap } from '@/lib/supabaseQuery'
+import { appSchema, metadata, pim, unwrap } from '@/lib/supabaseQuery'
 import type { AppUser } from '@/lib/types'
 
 const ROLLUP_BATCH_SIZE = 200
 
 interface ProductFileCoverCandidate {
   product_id: string | null
-  metadata?: Record<string, unknown> | null
+  metadata?: unknown
   source_url: string | null
   thumbnail_url: string | null
   stored_url: string | null
@@ -24,7 +24,8 @@ function fileHref(file: ProductFileCoverCandidate): string | null {
 }
 
 function filePreviewUrl(file: ProductFileCoverCandidate): string | null {
-  const mime = typeof file.metadata?.mime_type === 'string' ? file.metadata.mime_type : null
+  const fileMetadata = metadata(file)
+  const mime = typeof fileMetadata.mime_type === 'string' ? fileMetadata.mime_type : null
   if (file.thumbnail_url?.includes('digitaloceanspaces.com')) return file.thumbnail_url
   if (mime?.startsWith('image/') && file.stored_url) return file.stored_url
   if (file.thumbnail_url) return file.thumbnail_url
@@ -55,15 +56,15 @@ export async function hydrateProductSummaryRollups(products: ProductSummary[]): 
 
   const rollups = await Promise.all(chunks(ids, ROLLUP_BATCH_SIZE).map(async (batch) => {
     const [assigneeResult, checklistResult, fileResult, commentResult] = await Promise.all([
-      (pim() as any)
+      pim()
         .from('product_assignee')
         .select('product_id,profile:profile_id(id,display_name,email,avatar_url)')
         .in('product_id', batch),
-      (pim() as any)
+      pim()
         .from('checklist_item')
         .select('product_id,status')
         .in('product_id', batch),
-      (pim() as any)
+      pim()
         .from('product_file')
         .select('product_id,stored_url,source_url,thumbnail_url,metadata')
         .in('product_id', batch)

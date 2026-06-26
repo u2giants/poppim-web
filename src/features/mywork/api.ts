@@ -1,18 +1,20 @@
 import { appSchema, pim, unwrap } from '@/lib/supabaseQuery'
 import type { PmReminder, Product, RevisionRequest } from '@/lib/types'
+import { enrichProductRowsWithBoardFields } from '@/domain/products/enrich'
 import { supabaseProductToProduct } from '@/domain/products/supabaseAdapter'
 import { fetchAssignedRevisions, fetchLifecycleOwnedProducts } from '@/features/workflow/api'
 
 export async function fetchAssignedProductIds(userId: string): Promise<string[]> {
-  const { data, error } = await (pim() as any).from('product_assignee').select('product_id').eq('profile_id', userId)
+  const { data, error } = await pim().from('product_assignee').select('product_id').eq('profile_id', userId)
   return unwrap<Array<{ product_id: string | null }>>({ data, error }).map((row) => row.product_id).filter((id): id is string => Boolean(id))
 }
 
 export async function fetchAssignedProducts(userId: string): Promise<Product[]> {
   const ids = await fetchAssignedProductIds(userId)
   if (ids.length === 0) return []
-  const { data, error } = await (pim() as any).from('product').select('*').in('id', ids)
-  return unwrap<any[]>({ data, error }).map((row) => supabaseProductToProduct(row))
+  const { data, error } = await pim().from('product').select('*').in('id', ids)
+  const rows = await enrichProductRowsWithBoardFields(unwrap<any[]>({ data, error }))
+  return rows.map((row) => supabaseProductToProduct(row))
 }
 
 export async function fetchMyWorkProducts(userId: string, roleId: string | null): Promise<Product[]> {

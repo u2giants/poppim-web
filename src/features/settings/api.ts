@@ -1,6 +1,7 @@
 import { pim, unwrap } from '@/lib/supabaseQuery'
 import type { PmSavedView } from '@/lib/types'
 import type { BusinessUnitFilter, Screen } from '@/lib/appState'
+import type { Json } from '@/lib/database.types'
 
 export interface SaveViewInput {
   userId: string
@@ -11,6 +12,10 @@ export interface SaveViewInput {
   filters: unknown
   sort?: unknown
   columns?: unknown
+}
+
+function json(value: unknown): Json {
+  return (value ?? {}) as Json
 }
 
 function savedView(row: any): PmSavedView {
@@ -33,12 +38,12 @@ function savedView(row: any): PmSavedView {
 }
 
 export async function fetchSavedViews(userId: string): Promise<PmSavedView[]> {
-  const { data, error } = await (pim() as any).from('saved_view').select('*').eq('owner_profile_id', userId).order('name')
+  const { data, error } = await pim().from('saved_view').select('*').eq('owner_profile_id', userId).order('name')
   return unwrap<any[]>({ data, error }).map(savedView)
 }
 
 export async function saveCurrentView(input: SaveViewInput): Promise<PmSavedView> {
-  const { data, error } = await (pim() as any)
+  const { data, error } = await pim()
     .from('saved_view')
     .insert({
       owner_profile_id: input.userId,
@@ -46,7 +51,7 @@ export async function saveCurrentView(input: SaveViewInput): Promise<PmSavedView
       name: input.name,
       scope: 'personal',
       is_default: false,
-      config: { screen: input.screen, business_unit: input.businessUnit, filters: input.filters, sort: input.sort ?? {}, columns: input.columns ?? {} },
+      config: { screen: input.screen, business_unit: input.businessUnit, filters: json(input.filters), sort: json(input.sort), columns: json(input.columns) },
     })
     .select('*')
     .single()

@@ -9,7 +9,7 @@ export interface FetchOrdersOpts {
 }
 
 export async function fetchOrders(opts: FetchOrdersOpts = {}): Promise<Order[]> {
-  const { data, error } = await (pim() as any).from('customer_order').select('*').order('order_date', { ascending: false }).limit(opts.limit ?? 300)
+  const { data, error } = await pim().from('customer_order').select('*').order('order_date', { ascending: false }).limit(opts.limit ?? 300)
   const q = opts.search?.trim().toLowerCase()
   return unwrap<any[]>({ data, error })
     .filter((row) => !q || [row.order_number, row.status, row.notes].filter(Boolean).join(' ').toLowerCase().includes(q))

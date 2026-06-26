@@ -1,4 +1,5 @@
 import { productToSummary } from '@/domain/products/adapters'
+import { enrichProductRowsWithBoardFields } from '@/domain/products/enrich'
 import { supabaseProductToProduct } from '@/domain/products/supabaseAdapter'
 import type { BusinessUnit, ProductSummary } from '@/domain/products/types'
 import { pim, unwrap } from '@/lib/supabaseQuery'
@@ -31,11 +32,12 @@ function includeUnit(row: any, businessUnit: BusinessUnit) {
 
 export async function fetchControlRoomData(businessUnit: BusinessUnit): Promise<ControlRoomData> {
   const [productResult, projectResult, stages] = await Promise.all([
-    (pim() as any).from('product').select('*').limit(5000),
-    (pim() as any).from('project').select('*').limit(500),
+    pim().from('product').select('*').limit(5000),
+    pim().from('project').select('*').limit(500),
     fetchStages(),
   ])
-  const products = unwrap<any[]>({ data: productResult.data, error: productResult.error }).filter((row) => includeUnit(row, businessUnit))
+  const rawProducts = unwrap<any[]>({ data: productResult.data, error: productResult.error }).filter((row) => includeUnit(row, businessUnit))
+  const products = await enrichProductRowsWithBoardFields(rawProducts)
   const projects = unwrap<any[]>({ data: projectResult.data, error: projectResult.error }).filter((row) => includeUnit(row, businessUnit))
   const summaries = products.map((row) => productToSummary(supabaseProductToProduct(row)))
   const stageCounts = new Map<string, number>()

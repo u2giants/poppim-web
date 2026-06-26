@@ -322,7 +322,7 @@ Add schema fields in canonical `shared-db` first, then update `src/lib/types.ts`
 
 ### `retailer`/`buyer` are curated customer tables; the raw CRM dump lives in `ingested_*`
 What it is:
-Legacy CRM ingestion separated curated customers from raw ingested domains before the shared Supabase migration. Current app pickers should use `core.company` / `core.contact` data exposed by the shared schema. Historical end state:
+Legacy CRM ingestion separated curated customers from raw ingested domains before the shared Supabase migration. Current app customer pickers should use the shared `api.customer_list` view; buyer/contact reads use `core.contact` / `core.contact_company` data exposed by the shared schema. Historical end state:
 - **`retailer`** = curated real customers only (`customer_status` active/potential), ~102 rows, editable. Safe to read directly as a picker.
 - **`buyer`** = curated buyers (contacts at customers + any referenced by live PIM work), ~747 rows.
 - **`ingested_domains`** = the old `retailer` (all ~3,740 ingested companies); the email worker writes here for dedup. **Not for app pickers.**
@@ -331,7 +331,7 @@ Customers are **copied** (kept in both `ingested_domains` and `retailer` with th
 Why:
 The product owner's rule: apps must only ever see real customers (active/potential), never a table that is ~97% ingested garbage (e.g. "1kms" = `OTHER`).
 Future sessions should:
-Read curated customer/contact data through `fetchCustomers()` / `fetchBuyers(retailerId)` in `features/board/collab.ts`. Never point an app picker at raw ingested-domain/contact tables.
+Read curated customer/contact data through `fetchCustomers()` / `fetchBuyers(retailerId)` in `features/board/collab.ts`. `fetchCustomers()` must read the shared `api.customer_list` view, not a raw customer table. Never point an app picker at raw ingested-domain/contact tables.
 
 ## 12. Credentials and environment
 

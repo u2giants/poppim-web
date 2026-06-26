@@ -5,7 +5,7 @@ export function api() {
 }
 
 export function pim() {
-  return (supabase as any).schema('pim')
+  return supabase.schema('pim')
 }
 
 export function core() {

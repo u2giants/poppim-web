@@ -1,234 +1,344 @@
-# fix_new_schema.md — poppim-web (PM/PIM) shared-schema migration
+# fix_new_schema.md - Customer Views/RPC Cutover Plan
 
-**Read this top to bottom before changing anything. It assumes you have zero prior
-context.** It tells you exactly what changed in the shared Supabase database and
-what *this* app must change. Every file/line below is in **this** repo
-(`poppim-web`). Do **not** edit the vendored `shared-db/` folder — it is a
-read-only auto-synced copy.
+Read this top to bottom before changing anything. It assumes no prior context and
+orders the work so shared database safety comes before app rewrites.
 
----
+This plan merges the earlier PM migration guide with the customer views/RPC
+cutover review. It supersedes the risky assumption that production can hard-rename
+`core.company` without either an apps-first verification pass or a temporary
+compatibility shim.
 
-## 1. What changed in the shared database (and why)
+Do not edit `/worksp/poppim-web/shared-db/`. It is a read-only mirror of
+`u2giants/shared-db`. Any database migration or shared-db documentation change
+belongs in canonical `/worksp/shared-db` on a branch and PR.
 
-The shared Supabase Postgres backend (project `qsllyeztdwjgirsysgai`, which this
-app talks to) was restructured so the canonical customer table holds **only
-customers** — not email noise, not factories, not licensors.
+## 1. What Changed In The Shared Database
+
+The shared Supabase backend is being restructured so the canonical customer table
+holds customers only, not email noise, factories, licensors, or generic companies.
 
 | Before | After |
 |---|---|
-| `core.company` (a table that mixed real customers, prospects, and every ingested email domain) | **`core.customer`** — customers only. **`core.company` no longer exists** (hard rename, no fallback). |
-| "is this a real customer?" was guessed from `customer_status` | New column **`core.customer.is_potential`**: `false` = active/confirmed customer (exists in PLM/ERP), `true` = potential customer (not yet in PLM/ERP). |
+| `core.company`, a mixed table of customers, prospects, and ingested email domains | `core.customer`, customers only |
+| Email-domain noise mixed into the customer/account table | `crm.ingested_domain`, CRM-only triage data |
+| "Real customer" inferred from `customer_status` | `core.customer.is_potential`: `false` for ERP/PLM-confirmed customers, `true` for potential customers |
 
-**What did NOT change** (do not "fix" these — they are intentional):
-- The foreign-key **column** `company_id` keeps its name everywhere
-  (`pim.project.company_id`, `pim.product.company_id`,
-  `pim.customer_order.company_id`, `pim.design_collection.company_id`,
-  `core.contact_company.company_id`). Only the **table** was renamed.
+Important names that intentionally do not change:
+
+- Foreign-key columns stay named `company_id` in PM/CRM/DAM tables.
 - `core.company_source_ref` keeps its name.
-- The `customer_status` column still exists, so your existing enum-based UI keeps
-  working. `is_potential` is an additional, more reliable signal — adopt it when
-  convenient (§6).
+- `customer_status` still exists for existing UI/status behavior.
 
-Full rationale: `shared-db/docs/shared-database-vision.md` → "Customer vs.
-Company vs. Ingested Domain".
+`is_potential` is the factual confirmed-vs-potential signal. It must not be used
+as a visibility filter by itself.
 
----
+## 2. Target API Shape
 
-## 2. The approach: read through the shared "front desk" view, not the raw table
+Use app-facing views and RPCs as the stable API over `core.customer`.
 
-Today this app reaches into the shared table **directly** by name
-(`.from('company')`) in three places. That is fragile: any time the table is
-renamed or reshaped, this app breaks, and the database change and an app redeploy
-have to be timed to the same moment or real users see errors.
+- `api.customer_list` is the canonical shared plain customer list for pickers,
+  dropdowns, and basic customer reads.
+- `api.crm_account_list` remains independent for CRM account-management screens.
+- DAM's `search_style_tracker_link_candidates` remains independent because it is
+  ranked multi-entity search, not a customer list.
+- Customer writes must go through app-appropriate `api.*` RPCs, not direct
+  browser writes to `core.customer`.
 
-The fix is to read customers through a **stable read-only view** instead of the
-raw table. A view is a "front desk": the app asks the front desk for the customer
-list, and if the underlying table ever changes again, the front desk is adjusted
-once and **this app never breaks**. CRM and DAM already work this way.
+This preserves a clean end state with no permanent `core.company` object while
+still giving production a safe cutover path.
 
-That view has been created for you in the shared database:
+## 3. First: Tighten `api.customer_list` In `shared-db`
 
-- **`api.customer_list`** — a read-only list over `core.customer`, exposing:
-  `id, name, customer_status, is_potential, domain, status, metadata, updated_at`.
+Before apps converge on `api.customer_list`, define the view contract in
+canonical `/worksp/shared-db`.
 
-So the change in this app is: point the three customer reads at
-`api.customer_list` (schema `api`) instead of `company`/`customer` (schema
-`core`).
+Create a new timestamped migration, never edit an applied migration. The
+migration should replace `api.customer_list` so it exposes only stable,
+picker-safe columns:
 
----
+- `id`
+- `name`
+- `customer_status`
+- `is_potential`
+- `domain`
+- `status`
+- `updated_at`
 
-## 3. Required code changes (exact)
+Do not expose raw `metadata`. If PM, CRM, or DAM need metadata-derived fields,
+expose named audited columns in a specific view or add a narrowly scoped
+app-specific view.
 
-This app accesses Supabase schemas via helpers in `src/lib/supabaseQuery.ts`
-(e.g. `core()` returns the client scoped to the `core` schema). Read customers
-from the `api` schema's `customer_list` view instead. If there is no `api()`
-helper yet, add one next to `core()` (one line, same pattern), or call
-`supabase.schema('api')` directly.
+The view semantics are:
 
-**`src/domain/reference/api.ts:10`** (`fetchRetailers()`)
-```diff
-- const { data, error } = await (core() as any).from('company').select('id,name,customer_status').order('name')
-+ const { data, error } = await (supabase.schema('api') as any).from('customer_list').select('id,name,customer_status,is_potential').order('name')
-```
+- Return listable customer rows only.
+- Include both confirmed active customers and potential customers unless a row is
+  explicitly archived, deleted, or hidden by a dedicated status field.
+- Do not filter on `is_potential = false`; that would hide potential customers
+  that may still be valid in PM/CRM workflows.
+- Use `security_invoker = true` so caller RLS still applies.
 
-**`src/features/board/collab.ts:300`** (`fetchCustomers()`)
-```diff
-- const { data, error } = await (core() as any).from('company').select('id,name,customer_status').order('name')
-+ const { data, error } = await (supabase.schema('api') as any).from('customer_list').select('id,name,customer_status,is_potential').order('name')
-```
+Migration sketch:
 
-**`src/features/accounts/api.ts:18`** (`fetchAccountRows()`, inside the `Promise.all`)
-```diff
--   (core() as any).from('company').select('id,name,customer_status,metadata').order('name'),
-+   (supabase.schema('api') as any).from('customer_list').select('id,name,customer_status,is_potential,metadata').order('name'),
-```
-
-(Use whatever the app's existing pattern is for reaching a schema — mirror how
-`core()` is defined. The point is: **schema `api`, view `customer_list`**, not
-schema `core`, table `company`/`customer`.)
-
-Then confirm nothing still reaches the raw table directly:
-```bash
-grep -rn "from('company')\|from(\"company\")\|from('customer')\|core\.company" src/
-```
-Expect zero hits (matches inside `shared-db/` don't count).
-
-After this, **this app never reads `core.customer` directly**, so future shared
-table changes won't break it and there is no lockstep-deploy requirement (see §7).
-
----
-
-## 4. Instructions for adding views / RPCs to the shared database
-
-You normally won't need to add anything — `api.customer_list` already exists. This
-section documents the pattern so a future change is easy and so you understand
-where the front desk lives.
-
-**Where:** shared views/RPCs live in the canonical repo **`u2giants/shared-db`**
-(NOT in this app, and NOT in this app's read-only `shared-db/` copy). Per
-`shared-db/AGENTS.md`, a shared-db change is a new timestamped SQL migration on a
-branch → PR → applied to the **preview** branch (`xjcyeuvzkhtzsheknaiu`) → merged
-to `main`. App repos must never hand-edit their vendored `shared-db/` folder.
-
-**A read view (what `api.customer_list` is)** — apps READ through this:
 ```sql
--- supabase/migrations/<timestamp>_api_customer_list_view.sql  (in u2giants/shared-db)
 create or replace view api.customer_list
-with (security_invoker = true) as          -- caller's row-level security still applies
-select c.id, c.name, c.customer_status, c.is_potential,
-       c.domain, c.status, c.metadata, c.updated_at
+with (security_invoker = true) as
+select
+  c.id,
+  c.name,
+  c.customer_status,
+  c.is_potential,
+  c.domain,
+  c.status,
+  c.updated_at
 from core.customer c;
+
+comment on view api.customer_list is
+  'Shared plain customer list for picker/basic reads. Exposes only stable, picker-safe columns. Includes listable active and potential customers; is_potential is not a visibility filter. App-specific account views/RPCs should expose specialized fields.';
 
 grant select on api.customer_list to authenticated;
 ```
 
-**A write RPC (only if an app ever needs to CHANGE a customer)** — apps never get
-direct write access to the table; they call a function that does the write safely.
-PM only reads customers today, so PM does **not** need this — included only as the
-pattern to follow (CRM's `api.crm_update_account` is a real example):
-```sql
-create or replace function api.update_customer(p_id uuid, p_name text default null /* ... */)
-returns api.customer_list                  -- or core.customer
-language plpgsql
-security definer                            -- runs with elevated rights, enforces its own checks
-set search_path = api, core, app, public
-as $$
-begin
-  -- (authorization checks here, e.g. app.has_app_access('pm'))
-  update core.customer c set name = coalesce(p_name, c.name) where c.id = p_id;
-  -- return the updated row...
-end;
-$$;
-grant execute on function api.update_customer(uuid, text) to authenticated;
-```
-From the app you'd then call
-`supabase.schema('api').rpc('update_customer', { p_id, p_name })` instead of
-writing to the table directly.
-
----
-
-## 5. Regenerate the Supabase TypeScript types
-
-`src/lib/database.types.ts` is auto-generated and currently describes the old
-`company` table (around lines 1163–1228). Regenerate it so the types match the new
-schema (the `customer` table, the `api.customer_list` view, and `is_potential`):
+Run in `/worksp/shared-db`:
 
 ```bash
-supabase login          # or export SUPABASE_ACCESS_TOKEN=<token from owner/1Password>
+scripts/check-sql.sh
+supabase db push --dry-run
+```
+
+Then apply the migration to the preview branch and verify the view before any
+production promotion.
+
+## 4. Keep Specialized APIs Separate
+
+CRM:
+
+- Keep `api.crm_account_list` separate.
+- It may read `core.customer` directly and expose CRM-only fields such as sales
+  owner, routing aliases, departments, account state, and internal CRM metadata.
+- Do not rebuild it on top of `api.customer_list` unless the team later confirms
+  CRM should always see exactly the shared picker row set plus extras.
+
+DAM:
+
+- Keep `search_style_tracker_link_candidates`.
+- Repoint internals to `core.customer` where needed.
+- Do not replace fuzzy multi-entity search with `api.customer_list`.
+
+PM:
+
+- Plain customer reads should use `api.customer_list`.
+- Buyer/contact reads may continue through `core.contact` /
+  `core.contact_company` or future API views as needed.
+- PM account-style screens that need extra customer fields should use explicit
+  named columns or a PM-specific view, not raw `metadata` from `api.customer_list`.
+
+## 5. Audit All Consumers Before Production Rename
+
+Before choosing the production cutover path, audit runtime consumers, not just
+visible frontend screens.
+
+Search `poppim-web`, `popcrm-web`, `popdam-web`, `/worksp/shared-db`, scripts,
+workers, Supabase functions, importers, docs examples, dashboards, and generated
+types for:
+
+```text
+core.company
+.from('company')
+from core.company
+references core.company
+company:company_id
+customer_list
+```
+
+Confirm no runtime consumer depends on `core.company` before choosing the
+apps-first production cutover path.
+
+In this repo, also search:
+
+```bash
+rg "from\(['\"]company['\"]\)|from\(['\"]customer['\"]\)|core\.company|company:company_id|customer:company_id" src/
+```
+
+`company:company_id(...)` may be only a local response alias, but do not ignore
+it. Open the file, decide whether it should stay, and smoke-test that screen
+against the renamed schema.
+
+## 6. Update PM Plain Customer Reads
+
+This app accesses Supabase schemas through helpers in
+`src/lib/supabaseQuery.ts`. Use the existing `api()` helper for
+`api.customer_list`; do not add direct `supabase.schema('api')` calls for this
+change.
+
+Change plain customer reads from schema `core`, table `company` or `customer`, to
+schema `api`, view `customer_list`.
+
+### `src/domain/reference/api.ts`
+
+`fetchRetailers()` should read:
+
+```ts
+const { data, error } = await (api() as any)
+  .from('customer_list')
+  .select('id,name,customer_status,is_potential')
+  .order('name')
+```
+
+### `src/features/board/collab.ts`
+
+`fetchCustomers()` should read:
+
+```ts
+const { data, error } = await (api() as any)
+  .from('customer_list')
+  .select('id,name,customer_status,is_potential')
+  .order('name')
+```
+
+### `src/features/accounts/api.ts`
+
+Do not read raw `metadata` from `api.customer_list`. If the Accounts screen still
+needs fields such as `resale_restriction` or `notes`, choose one of these before
+implementation:
+
+- expose those fields as named audited columns on an app-specific API view, or
+- remove them from this migration and keep the Accounts screen on a specialized
+  read path until that view exists.
+
+Do not put `metadata` back onto the shared `api.customer_list` just to satisfy
+this screen.
+
+After PM changes, this app should not read `core.customer` directly for plain
+customer lists.
+
+## 7. Regenerate Supabase Types
+
+Regenerate `src/lib/database.types.ts` from the environment being tested.
+
+Use preview until production has the rename and `api.customer_list` is exposed
+through PostgREST:
+
+```bash
+supabase gen types typescript --project-id xjcyeuvzkhtzsheknaiu --schema app,core,crm,pim,api > src/lib/database.types.ts
+```
+
+Use production only after production has the schema:
+
+```bash
 supabase gen types typescript --project-id qsllyeztdwjgirsysgai --schema app,core,crm,pim,api > src/lib/database.types.ts
 ```
-> Generate from **production** only once production has actually been renamed.
-> To regenerate beforehand, target the **preview** branch which already has the
-> new schema: `--project-id xjcyeuvzkhtzsheknaiu`. Then `npm run build` and fix any
-> remaining compile errors (switch old `company` row types to `customer`).
 
-Optional `package.json` script:
-```json
-"gen:types": "supabase gen types typescript --project-id qsllyeztdwjgirsysgai --schema app,core,crm,pim,api > src/lib/database.types.ts"
-```
+Then run `npm run build` and fix compile errors caused by old `company` table
+types or outdated view shapes.
 
----
+## 8. Optional PM Cleanup: Adopt `is_potential`
 
-## 6. Optional but recommended: adopt `is_potential`
+This is recommended, but not required to prevent the rename break.
 
-The selects in §3 now include `is_potential`. To use it:
-1. Add `is_potential?: boolean` to the `Retailer` interface in `src/lib/types.ts`
-   (~lines 18–24).
-2. Where code treats `customer_status === 'ACTIVE_CUSTOMER'` as "real customer,"
-   prefer `is_potential === false` — it's owned by the PLM/ERP import and is more
-   reliable than the manually-set enum.
+1. Add `is_potential?: boolean` to the relevant customer/retailer app type.
+2. Where code treats `customer_status === 'ACTIVE_CUSTOMER'` as "confirmed
+   customer", prefer `is_potential === false`.
+3. Do not rename every app-facing `Retailer` or `retailer` concept during this
+   migration. Keep product-language cleanup separate.
 
-Correctness improvement, not a breakage fix — do it whenever.
+## 9. Preview Verification
 
----
+Shared-db:
 
-## 7. Cutover sequencing (now relaxed)
+- `scripts/check-sql.sh` passes.
+- Preview dry-run has only intended view/comment changes.
+- Preview migration is applied.
+- `api.customer_list` returns the expected columns and does not return
+  `metadata`.
+- PostgREST exposes the `api` schema on preview.
 
-Because this app now reads through the `api.customer_list` view (whose name does
-not change) instead of the raw table, **the tight production-cutover window is
-gone**. The view already exists on the preview branch and will exist on production
-before/when the rename is promoted, so:
+PM:
 
-- You can ship the §3 + §5 changes on your normal schedule.
-- When the shared-db owner promotes the rename to production, this app keeps
-  working because it asks the front desk, not the raw table.
+- Accounts list loads, or the Accounts screen's specialized read path is
+  explicitly documented if it cannot use `api.customer_list` yet.
+- Project customer picker loads.
+- Product detail customer picker loads.
+- Projects rows load; any `company:company_id(...)` embed still works or has
+  been replaced.
+- `npm run build` passes after type regeneration.
 
-(Before this change, the app grabbed `core.company` directly and would have broken
-the instant production was renamed — that risk is what the view removes.)
+CRM:
 
----
+- Account list loads.
+- Account update RPC still works.
+- CRM-only fields still appear where expected.
 
-## 8. How to verify
+DAM:
 
-```bash
-npm install
-npm run dev   # point .env at preview xjcyeuvzkhtzsheknaiu to test the new schema, then revert
-```
-- Open Accounts → the list loads (no console error).
-- Open a Project → the customer/retailer picker populates.
-- Open a Product detail modal → the customer picker populates.
-- `npm run build` passes with the regenerated types.
+- Master Data candidate search still returns customers, licensors, properties,
+  factories, and SKUs as expected.
+- Customer candidates use `core.customer` semantics, not old email-noise domains.
 
-After production deploy: repeat the three checks on `pm.designflow.app`.
+## 10. Production Cutover
 
----
+Production must not receive a hard `core.company` rename without either Path A
+verification or the Path B temporary shim.
 
-## 9. Commit rules for this repo
+### Path A: Preferred Apps-First Cutover
 
-Per this repo's `AGENTS.md`: app repos **commit straight to `main`** (no feature
-branches), build must pass, then push; CI deploys. Do **not** touch the
-`shared-db/` folder (auto-synced from `u2giants/shared-db`; edits there are
-overwritten).
+1. Finish PM, CRM, and DAM changes so no app reads `core.company` directly.
+2. Verify all three apps against preview.
+3. Audit hidden consumers, including scripts, workers, functions, importers,
+   docs examples, dashboards, and generated types.
+4. Promote the production rename only after the audit is clean.
+5. End with no `core.company` object.
 
----
+### Path B: Fallback Temporary Shim
 
-## 10. Quick checklist
+Use this path only if all consumers cannot be guaranteed migrated before the
+production rename.
 
-- [ ] `src/domain/reference/api.ts:10` → read `api.customer_list` (schema `api`)
-- [ ] `src/features/board/collab.ts:300` → read `api.customer_list`
-- [ ] `src/features/accounts/api.ts:18` → read `api.customer_list`
-- [ ] `grep -rn "from('company')\|from('customer')\|core\.company" src/` returns nothing
-- [ ] Regenerate `src/lib/database.types.ts`; `npm run build` passes
-- [ ] Update `AGENTS.md` §11 wording (`core.company` → via `api.customer_list`)
-- [ ] (optional) adopt `is_potential` in `src/lib/types.ts`
-- [ ] Smoke-test Accounts + project/product customer pickers
+1. Production migration may temporarily create `core.company` as a compatibility
+   view over `core.customer`.
+2. Document the shim as temporary in the migration and shared-db docs.
+3. Name the exact drop condition: all apps and hidden consumers have been
+   verified off the old name.
+4. Drop the shim only after that condition is met.
+
+The owner wants no permanent `core.company`; Path B is only a cutover safety
+tool.
+
+## 11. Post-Cutover Verification
+
+After production deploy/promotion:
+
+- Confirm `api.customer_list` works through production PostgREST.
+- Repeat the PM smoke tests on `pm.designflow.app`.
+- Repeat CRM and DAM customer/account/search smoke tests on their production
+  URLs.
+- Regenerate types from production if preview-generated types were used during
+  the transition.
+- Re-run the consumer audit and drop any temporary `core.company` shim only after
+  the agreed drop condition is met.
+
+## 12. Commit Rules
+
+For app repos such as `poppim-web`, commit straight to `main` after the build
+passes; CI deploys the app.
+
+For canonical `shared-db`, use branch + PR, apply to preview first, verify all
+dependent apps, then merge and promote production only in an approved window.
+
+Never commit secrets, service-role keys, database passwords, or `.env` files.
+
+## 13. Quick Checklist
+
+- [ ] Create shared-db migration tightening `api.customer_list`.
+- [ ] Remove `metadata` from the shared view.
+- [ ] Add SQL comment documenting the shared view contract.
+- [ ] Run shared-db SQL checks and preview dry-run.
+- [ ] Apply shared-db migration to preview.
+- [ ] Audit all app/runtime consumers for `core.company`.
+- [ ] Update PM plain customer reads to `api.customer_list`.
+- [ ] Resolve PM Accounts metadata needs without re-exposing shared raw metadata.
+- [ ] Regenerate Supabase types from preview.
+- [ ] Run `npm run build`.
+- [ ] Smoke-test PM, CRM, and DAM against preview.
+- [ ] Choose Path A or Path B before production rename.
+- [ ] Promote production only after the selected cutover gate is satisfied.
+- [ ] Regenerate production types and repeat smoke tests after production cutover.

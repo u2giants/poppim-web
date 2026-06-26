@@ -25,6 +25,7 @@ export type Database = {
           customer_status: string | null
           domain: string | null
           id: string | null
+          is_potential: boolean | null
           name: string | null
           primary_salesperson_profile_id: string | null
           routing_aliases: string | null
@@ -39,6 +40,7 @@ export type Database = {
           customer_status?: string | null
           domain?: string | null
           id?: string | null
+          is_potential?: boolean | null
           name?: string | null
           primary_salesperson_profile_id?: string | null
           routing_aliases?: string | null
@@ -53,6 +55,7 @@ export type Database = {
           customer_status?: string | null
           domain?: string | null
           id?: string | null
+          is_potential?: boolean | null
           name?: string | null
           primary_salesperson_profile_id?: string | null
           routing_aliases?: string | null
@@ -165,6 +168,70 @@ export type Database = {
             referencedColumns: ["company_id"]
           },
           {
+            foreignKeyName: "contact_company_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "customer_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_company_crm_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "crm_department_list"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_contact_segment_counts: {
+        Row: {
+          contact_count: number | null
+          crm_segment: string | null
+        }
+        Relationships: []
+      }
+      crm_contact_segment_list: {
+        Row: {
+          company_customer_status: string | null
+          company_id: string | null
+          company_name: string | null
+          contact_type: string | null
+          crm_segment: string | null
+          department_id: string | null
+          department_name: string | null
+          email: string | null
+          first_name: string | null
+          id: string | null
+          job_title: string | null
+          last_name: string | null
+          name: string | null
+          phone: string | null
+          scope: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_company_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_account_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_company_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_account_overview"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "contact_company_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "customer_list"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "contact_company_crm_department_id_fkey"
             columns: ["department_id"]
             isOneToOne: false
@@ -204,10 +271,24 @@ export type Database = {
             referencedColumns: ["company_id"]
           },
           {
+            foreignKeyName: "department_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "customer_list"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "department_primary_contact_id_fkey"
             columns: ["primary_contact_id"]
             isOneToOne: false
             referencedRelation: "crm_contact_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "department_primary_contact_id_fkey"
+            columns: ["primary_contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contact_segment_list"
             referencedColumns: ["id"]
           },
         ]
@@ -247,6 +328,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "crm_account_overview"
             referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "email_message_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "customer_list"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "email_message_department_id_fkey"
@@ -291,6 +379,45 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_ingested_domain_list: {
+        Row: {
+          display_name: string | null
+          domain: string | null
+          email_count: number | null
+          first_seen_at: string | null
+          id: string | null
+          last_seen_at: string | null
+          last_sender: string | null
+          promoted_customer_id: string | null
+          promoted_customer_name: string | null
+          sample_subject: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingested_domain_promoted_customer_id_fkey"
+            columns: ["promoted_customer_id"]
+            isOneToOne: false
+            referencedRelation: "crm_account_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingested_domain_promoted_customer_id_fkey"
+            columns: ["promoted_customer_id"]
+            isOneToOne: false
+            referencedRelation: "crm_account_overview"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "ingested_domain_promoted_customer_id_fkey"
+            columns: ["promoted_customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_list"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_meeting_list: {
         Row: {
           action_items: string | null
@@ -327,10 +454,24 @@ export type Database = {
             referencedColumns: ["company_id"]
           },
           {
+            foreignKeyName: "meeting_note_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "customer_list"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "meeting_note_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "crm_contact_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_note_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contact_segment_list"
             referencedColumns: ["id"]
           },
           {
@@ -379,10 +520,24 @@ export type Database = {
             referencedColumns: ["company_id"]
           },
           {
+            foreignKeyName: "note_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "customer_list"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "note_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "crm_contact_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contact_segment_list"
             referencedColumns: ["id"]
           },
           {
@@ -447,10 +602,24 @@ export type Database = {
             referencedColumns: ["company_id"]
           },
           {
+            foreignKeyName: "opportunity_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "customer_list"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "opportunity_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "crm_contact_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contact_segment_list"
             referencedColumns: ["id"]
           },
           {
@@ -501,10 +670,24 @@ export type Database = {
             referencedColumns: ["company_id"]
           },
           {
+            foreignKeyName: "task_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "customer_list"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "task_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "crm_contact_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contact_segment_list"
             referencedColumns: ["id"]
           },
           {
@@ -522,6 +705,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      customer_list: {
+        Row: {
+          customer_status: string | null
+          domain: string | null
+          id: string | null
+          is_potential: boolean | null
+          metadata: Json | null
+          name: string | null
+          status: Database["app"]["Enums"]["entity_status"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          customer_status?: string | null
+          domain?: string | null
+          id?: string | null
+          is_potential?: boolean | null
+          metadata?: Json | null
+          name?: string | null
+          status?: Database["app"]["Enums"]["entity_status"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          customer_status?: string | null
+          domain?: string | null
+          id?: string | null
+          is_potential?: boolean | null
+          metadata?: Json | null
+          name?: string | null
+          status?: Database["app"]["Enums"]["entity_status"] | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       dam_asset_library: {
         Row: {
@@ -624,7 +840,50 @@ export type Database = {
           status: string | null
           updated_at: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "product_buyer_contact_id_fkey"
+            columns: ["buyer_contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contact_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_buyer_contact_id_fkey"
+            columns: ["buyer_contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contact_segment_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_account_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "crm_account_overview"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "product_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "customer_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_plm_item_id_fkey"
+            columns: ["plm_item_id"]
+            isOneToOne: false
+            referencedRelation: "plm_item_status"
+            referencedColumns: ["item_id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -648,10 +907,10 @@ export type Database = {
           p_routing_aliases?: string
           p_so_patterns?: string
         }
-        Returns: Database["core"]["Tables"]["company"]["Row"]
+        Returns: Database["core"]["Tables"]["customer"]["Row"]
         SetofOptions: {
           from: "*"
-          to: "company"
+          to: "customer"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -1103,7 +1362,7 @@ export type Database = {
       file_storage_provider:
         | "supabase"
         | "spaces"
-        | "legacy_external"
+        | "directus"
         | "external"
         | "local"
       source_confidence:
@@ -1160,72 +1419,6 @@ export type Database = {
           },
         ]
       }
-      company: {
-        Row: {
-          account_owner_profile_id: string | null
-          address: Json
-          chain_type: string | null
-          company_type: string
-          created_at: string
-          customer_status: string | null
-          domain: string | null
-          id: string
-          legal_name: string | null
-          metadata: Json
-          name: string
-          normalized_name: string | null
-          phone: string | null
-          primary_salesperson_profile_id: string | null
-          routing_aliases: string | null
-          so_patterns: string | null
-          status: Database["app"]["Enums"]["entity_status"]
-          updated_at: string
-          website: string | null
-        }
-        Insert: {
-          account_owner_profile_id?: string | null
-          address?: Json
-          chain_type?: string | null
-          company_type?: string
-          created_at?: string
-          customer_status?: string | null
-          domain?: string | null
-          id?: string
-          legal_name?: string | null
-          metadata?: Json
-          name: string
-          normalized_name?: string | null
-          phone?: string | null
-          primary_salesperson_profile_id?: string | null
-          routing_aliases?: string | null
-          so_patterns?: string | null
-          status?: Database["app"]["Enums"]["entity_status"]
-          updated_at?: string
-          website?: string | null
-        }
-        Update: {
-          account_owner_profile_id?: string | null
-          address?: Json
-          chain_type?: string | null
-          company_type?: string
-          created_at?: string
-          customer_status?: string | null
-          domain?: string | null
-          id?: string
-          legal_name?: string | null
-          metadata?: Json
-          name?: string
-          normalized_name?: string | null
-          phone?: string | null
-          primary_salesperson_profile_id?: string | null
-          routing_aliases?: string | null
-          so_patterns?: string | null
-          status?: Database["app"]["Enums"]["entity_status"]
-          updated_at?: string
-          website?: string | null
-        }
-        Relationships: []
-      }
       company_source_ref: {
         Row: {
           company_id: string
@@ -1268,7 +1461,7 @@ export type Database = {
             foreignKeyName: "company_source_ref_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "company"
+            referencedRelation: "customer"
             referencedColumns: ["id"]
           },
         ]
@@ -1363,7 +1556,7 @@ export type Database = {
             foreignKeyName: "contact_company_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "company"
+            referencedRelation: "customer"
             referencedColumns: ["id"]
           },
           {
@@ -1419,6 +1612,75 @@ export type Database = {
           },
         ]
       }
+      customer: {
+        Row: {
+          account_owner_profile_id: string | null
+          address: Json
+          chain_type: string | null
+          company_type: string
+          created_at: string
+          customer_status: string | null
+          domain: string | null
+          id: string
+          is_potential: boolean
+          legal_name: string | null
+          metadata: Json
+          name: string
+          normalized_name: string | null
+          phone: string | null
+          primary_salesperson_profile_id: string | null
+          routing_aliases: string | null
+          so_patterns: string | null
+          status: Database["app"]["Enums"]["entity_status"]
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          account_owner_profile_id?: string | null
+          address?: Json
+          chain_type?: string | null
+          company_type?: string
+          created_at?: string
+          customer_status?: string | null
+          domain?: string | null
+          id?: string
+          is_potential?: boolean
+          legal_name?: string | null
+          metadata?: Json
+          name: string
+          normalized_name?: string | null
+          phone?: string | null
+          primary_salesperson_profile_id?: string | null
+          routing_aliases?: string | null
+          so_patterns?: string | null
+          status?: Database["app"]["Enums"]["entity_status"]
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          account_owner_profile_id?: string | null
+          address?: Json
+          chain_type?: string | null
+          company_type?: string
+          created_at?: string
+          customer_status?: string | null
+          domain?: string | null
+          id?: string
+          is_potential?: boolean
+          legal_name?: string | null
+          metadata?: Json
+          name?: string
+          normalized_name?: string | null
+          phone?: string | null
+          primary_salesperson_profile_id?: string | null
+          routing_aliases?: string | null
+          so_patterns?: string | null
+          status?: Database["app"]["Enums"]["entity_status"]
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       factory: {
         Row: {
           code: string | null
@@ -1461,7 +1723,7 @@ export type Database = {
             foreignKeyName: "factory_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "company"
+            referencedRelation: "customer"
             referencedColumns: ["id"]
           },
         ]
@@ -1870,7 +2132,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      match_customer: {
+        Args: {
+          match_threshold?: number
+          p_domain?: string
+          p_name: string
+          review_threshold?: number
+        }
+        Returns: {
+          match_id: string
+          review_id: string
+          review_sim: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
@@ -2103,6 +2377,54 @@ export type Database = {
           pattern?: string
           reason?: string | null
           rule_type?: string
+        }
+        Relationships: []
+      }
+      ingested_domain: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          domain: string
+          email_count: number
+          first_seen_at: string | null
+          id: string
+          last_seen_at: string | null
+          last_sender: string | null
+          metadata: Json
+          promoted_customer_id: string | null
+          sample_subject: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          domain: string
+          email_count?: number
+          first_seen_at?: string | null
+          id?: string
+          last_seen_at?: string | null
+          last_sender?: string | null
+          metadata?: Json
+          promoted_customer_id?: string | null
+          sample_subject?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          domain?: string
+          email_count?: number
+          first_seen_at?: string | null
+          id?: string
+          last_seen_at?: string | null
+          last_sender?: string | null
+          metadata?: Json
+          promoted_customer_id?: string | null
+          sample_subject?: string | null
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -2549,7 +2871,39 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      promote_ingested_domain: {
+        Args: { p_domain: string; p_name?: string }
+        Returns: string
+      }
+      record_ingested_domain: {
+        Args: {
+          p_display_name?: string
+          p_domain: string
+          p_sender?: string
+          p_subject?: string
+        }
+        Returns: {
+          created_at: string
+          display_name: string | null
+          domain: string
+          email_count: number
+          first_seen_at: string | null
+          id: string
+          last_seen_at: string | null
+          last_sender: string | null
+          metadata: Json
+          promoted_customer_id: string | null
+          sample_subject: string | null
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ingested_domain"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       [_ in never]: never
@@ -2558,2322 +2912,1069 @@ export type Database = {
       [_ in never]: never
     }
   }
-  public: {
+  pim: {
     Tables: {
-      admin_config: {
+      checklist_item: {
         Row: {
-          key: string
-          updated_at: string
-          updated_by: string | null
-          value: Json
-        }
-        Insert: {
-          key: string
-          updated_at?: string
-          updated_by?: string | null
-          value: Json
-        }
-        Update: {
-          key?: string
-          updated_at?: string
-          updated_by?: string | null
-          value?: Json
-        }
-        Relationships: []
-      }
-      agent_pairings: {
-        Row: {
-          agent_name: string
-          agent_registration_id: string | null
-          agent_type: string
-          consumed_at: string | null
-          consumed_by_agent_id: string | null
           created_at: string
-          created_by: string | null
-          expires_at: string
+          external_id: string | null
+          external_source: string | null
           id: string
-          pairing_code: string
-          status: string
-        }
-        Insert: {
-          agent_name?: string
-          agent_registration_id?: string | null
-          agent_type: string
-          consumed_at?: string | null
-          consumed_by_agent_id?: string | null
-          created_at?: string
-          created_by?: string | null
-          expires_at: string
-          id?: string
-          pairing_code: string
-          status?: string
-        }
-        Update: {
-          agent_name?: string
-          agent_registration_id?: string | null
-          agent_type?: string
-          consumed_at?: string | null
-          consumed_by_agent_id?: string | null
-          created_at?: string
-          created_by?: string | null
-          expires_at?: string
-          id?: string
-          pairing_code?: string
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "agent_pairings_agent_registration_id_fkey"
-            columns: ["agent_registration_id"]
-            isOneToOne: false
-            referencedRelation: "agent_registrations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      agent_registrations: {
-        Row: {
-          agent_key_hash: string
-          agent_name: string
-          agent_type: string
-          created_at: string
-          id: string
-          last_heartbeat: string | null
           metadata: Json
-        }
-        Insert: {
-          agent_key_hash: string
-          agent_name: string
-          agent_type?: string
-          created_at?: string
-          id?: string
-          last_heartbeat?: string | null
-          metadata?: Json
-        }
-        Update: {
-          agent_key_hash?: string
-          agent_name?: string
-          agent_type?: string
-          created_at?: string
-          id?: string
-          last_heartbeat?: string | null
-          metadata?: Json
-        }
-        Relationships: []
-      }
-      ai_sentinel_cleanup_log: {
-        Row: {
-          ai_asset_id: string
-          ai_filename: string
-          ai_relative_path: string
-          created_at: string | null
-          id: string
-          replacement_asset_id: string | null
-          replacement_filename: string | null
-          replacement_had_thumbnail: boolean | null
-          replacement_queued_for_thumbnail: boolean | null
-          replacement_relative_path: string | null
-        }
-        Insert: {
-          ai_asset_id: string
-          ai_filename: string
-          ai_relative_path: string
-          created_at?: string | null
-          id?: string
-          replacement_asset_id?: string | null
-          replacement_filename?: string | null
-          replacement_had_thumbnail?: boolean | null
-          replacement_queued_for_thumbnail?: boolean | null
-          replacement_relative_path?: string | null
-        }
-        Update: {
-          ai_asset_id?: string
-          ai_filename?: string
-          ai_relative_path?: string
-          created_at?: string | null
-          id?: string
-          replacement_asset_id?: string | null
-          replacement_filename?: string | null
-          replacement_had_thumbnail?: boolean | null
-          replacement_queued_for_thumbnail?: boolean | null
-          replacement_relative_path?: string | null
-        }
-        Relationships: []
-      }
-      app_access: {
-        Row: {
-          app: Database["public"]["Enums"]["app_name"]
-          granted_at: string
-          granted_by: string | null
-          id: string
-          user_id: string
-        }
-        Insert: {
-          app: Database["public"]["Enums"]["app_name"]
-          granted_at?: string
-          granted_by?: string | null
-          id?: string
-          user_id: string
-        }
-        Update: {
-          app?: Database["public"]["Enums"]["app_name"]
-          granted_at?: string
-          granted_by?: string | null
-          id?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      asset_characters: {
-        Row: {
-          asset_id: string
-          character_id: string
-        }
-        Insert: {
-          asset_id: string
-          character_id: string
-        }
-        Update: {
-          asset_id?: string
-          character_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "asset_characters_asset_id_fkey"
-            columns: ["asset_id"]
-            isOneToOne: false
-            referencedRelation: "assets"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "asset_characters_character_id_fkey"
-            columns: ["character_id"]
-            isOneToOne: false
-            referencedRelation: "characters"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      asset_checkouts: {
-        Row: {
-          asset_id: string
-          checked_in_at: string | null
-          checked_out_at: string
-          checkin_hash: string | null
-          checkin_size: number | null
-          created_at: string
-          device_id: string | null
-          error_message: string | null
-          expected_quick_hash: string | null
-          final_hash: string | null
-          final_size: number | null
-          id: string
-          last_helper_heartbeat_at: string | null
-          redrive_count: number
-          redrive_requested: boolean
-          resolution: string | null
-          seafile_library_id: string | null
-          seafile_path: string | null
-          source_hash: string
-          source_local_path: string | null
-          source_provider: string | null
-          source_size: number
-          source_version: string | null
-          status: Database["public"]["Enums"]["checkout_status"]
-          synology_upload_user: string | null
+          product_id: string | null
+          project_id: string | null
+          sort_order: number
+          status: string
+          title: string
           updated_at: string
-          upload_method: string | null
-          user_id: string
-          verified_at: string | null
-          verify_attempts: number
-          verify_deadline_at: string | null
-          verify_error: string | null
-          verify_failed_at: string | null
-          verify_last_attempt_at: string | null
-          verify_resolve_at: string | null
         }
         Insert: {
-          asset_id: string
-          checked_in_at?: string | null
-          checked_out_at?: string
-          checkin_hash?: string | null
-          checkin_size?: number | null
           created_at?: string
-          device_id?: string | null
-          error_message?: string | null
-          expected_quick_hash?: string | null
-          final_hash?: string | null
-          final_size?: number | null
+          external_id?: string | null
+          external_source?: string | null
           id?: string
-          last_helper_heartbeat_at?: string | null
-          redrive_count?: number
-          redrive_requested?: boolean
-          resolution?: string | null
-          seafile_library_id?: string | null
-          seafile_path?: string | null
-          source_hash: string
-          source_local_path?: string | null
-          source_provider?: string | null
-          source_size: number
-          source_version?: string | null
-          status?: Database["public"]["Enums"]["checkout_status"]
-          synology_upload_user?: string | null
+          metadata?: Json
+          product_id?: string | null
+          project_id?: string | null
+          sort_order?: number
+          status?: string
+          title: string
           updated_at?: string
-          upload_method?: string | null
-          user_id: string
-          verified_at?: string | null
-          verify_attempts?: number
-          verify_deadline_at?: string | null
-          verify_error?: string | null
-          verify_failed_at?: string | null
-          verify_last_attempt_at?: string | null
-          verify_resolve_at?: string | null
         }
         Update: {
-          asset_id?: string
-          checked_in_at?: string | null
-          checked_out_at?: string
-          checkin_hash?: string | null
-          checkin_size?: number | null
           created_at?: string
-          device_id?: string | null
-          error_message?: string | null
-          expected_quick_hash?: string | null
-          final_hash?: string | null
-          final_size?: number | null
+          external_id?: string | null
+          external_source?: string | null
           id?: string
-          last_helper_heartbeat_at?: string | null
-          redrive_count?: number
-          redrive_requested?: boolean
-          resolution?: string | null
-          seafile_library_id?: string | null
-          seafile_path?: string | null
-          source_hash?: string
-          source_local_path?: string | null
-          source_provider?: string | null
-          source_size?: number
-          source_version?: string | null
-          status?: Database["public"]["Enums"]["checkout_status"]
-          synology_upload_user?: string | null
+          metadata?: Json
+          product_id?: string | null
+          project_id?: string | null
+          sort_order?: number
+          status?: string
+          title?: string
           updated_at?: string
-          upload_method?: string | null
-          user_id?: string
-          verified_at?: string | null
-          verify_attempts?: number
-          verify_deadline_at?: string | null
-          verify_error?: string | null
-          verify_failed_at?: string | null
-          verify_last_attempt_at?: string | null
-          verify_resolve_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "asset_checkouts_asset_id_fkey"
-            columns: ["asset_id"]
+            foreignKeyName: "checklist_item_product_id_fkey"
+            columns: ["product_id"]
             isOneToOne: false
-            referencedRelation: "assets"
+            referencedRelation: "product"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "asset_checkouts_device_id_fkey"
-            columns: ["device_id"]
+            foreignKeyName: "checklist_item_project_id_fkey"
+            columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "helper_devices"
+            referencedRelation: "project"
             referencedColumns: ["id"]
           },
         ]
       }
-      asset_path_history: {
+      customer_order: {
         Row: {
-          asset_id: string
-          detected_at: string
-          id: string
-          new_relative_path: string
-          old_relative_path: string
-        }
-        Insert: {
-          asset_id: string
-          detected_at?: string
-          id?: string
-          new_relative_path: string
-          old_relative_path: string
-        }
-        Update: {
-          asset_id?: string
-          detected_at?: string
-          id?: string
-          new_relative_path?: string
-          old_relative_path?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "asset_path_history_asset_id_fkey"
-            columns: ["asset_id"]
-            isOneToOne: false
-            referencedRelation: "assets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      asset_tags: {
-        Row: {
-          asset_id: string
+          company_id: string | null
           created_at: string
-          created_by: string | null
+          due_date: string | null
+          external_id: string | null
+          external_source: string | null
           id: string
-          source: string
-          tag: string
+          metadata: Json
+          notes: string | null
+          order_date: string | null
+          order_number: string | null
+          product_id: string | null
+          production_order_id: string | null
+          project_id: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          due_date?: string | null
+          external_id?: string | null
+          external_source?: string | null
+          id?: string
+          metadata?: Json
+          notes?: string | null
+          order_date?: string | null
+          order_number?: string | null
+          product_id?: string | null
+          production_order_id?: string | null
+          project_id?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          due_date?: string | null
+          external_id?: string | null
+          external_source?: string | null
+          id?: string
+          metadata?: Json
+          notes?: string | null
+          order_date?: string | null
+          order_number?: string | null
+          product_id?: string | null
+          production_order_id?: string | null
+          project_id?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_order_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_order_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      design: {
+        Row: {
+          created_at: string
+          design_collection_id: string | null
+          external_id: string | null
+          external_source: string | null
+          id: string
+          metadata: Json
+          nas_path: string | null
+          primary_asset_id: string | null
+          status: string | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          design_collection_id?: string | null
+          external_id?: string | null
+          external_source?: string | null
+          id?: string
+          metadata?: Json
+          nas_path?: string | null
+          primary_asset_id?: string | null
+          status?: string | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          design_collection_id?: string | null
+          external_id?: string | null
+          external_source?: string | null
+          id?: string
+          metadata?: Json
+          nas_path?: string | null
+          primary_asset_id?: string | null
+          status?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_design_collection_id_fkey"
+            columns: ["design_collection_id"]
+            isOneToOne: false
+            referencedRelation: "design_collection"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      design_asset: {
+        Row: {
+          asset_id: string
+          confidence: Database["app"]["Enums"]["source_confidence"]
+          created_at: string
+          design_id: string
+          id: string
+          is_primary: boolean
+          link_type: string
         }
         Insert: {
           asset_id: string
+          confidence?: Database["app"]["Enums"]["source_confidence"]
           created_at?: string
-          created_by?: string | null
+          design_id: string
           id?: string
-          source?: string
-          tag: string
+          is_primary?: boolean
+          link_type?: string
         }
         Update: {
           asset_id?: string
+          confidence?: Database["app"]["Enums"]["source_confidence"]
           created_at?: string
-          created_by?: string | null
+          design_id?: string
           id?: string
-          source?: string
+          is_primary?: boolean
+          link_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_asset_design_id_fkey"
+            columns: ["design_id"]
+            isOneToOne: false
+            referencedRelation: "design"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      design_collection: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          external_id: string | null
+          external_source: string | null
+          id: string
+          metadata: Json
+          name: string
+          season: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          external_id?: string | null
+          external_source?: string | null
+          id?: string
+          metadata?: Json
+          name: string
+          season?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          external_id?: string | null
+          external_source?: string | null
+          id?: string
+          metadata?: Json
+          name?: string
+          season?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      product: {
+        Row: {
+          buyer_contact_id: string | null
+          clickup_parent_id: string | null
+          clickup_status: string | null
+          clickup_task_id: string | null
+          code: string | null
+          company_id: string | null
+          cover_url: string | null
+          created_at: string
+          design_id: string | null
+          external_id: string | null
+          external_source: string | null
+          factory_id: string | null
+          id: string
+          licensor_id: string | null
+          lifecycle_status: string | null
+          metadata: Json
+          name: string
+          plm_item_id: string | null
+          product_type_id: string | null
+          project_id: string | null
+          property_id: string | null
+          stage: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          buyer_contact_id?: string | null
+          clickup_parent_id?: string | null
+          clickup_status?: string | null
+          clickup_task_id?: string | null
+          code?: string | null
+          company_id?: string | null
+          cover_url?: string | null
+          created_at?: string
+          design_id?: string | null
+          external_id?: string | null
+          external_source?: string | null
+          factory_id?: string | null
+          id?: string
+          licensor_id?: string | null
+          lifecycle_status?: string | null
+          metadata?: Json
+          name: string
+          plm_item_id?: string | null
+          product_type_id?: string | null
+          project_id?: string | null
+          property_id?: string | null
+          stage?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          buyer_contact_id?: string | null
+          clickup_parent_id?: string | null
+          clickup_status?: string | null
+          clickup_task_id?: string | null
+          code?: string | null
+          company_id?: string | null
+          cover_url?: string | null
+          created_at?: string
+          design_id?: string | null
+          external_id?: string | null
+          external_source?: string | null
+          factory_id?: string | null
+          id?: string
+          licensor_id?: string | null
+          lifecycle_status?: string | null
+          metadata?: Json
+          name?: string
+          plm_item_id?: string | null
+          product_type_id?: string | null
+          project_id?: string | null
+          property_id?: string | null
+          stage?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_design_id_fkey"
+            columns: ["design_id"]
+            isOneToOne: false
+            referencedRelation: "design"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_assignee: {
+        Row: {
+          assignment_type: string
+          created_at: string
+          id: string
+          product_id: string
+          profile_id: string
+        }
+        Insert: {
+          assignment_type?: string
+          created_at?: string
+          id?: string
+          product_id: string
+          profile_id: string
+        }
+        Update: {
+          assignment_type?: string
+          created_at?: string
+          id?: string
+          product_id?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_assignee_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_field: {
+        Row: {
+          created_at: string
+          external_id: string | null
+          external_source: string | null
+          field_name: string
+          id: string
+          product_id: string
+          updated_at: string
+          value_json: Json | null
+        }
+        Insert: {
+          created_at?: string
+          external_id?: string | null
+          external_source?: string | null
+          field_name: string
+          id?: string
+          product_id: string
+          updated_at?: string
+          value_json?: Json | null
+        }
+        Update: {
+          created_at?: string
+          external_id?: string | null
+          external_source?: string | null
+          field_name?: string
+          id?: string
+          product_id?: string
+          updated_at?: string
+          value_json?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_field_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_file: {
+        Row: {
+          created_at: string
+          dam_asset_id: string | null
+          external_id: string | null
+          external_source: string | null
+          file_object_id: string | null
+          id: string
+          metadata: Json
+          product_id: string
+          source_url: string | null
+          stored_url: string | null
+          thumbnail_url: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dam_asset_id?: string | null
+          external_id?: string | null
+          external_source?: string | null
+          file_object_id?: string | null
+          id?: string
+          metadata?: Json
+          product_id: string
+          source_url?: string | null
+          stored_url?: string | null
+          thumbnail_url?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dam_asset_id?: string | null
+          external_id?: string | null
+          external_source?: string | null
+          file_object_id?: string | null
+          id?: string
+          metadata?: Json
+          product_id?: string
+          source_url?: string | null
+          stored_url?: string | null
+          thumbnail_url?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_file_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_link: {
+        Row: {
+          created_at: string
+          from_product_id: string
+          id: string
+          link_type: string
+          metadata: Json
+          to_product_id: string
+        }
+        Insert: {
+          created_at?: string
+          from_product_id: string
+          id?: string
+          link_type: string
+          metadata?: Json
+          to_product_id: string
+        }
+        Update: {
+          created_at?: string
+          from_product_id?: string
+          id?: string
+          link_type?: string
+          metadata?: Json
+          to_product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_link_from_product_id_fkey"
+            columns: ["from_product_id"]
+            isOneToOne: false
+            referencedRelation: "product"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_link_to_product_id_fkey"
+            columns: ["to_product_id"]
+            isOneToOne: false
+            referencedRelation: "product"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_sample: {
+        Row: {
+          created_at: string
+          external_id: string | null
+          external_source: string | null
+          factory_id: string | null
+          id: string
+          metadata: Json
+          product_id: string
+          received_at: string | null
+          requested_at: string | null
+          sample_type: string | null
+          status: string
+          tracking_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_id?: string | null
+          external_source?: string | null
+          factory_id?: string | null
+          id?: string
+          metadata?: Json
+          product_id: string
+          received_at?: string | null
+          requested_at?: string | null
+          sample_type?: string | null
+          status?: string
+          tracking_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_id?: string | null
+          external_source?: string | null
+          factory_id?: string | null
+          id?: string
+          metadata?: Json
+          product_id?: string
+          received_at?: string | null
+          requested_at?: string | null
+          sample_type?: string | null
+          status?: string
+          tracking_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_sample_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_style_group: {
+        Row: {
+          confidence: Database["app"]["Enums"]["source_confidence"]
+          created_at: string
+          id: string
+          product_id: string
+          style_group_id: string
+        }
+        Insert: {
+          confidence?: Database["app"]["Enums"]["source_confidence"]
+          created_at?: string
+          id?: string
+          product_id: string
+          style_group_id: string
+        }
+        Update: {
+          confidence?: Database["app"]["Enums"]["source_confidence"]
+          created_at?: string
+          id?: string
+          product_id?: string
+          style_group_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_style_group_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_submission: {
+        Row: {
+          approved_at: string | null
+          created_at: string
+          external_id: string | null
+          external_source: string | null
+          id: string
+          licensor_id: string | null
+          metadata: Json
+          product_id: string
+          property_id: string | null
+          rejected_at: string | null
+          status: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          created_at?: string
+          external_id?: string | null
+          external_source?: string | null
+          id?: string
+          licensor_id?: string | null
+          metadata?: Json
+          product_id: string
+          property_id?: string | null
+          rejected_at?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          created_at?: string
+          external_id?: string | null
+          external_source?: string | null
+          id?: string
+          licensor_id?: string | null
+          metadata?: Json
+          product_id?: string
+          property_id?: string | null
+          rejected_at?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_submission_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_tag: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          source_system: string | null
+          tag: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          source_system?: string | null
+          tag: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          source_system?: string | null
           tag?: string
         }
         Relationships: [
           {
-            foreignKeyName: "asset_tags_asset_id_fkey"
-            columns: ["asset_id"]
+            foreignKeyName: "product_tag_product_id_fkey"
+            columns: ["product_id"]
             isOneToOne: false
-            referencedRelation: "assets"
+            referencedRelation: "product"
             referencedColumns: ["id"]
           },
         ]
       }
-      assets: {
-        Row: {
-          ai_description: string | null
-          ai_model: string | null
-          ai_tagged_at: string | null
-          art_source: Database["public"]["Enums"]["art_source"] | null
-          artboards: number | null
-          asset_type: Database["public"]["Enums"]["asset_type"] | null
-          big_theme: string | null
-          cover_description: string | null
-          created_at: string
-          customer: string | null
-          design_ref: string | null
-          design_style: string | null
-          designer_name: string | null
-          division_code: string | null
-          division_name: string | null
-          file_created_at: string | null
-          file_size: number | null
-          file_type: Database["public"]["Enums"]["file_type"]
-          filename: string
-          freelancer_name: string | null
-          height: number | null
-          id: string
-          ingested_at: string | null
-          is_deleted: boolean | null
-          is_licensed: boolean | null
-          last_scanned_at: string | null
-          last_seen_at: string
-          licensor_code: string | null
-          licensor_id: string | null
-          licensor_name: string | null
-          little_theme: string | null
-          mg01_code: string | null
-          mg01_name: string | null
-          mg02_code: string | null
-          mg02_name: string | null
-          mg03_code: string | null
-          mg03_name: string | null
-          modified_at: string
-          pdf_page2_url: string | null
-          primary_sort_tier: number
-          product_category: string | null
-          product_subtype_id: string | null
-          program: string | null
-          property_code: string | null
-          property_id: string | null
-          property_name: string | null
-          quick_hash: string
-          quick_hash_version: number
-          relative_path: string
-          scene_description: string | null
-          size_code: string | null
-          size_name: string | null
-          sku: string | null
-          sku_sequence: string | null
-          stage: string | null
-          status: Database["public"]["Enums"]["asset_status"] | null
-          style_group_id: string | null
-          tags: string[]
-          technical_designer_name: string | null
-          thumbnail_error: string | null
-          thumbnail_url: string | null
-          updated_at: string | null
-          width: number | null
-          workflow_status: Database["public"]["Enums"]["workflow_status"] | null
-        }
-        Insert: {
-          ai_description?: string | null
-          ai_model?: string | null
-          ai_tagged_at?: string | null
-          art_source?: Database["public"]["Enums"]["art_source"] | null
-          artboards?: number | null
-          asset_type?: Database["public"]["Enums"]["asset_type"] | null
-          big_theme?: string | null
-          cover_description?: string | null
-          created_at?: string
-          customer?: string | null
-          design_ref?: string | null
-          design_style?: string | null
-          designer_name?: string | null
-          division_code?: string | null
-          division_name?: string | null
-          file_created_at?: string | null
-          file_size?: number | null
-          file_type: Database["public"]["Enums"]["file_type"]
-          filename: string
-          freelancer_name?: string | null
-          height?: number | null
-          id?: string
-          ingested_at?: string | null
-          is_deleted?: boolean | null
-          is_licensed?: boolean | null
-          last_scanned_at?: string | null
-          last_seen_at?: string
-          licensor_code?: string | null
-          licensor_id?: string | null
-          licensor_name?: string | null
-          little_theme?: string | null
-          mg01_code?: string | null
-          mg01_name?: string | null
-          mg02_code?: string | null
-          mg02_name?: string | null
-          mg03_code?: string | null
-          mg03_name?: string | null
-          modified_at: string
-          pdf_page2_url?: string | null
-          primary_sort_tier?: number
-          product_category?: string | null
-          product_subtype_id?: string | null
-          program?: string | null
-          property_code?: string | null
-          property_id?: string | null
-          property_name?: string | null
-          quick_hash: string
-          quick_hash_version?: number
-          relative_path: string
-          scene_description?: string | null
-          size_code?: string | null
-          size_name?: string | null
-          sku?: string | null
-          sku_sequence?: string | null
-          stage?: string | null
-          status?: Database["public"]["Enums"]["asset_status"] | null
-          style_group_id?: string | null
-          tags?: string[]
-          technical_designer_name?: string | null
-          thumbnail_error?: string | null
-          thumbnail_url?: string | null
-          updated_at?: string | null
-          width?: number | null
-          workflow_status?:
-            | Database["public"]["Enums"]["workflow_status"]
-            | null
-        }
-        Update: {
-          ai_description?: string | null
-          ai_model?: string | null
-          ai_tagged_at?: string | null
-          art_source?: Database["public"]["Enums"]["art_source"] | null
-          artboards?: number | null
-          asset_type?: Database["public"]["Enums"]["asset_type"] | null
-          big_theme?: string | null
-          cover_description?: string | null
-          created_at?: string
-          customer?: string | null
-          design_ref?: string | null
-          design_style?: string | null
-          designer_name?: string | null
-          division_code?: string | null
-          division_name?: string | null
-          file_created_at?: string | null
-          file_size?: number | null
-          file_type?: Database["public"]["Enums"]["file_type"]
-          filename?: string
-          freelancer_name?: string | null
-          height?: number | null
-          id?: string
-          ingested_at?: string | null
-          is_deleted?: boolean | null
-          is_licensed?: boolean | null
-          last_scanned_at?: string | null
-          last_seen_at?: string
-          licensor_code?: string | null
-          licensor_id?: string | null
-          licensor_name?: string | null
-          little_theme?: string | null
-          mg01_code?: string | null
-          mg01_name?: string | null
-          mg02_code?: string | null
-          mg02_name?: string | null
-          mg03_code?: string | null
-          mg03_name?: string | null
-          modified_at?: string
-          pdf_page2_url?: string | null
-          primary_sort_tier?: number
-          product_category?: string | null
-          product_subtype_id?: string | null
-          program?: string | null
-          property_code?: string | null
-          property_id?: string | null
-          property_name?: string | null
-          quick_hash?: string
-          quick_hash_version?: number
-          relative_path?: string
-          scene_description?: string | null
-          size_code?: string | null
-          size_name?: string | null
-          sku?: string | null
-          sku_sequence?: string | null
-          stage?: string | null
-          status?: Database["public"]["Enums"]["asset_status"] | null
-          style_group_id?: string | null
-          tags?: string[]
-          technical_designer_name?: string | null
-          thumbnail_error?: string | null
-          thumbnail_url?: string | null
-          updated_at?: string | null
-          width?: number | null
-          workflow_status?:
-            | Database["public"]["Enums"]["workflow_status"]
-            | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "assets_licensor_id_fkey"
-            columns: ["licensor_id"]
-            isOneToOne: false
-            referencedRelation: "licensors"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "assets_product_subtype_id_fkey"
-            columns: ["product_subtype_id"]
-            isOneToOne: false
-            referencedRelation: "product_subtypes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "assets_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "properties"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "assets_style_group_id_fkey"
-            columns: ["style_group_id"]
-            isOneToOne: false
-            referencedRelation: "style_groups"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      characters: {
+      product_time_entry: {
         Row: {
           created_at: string
           external_id: string | null
+          external_source: string | null
           id: string
-          is_priority: boolean
-          name: string
-          property_id: string
-          updated_at: string
-          usage_count: number
-        }
-        Insert: {
-          created_at?: string
-          external_id?: string | null
-          id?: string
-          is_priority?: boolean
-          name: string
-          property_id: string
-          updated_at?: string
-          usage_count?: number
-        }
-        Update: {
-          created_at?: string
-          external_id?: string | null
-          id?: string
-          is_priority?: boolean
-          name?: string
-          property_id?: string
-          updated_at?: string
-          usage_count?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "characters_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "properties"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      erp_enrichment_log: {
-        Row: {
-          applied_at: string
-          confidence: number | null
-          field_name: string
-          id: string
-          new_value: string | null
-          old_value: string | null
-          run_id: string | null
-          source: string
-          target_id: string
-          target_type: string
-        }
-        Insert: {
-          applied_at?: string
-          confidence?: number | null
-          field_name: string
-          id?: string
-          new_value?: string | null
-          old_value?: string | null
-          run_id?: string | null
-          source: string
-          target_id: string
-          target_type: string
-        }
-        Update: {
-          applied_at?: string
-          confidence?: number | null
-          field_name?: string
-          id?: string
-          new_value?: string | null
-          old_value?: string | null
-          run_id?: string | null
-          source?: string
-          target_id?: string
-          target_type?: string
-        }
-        Relationships: []
-      }
-      erp_items_current: {
-        Row: {
-          created_at: string
-          dismissed: boolean
-          division_code: string | null
-          erp_updated_at: string | null
-          external_id: string
-          id: string
-          item_description: string | null
-          licensor_code: string | null
-          mg_category: string | null
-          mg01_code: string | null
-          mg02_code: string | null
-          mg03_code: string | null
-          mg04_code: string | null
-          mg05_code: string | null
-          mg06_code: string | null
-          prepack_code: string | null
-          prepack_codes: Json | null
-          property_code: string | null
-          raw_mg_fields: Json | null
-          size_code: string | null
-          source_system: string
-          style_number: string | null
-          sync_run_id: string | null
-          synced_at: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          dismissed?: boolean
-          division_code?: string | null
-          erp_updated_at?: string | null
-          external_id: string
-          id?: string
-          item_description?: string | null
-          licensor_code?: string | null
-          mg_category?: string | null
-          mg01_code?: string | null
-          mg02_code?: string | null
-          mg03_code?: string | null
-          mg04_code?: string | null
-          mg05_code?: string | null
-          mg06_code?: string | null
-          prepack_code?: string | null
-          prepack_codes?: Json | null
-          property_code?: string | null
-          raw_mg_fields?: Json | null
-          size_code?: string | null
-          source_system?: string
-          style_number?: string | null
-          sync_run_id?: string | null
-          synced_at?: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          dismissed?: boolean
-          division_code?: string | null
-          erp_updated_at?: string | null
-          external_id?: string
-          id?: string
-          item_description?: string | null
-          licensor_code?: string | null
-          mg_category?: string | null
-          mg01_code?: string | null
-          mg02_code?: string | null
-          mg03_code?: string | null
-          mg04_code?: string | null
-          mg05_code?: string | null
-          mg06_code?: string | null
-          prepack_code?: string | null
-          prepack_codes?: Json | null
-          property_code?: string | null
-          raw_mg_fields?: Json | null
-          size_code?: string | null
-          source_system?: string
-          style_number?: string | null
-          sync_run_id?: string | null
-          synced_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "erp_items_current_sync_run_id_fkey"
-            columns: ["sync_run_id"]
-            isOneToOne: false
-            referencedRelation: "erp_sync_runs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      erp_items_raw: {
-        Row: {
-          external_id: string
-          fetched_at: string
-          id: string
-          raw_payload: Json
-          sync_run_id: string | null
-        }
-        Insert: {
-          external_id: string
-          fetched_at?: string
-          id?: string
-          raw_payload: Json
-          sync_run_id?: string | null
-        }
-        Update: {
-          external_id?: string
-          fetched_at?: string
-          id?: string
-          raw_payload?: Json
-          sync_run_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "erp_items_raw_sync_run_id_fkey"
-            columns: ["sync_run_id"]
-            isOneToOne: false
-            referencedRelation: "erp_sync_runs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      erp_sync_runs: {
-        Row: {
-          created_by: string | null
-          ended_at: string | null
-          error_samples: Json | null
-          id: string
-          run_metadata: Json | null
-          started_at: string
-          status: string
-          total_errors: number | null
-          total_fetched: number | null
-          total_upserted: number | null
-        }
-        Insert: {
-          created_by?: string | null
-          ended_at?: string | null
-          error_samples?: Json | null
-          id?: string
-          run_metadata?: Json | null
-          started_at?: string
-          status?: string
-          total_errors?: number | null
-          total_fetched?: number | null
-          total_upserted?: number | null
-        }
-        Update: {
-          created_by?: string | null
-          ended_at?: string | null
-          error_samples?: Json | null
-          id?: string
-          run_metadata?: Json | null
-          started_at?: string
-          status?: string
-          total_errors?: number | null
-          total_fetched?: number | null
-          total_upserted?: number | null
-        }
-        Relationships: []
-      }
-      helper_devices: {
-        Row: {
-          device_name: string
-          device_os: string
-          helper_version: string
-          id: string
-          last_seen_at: string
-          registered_at: string
-          user_id: string
-        }
-        Insert: {
-          device_name: string
-          device_os: string
-          helper_version: string
-          id?: string
-          last_seen_at?: string
-          registered_at?: string
-          user_id: string
-        }
-        Update: {
-          device_name?: string
-          device_os?: string
-          helper_version?: string
-          id?: string
-          last_seen_at?: string
-          registered_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      helper_tokens: {
-        Row: {
-          action: string
-          asset_id: string | null
-          checkout_id: string | null
-          consumed_at: string | null
-          created_at: string
-          expires_at: string
-          id: string
-          user_id: string
-        }
-        Insert: {
-          action: string
-          asset_id?: string | null
-          checkout_id?: string | null
-          consumed_at?: string | null
-          created_at?: string
-          expires_at: string
-          id: string
-          user_id: string
-        }
-        Update: {
-          action?: string
-          asset_id?: string | null
-          checkout_id?: string | null
-          consumed_at?: string | null
-          created_at?: string
-          expires_at?: string
-          id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "helper_tokens_asset_id_fkey"
-            columns: ["asset_id"]
-            isOneToOne: false
-            referencedRelation: "assets"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "helper_tokens_checkout_id_fkey"
-            columns: ["checkout_id"]
-            isOneToOne: false
-            referencedRelation: "asset_checkouts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      hygiene_findings: {
-        Row: {
-          asset_id: string | null
-          check_type: string
-          created_at: string
-          details: Json
-          filename: string
-          found_at: string
-          found_by_agent: string | null
-          id: string
-          relative_path: string
-          review_notes: string | null
-          reviewed_at: string | null
-          reviewed_by: string | null
-          scan_session_id: string | null
-          severity: string
-          status: string
-        }
-        Insert: {
-          asset_id?: string | null
-          check_type: string
-          created_at?: string
-          details?: Json
-          filename: string
-          found_at?: string
-          found_by_agent?: string | null
-          id?: string
-          relative_path: string
-          review_notes?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          scan_session_id?: string | null
-          severity?: string
-          status?: string
-        }
-        Update: {
-          asset_id?: string | null
-          check_type?: string
-          created_at?: string
-          details?: Json
-          filename?: string
-          found_at?: string
-          found_by_agent?: string | null
-          id?: string
-          relative_path?: string
-          review_notes?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          scan_session_id?: string | null
-          severity?: string
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "hygiene_findings_asset_id_fkey"
-            columns: ["asset_id"]
-            isOneToOne: false
-            referencedRelation: "assets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      invitations: {
-        Row: {
-          accepted_at: string | null
-          apps: Database["public"]["Enums"]["app_name"][]
-          created_at: string
-          email: string
-          id: string
-          invited_by: string | null
-          role: Database["public"]["Enums"]["app_role"] | null
-        }
-        Insert: {
-          accepted_at?: string | null
-          apps?: Database["public"]["Enums"]["app_name"][]
-          created_at?: string
-          email: string
-          id?: string
-          invited_by?: string | null
-          role?: Database["public"]["Enums"]["app_role"] | null
-        }
-        Update: {
-          accepted_at?: string | null
-          apps?: Database["public"]["Enums"]["app_name"][]
-          created_at?: string
-          email?: string
-          id?: string
-          invited_by?: string | null
-          role?: Database["public"]["Enums"]["app_role"] | null
-        }
-        Relationships: []
-      }
-      licensors: {
-        Row: {
-          created_at: string
-          external_id: string | null
-          id: string
-          name: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          external_id?: string | null
-          id?: string
-          name: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          external_id?: string | null
-          id?: string
-          name?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      pdf_text_samples: {
-        Row: {
-          asset_id: string | null
-          char_count: number
-          extracted_text: string | null
-          extraction_error: string | null
-          extraction_method: string
-          filename: string
-          id: string
-          page_count: number | null
-          relative_path: string
-          sampled_at: string
-          thumbnail_url: string | null
-        }
-        Insert: {
-          asset_id?: string | null
-          char_count?: number
-          extracted_text?: string | null
-          extraction_error?: string | null
-          extraction_method: string
-          filename: string
-          id?: string
-          page_count?: number | null
-          relative_path: string
-          sampled_at?: string
-          thumbnail_url?: string | null
-        }
-        Update: {
-          asset_id?: string | null
-          char_count?: number
-          extracted_text?: string | null
-          extraction_error?: string | null
-          extraction_method?: string
-          filename?: string
-          id?: string
-          page_count?: number | null
-          relative_path?: string
-          sampled_at?: string
-          thumbnail_url?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pdf_text_samples_asset_id_fkey"
-            columns: ["asset_id"]
-            isOneToOne: true
-            referencedRelation: "assets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      processing_queue: {
-        Row: {
-          agent_id: string | null
-          asset_id: string
-          claimed_at: string | null
-          completed_at: string | null
-          created_at: string
-          error_message: string | null
-          id: string
-          job_type: string
-          status: Database["public"]["Enums"]["queue_status"] | null
-        }
-        Insert: {
-          agent_id?: string | null
-          asset_id: string
-          claimed_at?: string | null
-          completed_at?: string | null
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          job_type: string
-          status?: Database["public"]["Enums"]["queue_status"] | null
-        }
-        Update: {
-          agent_id?: string | null
-          asset_id?: string
-          claimed_at?: string | null
-          completed_at?: string | null
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          job_type?: string
-          status?: Database["public"]["Enums"]["queue_status"] | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "processing_queue_asset_id_fkey"
-            columns: ["asset_id"]
-            isOneToOne: false
-            referencedRelation: "assets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      prod_order_headers_current: {
-        Row: {
-          created_at: string
-          customer_code: string | null
-          customer_name: string | null
-          due_date: string | null
-          erp_updated_at: string | null
-          external_id: string
-          id: string
-          order_date: string | null
-          order_status: string | null
-          prod_order_number: string
-          quantity: number | null
-          raw_payload: Json
-          style_number: string
-          sync_run_id: string | null
-          synced_at: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          customer_code?: string | null
-          customer_name?: string | null
-          due_date?: string | null
-          erp_updated_at?: string | null
-          external_id: string
-          id?: string
-          order_date?: string | null
-          order_status?: string | null
-          prod_order_number: string
-          quantity?: number | null
-          raw_payload?: Json
-          style_number: string
-          sync_run_id?: string | null
-          synced_at?: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          customer_code?: string | null
-          customer_name?: string | null
-          due_date?: string | null
-          erp_updated_at?: string | null
-          external_id?: string
-          id?: string
-          order_date?: string | null
-          order_status?: string | null
-          prod_order_number?: string
-          quantity?: number | null
-          raw_payload?: Json
-          style_number?: string
-          sync_run_id?: string | null
-          synced_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prod_order_headers_current_sync_run_id_fkey"
-            columns: ["sync_run_id"]
-            isOneToOne: false
-            referencedRelation: "prod_order_sync_runs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      prod_order_headers_raw: {
-        Row: {
-          external_id: string
-          fetched_at: string
-          id: string
-          raw_payload: Json
-          sync_run_id: string | null
-        }
-        Insert: {
-          external_id: string
-          fetched_at?: string
-          id?: string
-          raw_payload: Json
-          sync_run_id?: string | null
-        }
-        Update: {
-          external_id?: string
-          fetched_at?: string
-          id?: string
-          raw_payload?: Json
-          sync_run_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prod_order_headers_raw_sync_run_id_fkey"
-            columns: ["sync_run_id"]
-            isOneToOne: false
-            referencedRelation: "prod_order_sync_runs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      prod_order_sync_runs: {
-        Row: {
-          created_by: string
-          ended_at: string | null
-          error_samples: Json
-          id: string
-          run_metadata: Json
-          started_at: string
-          status: string
-          total_errors: number
-          total_fetched: number
-          total_upserted: number
-        }
-        Insert: {
-          created_by?: string
-          ended_at?: string | null
-          error_samples?: Json
-          id?: string
-          run_metadata?: Json
-          started_at?: string
-          status?: string
-          total_errors?: number
-          total_fetched?: number
-          total_upserted?: number
-        }
-        Update: {
-          created_by?: string
-          ended_at?: string | null
-          error_samples?: Json
-          id?: string
-          run_metadata?: Json
-          started_at?: string
-          status?: string
-          total_errors?: number
-          total_fetched?: number
-          total_upserted?: number
-        }
-        Relationships: []
-      }
-      product_categories: {
-        Row: {
-          created_at: string
-          external_id: string | null
-          id: string
-          name: string
-        }
-        Insert: {
-          created_at?: string
-          external_id?: string | null
-          id?: string
-          name: string
-        }
-        Update: {
-          created_at?: string
-          external_id?: string | null
-          id?: string
-          name?: string
-        }
-        Relationships: []
-      }
-      product_category_predictions: {
-        Row: {
-          ai_model: string | null
-          ai_prompt_version: string | null
-          classification_source: string
-          confidence: number
-          created_at: string
-          erp_item_id: string | null
-          external_id: string
-          id: string
-          input_context: Json | null
-          predicted_category: string
-          rationale: string | null
-          reviewed_at: string | null
-          reviewed_by: string | null
-          status: string
-        }
-        Insert: {
-          ai_model?: string | null
-          ai_prompt_version?: string | null
-          classification_source?: string
-          confidence: number
-          created_at?: string
-          erp_item_id?: string | null
-          external_id: string
-          id?: string
-          input_context?: Json | null
-          predicted_category: string
-          rationale?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          status?: string
-        }
-        Update: {
-          ai_model?: string | null
-          ai_prompt_version?: string | null
-          classification_source?: string
-          confidence?: number
-          created_at?: string
-          erp_item_id?: string | null
-          external_id?: string
-          id?: string
-          input_context?: Json | null
-          predicted_category?: string
-          rationale?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_category_predictions_erp_item_id_fkey"
-            columns: ["erp_item_id"]
-            isOneToOne: false
-            referencedRelation: "erp_items_current"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      product_subtypes: {
-        Row: {
-          created_at: string
-          external_id: string | null
-          id: string
-          name: string
-          type_id: string
-        }
-        Insert: {
-          created_at?: string
-          external_id?: string | null
-          id?: string
-          name: string
-          type_id: string
-        }
-        Update: {
-          created_at?: string
-          external_id?: string | null
-          id?: string
-          name?: string
-          type_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_subtypes_type_id_fkey"
-            columns: ["type_id"]
-            isOneToOne: false
-            referencedRelation: "product_types"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      product_types: {
-        Row: {
-          category_id: string
-          created_at: string
-          external_id: string | null
-          id: string
-          name: string
-        }
-        Insert: {
-          category_id: string
-          created_at?: string
-          external_id?: string | null
-          id?: string
-          name: string
-        }
-        Update: {
-          category_id?: string
-          created_at?: string
-          external_id?: string | null
-          id?: string
-          name?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_types_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "product_categories"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      profiles: {
-        Row: {
-          created_at: string
-          email: string | null
-          full_name: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          email?: string | null
-          full_name?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          email?: string | null
-          full_name?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      properties: {
-        Row: {
-          created_at: string
-          external_id: string | null
-          id: string
-          licensor_id: string
-          name: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          external_id?: string | null
-          id?: string
-          licensor_id: string
-          name: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          external_id?: string | null
-          id?: string
-          licensor_id?: string
-          name?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "properties_licensor_id_fkey"
-            columns: ["licensor_id"]
-            isOneToOne: false
-            referencedRelation: "licensors"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      render_queue: {
-        Row: {
-          asset_id: string
-          attempts: number
-          claimed_at: string | null
-          claimed_by: string | null
-          completed_at: string | null
-          created_at: string
-          error_message: string | null
-          id: string
-          lease_expires_at: string | null
-          status: Database["public"]["Enums"]["queue_status"] | null
-        }
-        Insert: {
-          asset_id: string
-          attempts?: number
-          claimed_at?: string | null
-          claimed_by?: string | null
-          completed_at?: string | null
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          lease_expires_at?: string | null
-          status?: Database["public"]["Enums"]["queue_status"] | null
-        }
-        Update: {
-          asset_id?: string
-          attempts?: number
-          claimed_at?: string | null
-          claimed_by?: string | null
-          completed_at?: string | null
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          lease_expires_at?: string | null
-          status?: Database["public"]["Enums"]["queue_status"] | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "render_queue_asset_id_fkey"
-            columns: ["asset_id"]
-            isOneToOne: false
-            referencedRelation: "assets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      scanner_ai_ignores: {
-        Row: {
-          created_at: string | null
-          id: string
-          reason: string
-          relative_path: string
-          snoozed_until: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          reason: string
-          relative_path: string
-          snoozed_until?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          reason?: string
-          relative_path?: string
-          snoozed_until?: string | null
-        }
-        Relationships: []
-      }
-      sku_files_used: {
-        Row: {
-          created_at: string
-          file_name: string
-          id: string
-          last_match_attempt_at: string | null
-          match_attempts: number
-          match_best_score: number | null
-          sku: string
-          source: string | null
-          style_guide_file_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          file_name: string
-          id?: string
-          last_match_attempt_at?: string | null
-          match_attempts?: number
-          match_best_score?: number | null
-          sku: string
-          source?: string | null
-          style_guide_file_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          file_name?: string
-          id?: string
-          last_match_attempt_at?: string | null
-          match_attempts?: number
-          match_best_score?: number | null
-          sku?: string
-          source?: string | null
-          style_guide_file_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sku_files_used_style_guide_file_id_fkey"
-            columns: ["style_guide_file_id"]
-            isOneToOne: false
-            referencedRelation: "style_guide_files"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      style_groups: {
-        Row: {
-          asset_count: number | null
-          cover_description: string | null
-          created_at: string | null
-          customer: string | null
-          designer_conflict: boolean
-          designer_name: string | null
-          division_code: string | null
-          division_name: string | null
-          folder_path: string
-          freelancer_name: string | null
-          id: string
-          is_licensed: boolean | null
-          latest_file_date: string | null
-          licensor_code: string | null
-          licensor_id: string | null
-          licensor_name: string | null
-          mg01_code: string | null
-          mg01_name: string | null
-          mg02_code: string | null
-          mg02_name: string | null
-          mg03_code: string | null
-          mg03_name: string | null
-          primary_asset_id: string | null
-          primary_asset_type: string | null
-          primary_thumbnail_error: string | null
-          primary_thumbnail_url: string | null
-          product_category: string | null
-          program: string | null
-          property_code: string | null
-          property_id: string | null
-          property_name: string | null
-          size_code: string | null
-          size_name: string | null
-          sku: string
-          stage: string | null
-          technical_designer_name: string | null
-          updated_at: string | null
-          workflow_status: Database["public"]["Enums"]["workflow_status"] | null
-        }
-        Insert: {
-          asset_count?: number | null
-          cover_description?: string | null
-          created_at?: string | null
-          customer?: string | null
-          designer_conflict?: boolean
-          designer_name?: string | null
-          division_code?: string | null
-          division_name?: string | null
-          folder_path: string
-          freelancer_name?: string | null
-          id?: string
-          is_licensed?: boolean | null
-          latest_file_date?: string | null
-          licensor_code?: string | null
-          licensor_id?: string | null
-          licensor_name?: string | null
-          mg01_code?: string | null
-          mg01_name?: string | null
-          mg02_code?: string | null
-          mg02_name?: string | null
-          mg03_code?: string | null
-          mg03_name?: string | null
-          primary_asset_id?: string | null
-          primary_asset_type?: string | null
-          primary_thumbnail_error?: string | null
-          primary_thumbnail_url?: string | null
-          product_category?: string | null
-          program?: string | null
-          property_code?: string | null
-          property_id?: string | null
-          property_name?: string | null
-          size_code?: string | null
-          size_name?: string | null
-          sku: string
-          stage?: string | null
-          technical_designer_name?: string | null
-          updated_at?: string | null
-          workflow_status?:
-            | Database["public"]["Enums"]["workflow_status"]
-            | null
-        }
-        Update: {
-          asset_count?: number | null
-          cover_description?: string | null
-          created_at?: string | null
-          customer?: string | null
-          designer_conflict?: boolean
-          designer_name?: string | null
-          division_code?: string | null
-          division_name?: string | null
-          folder_path?: string
-          freelancer_name?: string | null
-          id?: string
-          is_licensed?: boolean | null
-          latest_file_date?: string | null
-          licensor_code?: string | null
-          licensor_id?: string | null
-          licensor_name?: string | null
-          mg01_code?: string | null
-          mg01_name?: string | null
-          mg02_code?: string | null
-          mg02_name?: string | null
-          mg03_code?: string | null
-          mg03_name?: string | null
-          primary_asset_id?: string | null
-          primary_asset_type?: string | null
-          primary_thumbnail_error?: string | null
-          primary_thumbnail_url?: string | null
-          product_category?: string | null
-          program?: string | null
-          property_code?: string | null
-          property_id?: string | null
-          property_name?: string | null
-          size_code?: string | null
-          size_name?: string | null
-          sku?: string
-          stage?: string | null
-          technical_designer_name?: string | null
-          updated_at?: string | null
-          workflow_status?:
-            | Database["public"]["Enums"]["workflow_status"]
-            | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "style_groups_licensor_id_fkey"
-            columns: ["licensor_id"]
-            isOneToOne: false
-            referencedRelation: "licensors"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "style_groups_primary_asset_id_fkey"
-            columns: ["primary_asset_id"]
-            isOneToOne: false
-            referencedRelation: "assets"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "style_groups_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "properties"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      style_guide_crawl_runs: {
-        Row: {
-          agent_id: string | null
-          completed_at: string | null
-          created_at: string
-          error_message: string | null
-          files_found: number | null
-          id: string
-          inaccessible_roots: string[] | null
-          roots_scanned: string[] | null
+          metadata: Json
+          product_id: string
+          profile_id: string | null
+          seconds_spent: number
           started_at: string | null
-          status: string
         }
         Insert: {
-          agent_id?: string | null
-          completed_at?: string | null
           created_at?: string
-          error_message?: string | null
-          files_found?: number | null
+          external_id?: string | null
+          external_source?: string | null
           id?: string
-          inaccessible_roots?: string[] | null
-          roots_scanned?: string[] | null
+          metadata?: Json
+          product_id: string
+          profile_id?: string | null
+          seconds_spent: number
           started_at?: string | null
-          status?: string
         }
         Update: {
-          agent_id?: string | null
-          completed_at?: string | null
           created_at?: string
-          error_message?: string | null
-          files_found?: number | null
+          external_id?: string | null
+          external_source?: string | null
           id?: string
-          inaccessible_roots?: string[] | null
-          roots_scanned?: string[] | null
+          metadata?: Json
+          product_id?: string
+          profile_id?: string | null
+          seconds_spent?: number
           started_at?: string | null
-          status?: string
-        }
-        Relationships: []
-      }
-      style_guide_files: {
-        Row: {
-          basename_no_ext: string
-          crawl_run_id: string | null
-          created_at: string
-          directory_path: string
-          file_extension: string | null
-          filename: string
-          id: string
-          is_active: boolean
-          last_seen_at: string
-          licensor_name: string | null
-          modified_at: string | null
-          normalized_name: string
-          normalized_style_guide_folder: string | null
-          property_folder: string | null
-          relative_path: string
-          root_label: string
-          size_bytes: number | null
-          style_guide_folder: string | null
-          thumbnail_error: string | null
-          thumbnail_url: string | null
-        }
-        Insert: {
-          basename_no_ext: string
-          crawl_run_id?: string | null
-          created_at?: string
-          directory_path: string
-          file_extension?: string | null
-          filename: string
-          id?: string
-          is_active?: boolean
-          last_seen_at?: string
-          licensor_name?: string | null
-          modified_at?: string | null
-          normalized_name: string
-          normalized_style_guide_folder?: string | null
-          property_folder?: string | null
-          relative_path: string
-          root_label: string
-          size_bytes?: number | null
-          style_guide_folder?: string | null
-          thumbnail_error?: string | null
-          thumbnail_url?: string | null
-        }
-        Update: {
-          basename_no_ext?: string
-          crawl_run_id?: string | null
-          created_at?: string
-          directory_path?: string
-          file_extension?: string | null
-          filename?: string
-          id?: string
-          is_active?: boolean
-          last_seen_at?: string
-          licensor_name?: string | null
-          modified_at?: string | null
-          normalized_name?: string
-          normalized_style_guide_folder?: string | null
-          property_folder?: string | null
-          relative_path?: string
-          root_label?: string
-          size_bytes?: number | null
-          style_guide_folder?: string | null
-          thumbnail_error?: string | null
-          thumbnail_url?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "style_guide_files_crawl_run_id_fkey"
-            columns: ["crawl_run_id"]
+            foreignKeyName: "product_time_entry_product_id_fkey"
+            columns: ["product_id"]
             isOneToOne: false
-            referencedRelation: "style_guide_crawl_runs"
+            referencedRelation: "product"
             referencedColumns: ["id"]
           },
         ]
       }
-      style_guide_render_queue: {
+      product_update: {
         Row: {
-          attempts: number
-          claimed_at: string | null
-          claimed_by: string | null
-          completed_at: string | null
+          body: string | null
           created_at: string
-          error_message: string | null
+          external_id: string | null
+          external_source: string | null
           id: string
-          lease_expires_at: string | null
-          status: Database["public"]["Enums"]["queue_status"]
-          style_guide_file_id: string
+          metadata: Json
+          product_id: string
+          profile_id: string | null
         }
         Insert: {
-          attempts?: number
-          claimed_at?: string | null
-          claimed_by?: string | null
-          completed_at?: string | null
+          body?: string | null
           created_at?: string
-          error_message?: string | null
+          external_id?: string | null
+          external_source?: string | null
           id?: string
-          lease_expires_at?: string | null
-          status?: Database["public"]["Enums"]["queue_status"]
-          style_guide_file_id: string
+          metadata?: Json
+          product_id: string
+          profile_id?: string | null
         }
         Update: {
-          attempts?: number
-          claimed_at?: string | null
-          claimed_by?: string | null
-          completed_at?: string | null
+          body?: string | null
           created_at?: string
-          error_message?: string | null
+          external_id?: string | null
+          external_source?: string | null
           id?: string
-          lease_expires_at?: string | null
-          status?: Database["public"]["Enums"]["queue_status"]
-          style_guide_file_id?: string
+          metadata?: Json
+          product_id?: string
+          profile_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "style_guide_render_queue_style_guide_file_id_fkey"
-            columns: ["style_guide_file_id"]
+            foreignKeyName: "product_update_product_id_fkey"
+            columns: ["product_id"]
             isOneToOne: false
-            referencedRelation: "style_guide_files"
+            referencedRelation: "product"
             referencedColumns: ["id"]
           },
         ]
       }
-      tiff_optimization_queue: {
+      project: {
         Row: {
-          claimed_at: string | null
-          claimed_by: string | null
-          compression_type: string | null
+          company_id: string | null
           created_at: string
-          error_message: string | null
-          file_created_at: string | null
-          file_modified_at: string
-          file_size: number
-          filename: string
+          design_collection_id: string | null
+          external_id: string | null
+          external_source: string | null
           id: string
-          mode: string | null
-          new_file_created_at: string | null
-          new_file_modified_at: string | null
-          new_file_size: number | null
-          new_filename: string | null
-          original_backed_up: boolean | null
-          original_deleted: boolean | null
-          processed_at: string | null
-          relative_path: string
-          scan_session_id: string | null
-          status: string
+          licensor_id: string | null
+          metadata: Json
+          primary_contact_id: string | null
+          property_id: string | null
+          stage: string | null
+          status: string | null
+          title: string
+          updated_at: string
         }
         Insert: {
-          claimed_at?: string | null
-          claimed_by?: string | null
-          compression_type?: string | null
+          company_id?: string | null
           created_at?: string
-          error_message?: string | null
-          file_created_at?: string | null
-          file_modified_at: string
-          file_size: number
-          filename: string
+          design_collection_id?: string | null
+          external_id?: string | null
+          external_source?: string | null
           id?: string
-          mode?: string | null
-          new_file_created_at?: string | null
-          new_file_modified_at?: string | null
-          new_file_size?: number | null
-          new_filename?: string | null
-          original_backed_up?: boolean | null
-          original_deleted?: boolean | null
-          processed_at?: string | null
-          relative_path: string
-          scan_session_id?: string | null
-          status?: string
+          licensor_id?: string | null
+          metadata?: Json
+          primary_contact_id?: string | null
+          property_id?: string | null
+          stage?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string
         }
         Update: {
-          claimed_at?: string | null
-          claimed_by?: string | null
-          compression_type?: string | null
+          company_id?: string | null
           created_at?: string
-          error_message?: string | null
-          file_created_at?: string | null
-          file_modified_at?: string
-          file_size?: number
-          filename?: string
+          design_collection_id?: string | null
+          external_id?: string | null
+          external_source?: string | null
           id?: string
-          mode?: string | null
-          new_file_created_at?: string | null
-          new_file_modified_at?: string | null
-          new_file_size?: number | null
-          new_filename?: string | null
-          original_backed_up?: boolean | null
-          original_deleted?: boolean | null
-          processed_at?: string | null
-          relative_path?: string
-          scan_session_id?: string | null
+          licensor_id?: string | null
+          metadata?: Json
+          primary_contact_id?: string | null
+          property_id?: string | null
+          stage?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_design_collection_id_fkey"
+            columns: ["design_collection_id"]
+            isOneToOne: false
+            referencedRelation: "design_collection"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      revision_request: {
+        Row: {
+          body: string | null
+          external_id: string | null
+          external_source: string | null
+          id: string
+          metadata: Json
+          product_id: string
+          requested_at: string
+          requested_by_profile_id: string | null
+          resolved_at: string | null
+          status: string
+          submission_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          external_id?: string | null
+          external_source?: string | null
+          id?: string
+          metadata?: Json
+          product_id: string
+          requested_at?: string
+          requested_by_profile_id?: string | null
+          resolved_at?: string | null
           status?: string
+          submission_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          external_id?: string | null
+          external_source?: string | null
+          id?: string
+          metadata?: Json
+          product_id?: string
+          requested_at?: string
+          requested_by_profile_id?: string | null
+          resolved_at?: string | null
+          status?: string
+          submission_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revision_request_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revision_request_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "product_submission"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_view: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          is_default: boolean
+          name: string
+          owner_profile_id: string | null
+          role_id: string | null
+          scope: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          owner_profile_id?: string | null
+          role_id?: string | null
+          scope: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          owner_profile_id?: string | null
+          role_id?: string | null
+          scope?: string
+          updated_at?: string
         }
         Relationships: []
       }
-      user_roles: {
+      stage: {
         Row: {
+          code: string | null
           id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          metadata: Json
+          name: string
+          pipeline: string
+          sort_order: number
         }
         Insert: {
+          code?: string | null
           id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          metadata?: Json
+          name: string
+          pipeline?: string
+          sort_order?: number
         }
         Update: {
+          code?: string | null
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
+          metadata?: Json
+          name?: string
+          pipeline?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      stage_history: {
+        Row: {
+          changed_at: string
+          changed_by_profile_id: string | null
+          from_stage_id: string | null
+          id: string
+          metadata: Json
+          notes: string | null
+          product_id: string | null
+          project_id: string | null
+          to_stage_id: string | null
+        }
+        Insert: {
+          changed_at?: string
+          changed_by_profile_id?: string | null
+          from_stage_id?: string | null
+          id?: string
+          metadata?: Json
+          notes?: string | null
+          product_id?: string | null
+          project_id?: string | null
+          to_stage_id?: string | null
+        }
+        Update: {
+          changed_at?: string
+          changed_by_profile_id?: string | null
+          from_stage_id?: string | null
+          id?: string
+          metadata?: Json
+          notes?: string | null
+          product_id?: string | null
+          project_id?: string | null
+          to_stage_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stage_history_from_stage_id_fkey"
+            columns: ["from_stage_id"]
+            isOneToOne: false
+            referencedRelation: "stage"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stage_history_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stage_history_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stage_history_to_stage_id_fkey"
+            columns: ["to_stage_id"]
+            isOneToOne: false
+            referencedRelation: "stage"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      view_pref: {
+        Row: {
+          config: Json
+          id: string
+          profile_id: string
+          scope: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          id?: string
+          profile_id: string
+          scope: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          id?: string
+          profile_id?: string
+          scope?: string
+          updated_at?: string
         }
         Relationships: []
       }
     }
     Views: {
-      sg_archive_usage: {
-        Row: {
-          active_files: number | null
-          archive_candidate: boolean | null
-          design_ref_count: number | null
-          designs_using: number | null
-          licensor_name: string | null
-          most_recent_design_date: string | null
-          newest_sg_file_date: string | null
-          property_folder: string | null
-          total_files: number | null
-        }
-        Relationships: []
-      }
-      style_guide_file_groups: {
-        Row: {
-          directory_path: string | null
-          file_count: number | null
-          group_key: string | null
-          latest_modified_at: string | null
-          licensor_name: string | null
-          property_folder: string | null
-          root_label: string | null
-          sample_thumbnail_url: string | null
-          style_guide_folder: string | null
-          style_guide_name: string | null
-          total_size_bytes: number | null
-        }
-        Relationships: []
-      }
-      style_guide_folders: {
-        Row: {
-          licensor_name: string | null
-          property_folder: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
-      backfill_pdf_files_used: { Args: never; Returns: number }
-      bulk_assign_style_groups: {
-        Args: { p_assignments: Json }
-        Returns: number
-      }
-      bulk_insert_pdf_text_samples: { Args: { p_rows: Json }; Returns: number }
-      claim_jobs: {
-        Args: { p_agent_id: string; p_batch_size?: number }
-        Returns: {
-          agent_id: string | null
-          asset_id: string
-          claimed_at: string | null
-          completed_at: string | null
-          created_at: string
-          error_message: string | null
-          id: string
-          job_type: string
-          status: Database["public"]["Enums"]["queue_status"] | null
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "processing_queue"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
-      claim_pdf_backfill_batch: {
-        Args: { p_limit?: number }
-        Returns: {
-          filename: string
-          id: string
-          needs_thumbnail: boolean
-          relative_path: string
-        }[]
-      }
-      claim_render_jobs: {
-        Args: {
-          p_agent_id: string
-          p_batch_size?: number
-          p_lease_minutes?: number
-          p_max_attempts?: number
-        }
-        Returns: {
-          asset_id: string
-          attempts: number
-          id: string
-          lease_expires_at: string
-        }[]
-      }
-      claim_sg_render_jobs: {
-        Args: {
-          p_agent_id: string
-          p_batch_size?: number
-          p_lease_minutes?: number
-          p_max_attempts?: number
-        }
-        Returns: {
-          attempts: number
-          id: string
-          lease_expires_at: string
-          style_guide_file_id: string
-        }[]
-      }
-      claim_tiff_jobs: {
-        Args: {
-          p_agent_id: string
-          p_batch_size?: number
-          p_lease_minutes?: number
-        }
-        Returns: {
-          file_created_at: string
-          file_modified_at: string
-          file_size: number
-          filename: string
-          id: string
-          mode: string
-          relative_path: string
-        }[]
-      }
-      cleanup_mega_group_tags_batch:
-        | { Args: never; Returns: number }
-        | {
-            Args: {
-              p_batch_size?: number
-              p_cursor?: string
-              p_min_group_size?: number
-            }
-            Returns: {
-              characters_deleted: number
-              done: boolean
-              groups_processed: number
-              metadata_cleared: number
-              next_cursor: string
-              tags_deleted: number
-            }[]
-          }
-      clear_style_group_batch: {
-        Args: { p_batch_size?: number; p_last_id?: string }
-        Returns: {
-          cleared_count: number
-          has_more: boolean
-          last_id: string
-        }[]
-      }
-      count_pdf_backfill_remaining: { Args: never; Returns: number }
-      deactivate_stale_sg_files: {
-        Args: { p_root_label: string; p_run_id: string }
-        Returns: number
-      }
-      execute_readonly_query: { Args: { query_text: string }; Returns: Json }
-      find_ai_pdf_duplicates: {
-        Args: never
-        Returns: {
-          filename: string
-          id: string
-          relative_path: string
-          style_group_id: string
-          thumbnail_url: string
-        }[]
-      }
-      get_ai_sentinel_stats: { Args: never; Returns: Json }
-      get_filter_counts: { Args: { p_filters?: Json }; Returns: Json }
-      get_path_facets: { Args: { p_customer?: string }; Returns: Json }
-      get_sg_preview_stats: { Args: never; Returns: Json }
-      get_sg_render_queue_stats: { Args: never; Returns: Json }
-      has_app_access: {
-        Args: {
-          _app: Database["public"]["Enums"]["app_name"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      infer_path_attrs: { Args: { p_path: string }; Returns: Json }
-      is_style_guide_source_pdf: {
-        Args: { p_file_type: string; p_filename: string }
-        Returns: boolean
-      }
-      normalize_for_sg_match: { Args: { p: string }; Returns: string }
-      parse_pdf_files_used: { Args: { p_asset_id: string }; Returns: number }
-      propagate_group_tags_batch: {
-        Args: { p_batch_size?: number; p_cursor?: string }
-        Returns: {
-          done: boolean
-          next_cursor: string
-          propagated: number
-          skipped: number
-        }[]
-      }
-      queue_nightly_rebuild_style_groups: { Args: never; Returns: undefined }
-      queue_sg_render_jobs_by_ids: {
-        Args: { p_file_ids: string[] }
-        Returns: number
-      }
-      rebuild_style_groups_batch: {
-        Args: { p_batch_size?: number; p_last_asset_id?: string }
-        Returns: {
-          assets_assigned: number
-          assets_ungrouped: number
-          done: boolean
-          groups_created: number
-          next_cursor: string
-        }[]
-      }
-      reconcile_style_group_stats_batch: {
-        Args: { p_batch_size?: number; p_cursor?: string; p_sub?: string }
-        Returns: {
-          done: boolean
-          next_cursor: string
-          processed: number
-          sub: string
-        }[]
-      }
-      refresh_style_group_counts: { Args: never; Returns: undefined }
-      refresh_style_group_counts_batch: {
-        Args: { p_group_ids: string[] }
-        Returns: number
-      }
-      refresh_style_group_primaries: {
-        Args: { p_group_ids: string[] }
-        Returns: number
-      }
-      refresh_style_guide_matviews: { Args: never; Returns: undefined }
-      requeue_all_failed_sg_jobs: {
-        Args: { p_limit?: number }
-        Returns: number
-      }
-      reset_stale_jobs: {
-        Args: { p_timeout_minutes?: number }
-        Returns: number
-      }
-      resolve_sku_files_used: { Args: never; Returns: number }
-      resolve_sku_files_used_fuzzy: {
-        Args: { p_threshold?: number }
-        Returns: number
-      }
-      retry_sg_render_errors:
-        | { Args: { p_file_ids?: string[] }; Returns: number }
-        | { Args: { p_file_ids?: string[]; p_limit?: number }; Returns: number }
-      run_full_reconcile_style_group_stats: {
-        Args: never
-        Returns: {
-          counts_updated: number
-          primaries_updated: number
-        }[]
-      }
-      set_style_group_cover: {
-        Args: { p_asset_id: string; p_group_id: string }
-        Returns: undefined
-      }
-      update_bulk_operation: {
-        Args: { p_only_if_status?: string; p_op_key: string; p_op_state: Json }
-        Returns: Json
-      }
-      update_bulk_operations_batch: { Args: { p_updates: Json }; Returns: Json }
+      [_ in never]: never
     }
     Enums: {
-      app_name: "popdam" | "styleguides"
-      app_role: "admin" | "user"
-      art_source:
-        | "freelancer"
-        | "straight_style_guide"
-        | "style_guide_composition"
-      asset_status: "pending" | "processing" | "tagged" | "error"
-      asset_type:
-        | "art_piece"
-        | "product"
-        | "packaging"
-        | "tech_pack"
-        | "photography"
-      checkout_status:
-        | "active"
-        | "checkin_queued"
-        | "uploading"
-        | "verifying"
-        | "complete"
-        | "discarded"
-        | "error"
-        | "conflict"
-      file_type: "psd" | "ai" | "jpg" | "png" | "pdf"
-      queue_status:
-        | "pending"
-        | "claimed"
-        | "processing"
-        | "completed"
-        | "failed"
-      workflow_status:
-        | "product_ideas"
-        | "concept_approved"
-        | "in_development"
-        | "freelancer_art"
-        | "discontinued"
-        | "in_process"
-        | "customer_adopted"
-        | "licensor_approved"
-        | "other"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -5017,7 +4118,7 @@ export const Constants = {
       file_storage_provider: [
         "supabase",
         "spaces",
-        "legacy_external",
+        "directus",
         "external",
         "local",
       ],
@@ -5036,46 +4137,7 @@ export const Constants = {
   crm: {
     Enums: {},
   },
-  public: {
-    Enums: {
-      app_name: ["popdam", "styleguides"],
-      app_role: ["admin", "user"],
-      art_source: [
-        "freelancer",
-        "straight_style_guide",
-        "style_guide_composition",
-      ],
-      asset_status: ["pending", "processing", "tagged", "error"],
-      asset_type: [
-        "art_piece",
-        "product",
-        "packaging",
-        "tech_pack",
-        "photography",
-      ],
-      checkout_status: [
-        "active",
-        "checkin_queued",
-        "uploading",
-        "verifying",
-        "complete",
-        "discarded",
-        "error",
-        "conflict",
-      ],
-      file_type: ["psd", "ai", "jpg", "png", "pdf"],
-      queue_status: ["pending", "claimed", "processing", "completed", "failed"],
-      workflow_status: [
-        "product_ideas",
-        "concept_approved",
-        "in_development",
-        "freelancer_art",
-        "discontinued",
-        "in_process",
-        "customer_adopted",
-        "licensor_approved",
-        "other",
-      ],
-    },
+  pim: {
+    Enums: {},
   },
 } as const

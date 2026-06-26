@@ -1,4 +1,5 @@
-import { appSchema, core, pim, boolFromStatus, unwrap } from '@/lib/supabaseQuery'
+import { api, appSchema, core, metadata, pim, boolFromStatus, unwrap } from '@/lib/supabaseQuery'
+import type { Database, Json } from '@/lib/database.types'
 import type {
   AppUser,
   Buyer,
@@ -45,7 +46,7 @@ function checklistRow(row: any): ChecklistItem {
 }
 
 export async function listChecklist(productId: string) {
-  const { data, error } = await (pim() as any)
+  const { data, error } = await pim()
     .from('checklist_item')
     .select('*')
     .eq('product_id', productId)
@@ -55,7 +56,7 @@ export async function listChecklist(productId: string) {
 }
 
 export async function addChecklist(productId: string, label: string) {
-  const { data, error } = await (pim() as any)
+  const { data, error } = await pim()
     .from('checklist_item')
     .insert({ product_id: productId, title: label, status: 'open' })
     .select('*')
@@ -64,12 +65,12 @@ export async function addChecklist(productId: string, label: string) {
 }
 
 export async function setChecklistDone(id: string, done: boolean) {
-  const { data, error } = await (pim() as any).from('checklist_item').update({ status: done ? 'done' : 'open' }).eq('id', id).select('*').single()
+  const { data, error } = await pim().from('checklist_item').update({ status: done ? 'done' : 'open' }).eq('id', id).select('*').single()
   return checklistRow(unwrap<any>({ data, error }))
 }
 
 export async function removeChecklist(id: string) {
-  const { error } = await (pim() as any).from('checklist_item').delete().eq('id', id)
+  const { error } = await pim().from('checklist_item').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }
 
@@ -82,7 +83,7 @@ export async function listSubtasks(productId: string): Promise<Subtask[]> {
 }
 
 export async function addSubtask(productId: string, title: string): Promise<Subtask> {
-  const { data, error } = await (pim() as any)
+  const { data, error } = await pim()
     .from('checklist_item')
     .insert({ product_id: productId, title, status: 'open', metadata: { group_name: 'subtask', kind: 'subtask' } })
     .select('*')
@@ -96,7 +97,7 @@ export async function setSubtaskDone(id: string, done: boolean) {
 }
 
 export async function listAssignees(productId: string): Promise<ProductAssignee[]> {
-  const { data, error } = await (pim() as any)
+  const { data, error } = await pim()
     .from('product_assignee')
     .select('id,product_id,profile:profile_id(id,display_name,email,avatar_url)')
     .eq('product_id', productId)
@@ -104,7 +105,7 @@ export async function listAssignees(productId: string): Promise<ProductAssignee[
 }
 
 export async function addAssignee(productId: string, userId: string): Promise<ProductAssignee> {
-  const { data, error } = await (pim() as any)
+  const { data, error } = await pim()
     .from('product_assignee')
     .insert({ product_id: productId, profile_id: userId })
     .select('id,product_id,profile:profile_id(id,display_name,email,avatar_url)')
@@ -114,7 +115,7 @@ export async function addAssignee(productId: string, userId: string): Promise<Pr
 }
 
 export async function removeAssignee(rowId: string) {
-  const { error } = await (pim() as any).from('product_assignee').delete().eq('id', rowId)
+  const { error } = await pim().from('product_assignee').delete().eq('id', rowId)
   if (error) throw new Error(error.message)
 }
 
@@ -149,7 +150,7 @@ export async function addComment(productId: string, text: string) {
 }
 
 export async function listProductFiles(productId: string): Promise<ProductFile[]> {
-  const { data, error } = await (pim() as any).from('product_file').select('*').eq('product_id', productId).order('created_at')
+  const { data, error } = await pim().from('product_file').select('*').eq('product_id', productId).order('created_at')
   return unwrap<any[]>({ data, error }).map((row) => ({
     id: row.id,
     product: row.product_id,
@@ -165,7 +166,7 @@ export async function listProductFiles(productId: string): Promise<ProductFile[]
 }
 
 export async function listProductUpdates(productId: string): Promise<ProductUpdate[]> {
-  const { data, error } = await (pim() as any).from('product_update').select('*').eq('product_id', productId).order('created_at')
+  const { data, error } = await pim().from('product_update').select('*').eq('product_id', productId).order('created_at')
   return unwrap<any[]>({ data, error }).map((row) => ({
     id: row.id,
     product: row.product_id,
@@ -178,12 +179,12 @@ export async function listProductUpdates(productId: string): Promise<ProductUpda
 }
 
 export async function listProductTags(productId: string): Promise<ProductTag[]> {
-  const { data, error } = await (pim() as any).from('product_tag').select('*').eq('product_id', productId).order('tag')
+  const { data, error } = await pim().from('product_tag').select('*').eq('product_id', productId).order('tag')
   return unwrap<any[]>({ data, error }).map((row) => ({ id: row.id, product: row.product_id, name: row.tag, color: null }))
 }
 
 export async function listProductFields(productId: string): Promise<ProductField[]> {
-  const { data, error } = await (pim() as any).from('product_field').select('*').eq('product_id', productId).order('field_name')
+  const { data, error } = await pim().from('product_field').select('*').eq('product_id', productId).order('field_name')
   return unwrap<any[]>({ data, error }).map((row) => ({
     id: row.id,
     product: row.product_id,
@@ -213,7 +214,7 @@ export async function listProductActivity(productId: string): Promise<ProductAct
 }
 
 export async function listProductLinks(productId: string): Promise<ProductLink[]> {
-  const { data, error } = await (pim() as any)
+  const { data, error } = await pim()
     .from('product_link')
     .select('*')
     .or(`from_product_id.eq.${productId},to_product_id.eq.${productId}`)
@@ -232,7 +233,7 @@ export async function listProductLinks(productId: string): Promise<ProductLink[]
 }
 
 export async function listProductTimeEntries(productId: string): Promise<ProductTimeEntry[]> {
-  const { data, error } = await (pim() as any).from('product_time_entry').select('*').eq('product_id', productId).order('started_at')
+  const { data, error } = await pim().from('product_time_entry').select('*').eq('product_id', productId).order('started_at')
   return unwrap<any[]>({ data, error }).map((row) => ({
     id: row.id,
     product: row.product_id,
@@ -249,9 +250,10 @@ export async function listProductTimeEntries(productId: string): Promise<Product
 }
 
 export async function updateProduct(id: string, patch: Record<string, unknown>) {
-  const direct: Record<string, unknown> = {}
+  type ProductUpdateKey = keyof Database['pim']['Tables']['product']['Update']
+  const direct: Database['pim']['Tables']['product']['Update'] = {}
   const metadataPatch: Record<string, unknown> = {}
-  const directKeys = new Set([
+  const directKeys = new Set<ProductUpdateKey>([
     'name',
     'status',
     'stage',
@@ -262,7 +264,7 @@ export async function updateProduct(id: string, patch: Record<string, unknown>) 
     'company_id',
     'buyer_contact_id',
   ])
-  const aliases: Record<string, string> = {
+  const aliases: Record<string, ProductUpdateKey> = {
     licensor: 'licensor_id',
     product_type: 'product_type_id',
     retailer: 'company_id',
@@ -272,17 +274,17 @@ export async function updateProduct(id: string, patch: Record<string, unknown>) 
 
   for (const [key, value] of Object.entries(patch)) {
     const column = aliases[key] ?? key
-    if (directKeys.has(column)) direct[column] = value
+    if (directKeys.has(column as ProductUpdateKey)) direct[column as ProductUpdateKey] = value as never
     else metadataPatch[key] = value
   }
 
   if (Object.keys(metadataPatch).length > 0) {
-    const existing = await (pim() as any).from('product').select('metadata').eq('id', id).single()
-    const row = unwrap<{ metadata?: Record<string, unknown> | null }>({ data: existing.data, error: existing.error })
-    direct.metadata = { ...(row.metadata ?? {}), ...metadataPatch }
+    const existing = await pim().from('product').select('metadata').eq('id', id).single()
+    const row = unwrap<{ metadata?: Json }>({ data: existing.data, error: existing.error })
+    direct.metadata = { ...metadata(row), ...metadataPatch } as Json
   }
 
-  const { data, error } = await (pim() as any).from('product').update(direct).eq('id', id).select('*').single()
+  const { data, error } = await pim().from('product').update(direct).eq('id', id).select('*').single()
   return unwrap<any>({ data, error })
 }
 
@@ -297,7 +299,7 @@ export async function fetchProductTypes(): Promise<ProductType[]> {
 }
 
 export async function fetchCustomers(): Promise<Retailer[]> {
-  const { data, error } = await (core() as any).from('company').select('id,name,customer_status').order('name')
+  const { data, error } = await (api() as any).from('customer_list').select('id,name,customer_status,is_potential').order('name')
   return unwrap<Retailer[]>({ data, error })
 }
 

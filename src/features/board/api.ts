@@ -1,22 +1,37 @@
 import { pim, unwrap } from '@/lib/supabaseQuery'
 import type { Product, Stage } from '@/lib/types'
+import { enrichProductRowsWithBoardFields } from '@/domain/products/enrich'
 import { supabaseProductToProduct } from '@/domain/products/supabaseAdapter'
 
 export async function setProductStage(productId: string, stageId: string | null) {
+  const current = await pim().from('product').select('stage').eq('id', productId).maybeSingle()
+  const currentStageName = unwrap<{ stage: string | null } | null>({ data: current.data, error: current.error })?.stage ?? null
   const stage = stageId ? await stageName(stageId) : null
-  const { data, error } = await (pim() as any)
+  const { data, error } = await pim()
     .from('product')
     .update({ stage })
     .eq('id', productId)
     .select('*')
     .single()
-  return unwrap<Record<string, unknown>>({ data, error })
+  const updated = unwrap<Record<string, unknown>>({ data, error })
+  const fromStageId = currentStageName ? await stageIdByName(currentStageName) : null
+  if (fromStageId !== stageId) {
+    const history = await pim().from('stage_history').insert({ product_id: productId, from_stage_id: fromStageId, to_stage_id: stageId })
+    if (history.error) throw new Error(history.error.message)
+  }
+  return updated
 }
 
 async function stageName(stageId: string): Promise<string | null> {
-  const { data, error } = await (pim() as any).from('stage').select('name').eq('id', stageId).maybeSingle()
+  const { data, error } = await pim().from('stage').select('name').eq('id', stageId).maybeSingle()
   const row = unwrap<{ name: string } | null>({ data, error })
   return row?.name ?? null
+}
+
+async function stageIdByName(name: string): Promise<string | null> {
+  const { data, error } = await pim().from('stage').select('id').eq('name', name).limit(1).maybeSingle()
+  const row = unwrap<{ id: string } | null>({ data, error })
+  return row?.id ?? null
 }
 
 export async function fetchStages(): Promise<Stage[]> {
@@ -25,16 +40,17 @@ export async function fetchStages(): Promise<Stage[]> {
 }
 
 export async function fetchProducts(limit = 500): Promise<Product[]> {
-  const { data, error } = await (pim() as any)
+  const { data, error } = await pim()
     .from('product')
     .select('*')
     .order('updated_at', { ascending: false })
     .limit(limit)
-  return unwrap<Array<Record<string, unknown>>>({ data, error }).map((row) => supabaseProductToProduct(row as never))
+  const rows = await enrichProductRowsWithBoardFields(unwrap<Array<Record<string, unknown>>>({ data, error }))
+  return rows.map((row) => supabaseProductToProduct(row as never))
 }
 
 export async function fetchAssigneeMap() {
-  const rows = unwrap<Array<{ product_id: string; profile_id: string }>>(await (pim() as any)
+  const rows = unwrap<Array<{ product_id: string; profile_id: string }>>(await pim()
     .from('product_assignee')
     .select('product_id,profile_id'))
   const map = new Map<string, Set<string>>()

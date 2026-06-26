@@ -19,6 +19,7 @@ export interface Retailer {
   id: string
   name: string
   customer_status?: CustomerStatus | null
+  is_potential?: boolean | null
   resale_restriction?: boolean | null
   notes?: string | null
 }

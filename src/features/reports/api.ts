@@ -1,4 +1,5 @@
 import { productToSummary } from '@/domain/products/adapters'
+import { enrichProductRowsWithBoardFields } from '@/domain/products/enrich'
 import { supabaseProductToProduct } from '@/domain/products/supabaseAdapter'
 import type { BusinessUnit } from '@/domain/products/types'
 import type { StageHistory } from '@/lib/types'
@@ -51,19 +52,20 @@ function bucket(rows: any[], value: (row: any) => string | null | undefined): Co
 
 export async function fetchReportsData(businessUnit: BusinessUnit): Promise<ReportsData> {
   const [productResult, projectResult, designResult, orderResult, revisionResult, submissionResult, sampleResult, activityResult, notificationResult, templateResult, stageHistoryResult] = await Promise.all([
-    (pim() as any).from('product').select('*').limit(5000),
-    (pim() as any).from('project').select('*').limit(5000),
-    (pim() as any).from('design').select('*').limit(5000),
-    (pim() as any).from('customer_order').select('*').limit(5000),
-    (pim() as any).from('revision_request').select('*').limit(5000),
-    (pim() as any).from('product_submission').select('*').limit(5000),
-    (pim() as any).from('product_sample').select('*').limit(5000),
+    pim().from('product').select('*').limit(5000),
+    pim().from('project').select('*').limit(5000),
+    pim().from('design').select('*').limit(5000),
+    pim().from('customer_order').select('*').limit(5000),
+    pim().from('revision_request').select('*').limit(5000),
+    pim().from('product_submission').select('*').limit(5000),
+    pim().from('product_sample').select('*').limit(5000),
     (appSchema() as any).from('activity').select('*').in('action', ['pm_dependency', 'pm_decision']).limit(5000),
     (appSchema() as any).from('notification').select('*').limit(5000),
-    (pim() as any).from('saved_view').select('*').eq('scope', 'workflow_template').limit(5000),
-    (pim() as any).from('stage_history').select('*').order('changed_at', { ascending: false }).limit(30),
+    pim().from('saved_view').select('*').eq('scope', 'workflow_template').limit(5000),
+    pim().from('stage_history').select('*').order('changed_at', { ascending: false }).limit(30),
   ])
-  const products = unwrap<any[]>({ data: productResult.data, error: productResult.error }).filter((row) => includeUnit(row, businessUnit))
+  const rawProducts = unwrap<any[]>({ data: productResult.data, error: productResult.error }).filter((row) => includeUnit(row, businessUnit))
+  const products = await enrichProductRowsWithBoardFields(rawProducts)
   const projects = unwrap<any[]>({ data: projectResult.data, error: projectResult.error }).filter((row) => includeUnit(row, businessUnit))
   const designs = unwrap<any[]>({ data: designResult.data, error: designResult.error })
   const orders = unwrap<any[]>({ data: orderResult.data, error: orderResult.error })

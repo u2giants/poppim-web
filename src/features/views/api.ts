@@ -2,6 +2,11 @@ import { pim, unwrap } from '@/lib/supabaseQuery'
 import type { PmSavedView, PmViewPref, ViewFilters } from '@/lib/types'
 import type { BusinessUnitFilter, Screen } from '@/lib/appState'
 import { saveCurrentView } from '@/features/settings/api'
+import type { Json } from '@/lib/database.types'
+
+function jsonObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
 
 function savedView(row: any): PmSavedView {
   return {
@@ -23,12 +28,12 @@ function savedView(row: any): PmSavedView {
 }
 
 export async function fetchViews(userId: string): Promise<PmSavedView[]> {
-  const { data, error } = await (pim() as any).from('saved_view').select('*').or(`owner_profile_id.eq.${userId},scope.eq.shared`).order('name')
+  const { data, error } = await pim().from('saved_view').select('*').or(`owner_profile_id.eq.${userId},scope.eq.shared`).order('name')
   return unwrap<any[]>({ data, error }).map(savedView)
 }
 
 export async function fetchViewPrefs(userId: string): Promise<PmViewPref[]> {
-  const { data, error } = await (pim() as any).from('view_pref').select('*').eq('profile_id', userId)
+  const { data, error } = await pim().from('view_pref').select('*').eq('profile_id', userId)
   return unwrap<any[]>({ data, error }).map((row) => ({
     id: row.id,
     user: row.profile_id,
@@ -62,22 +67,22 @@ export async function createView(input: CreateViewInput): Promise<PmSavedView> {
 }
 
 export async function renameView(id: string, name: string) {
-  const { error } = await (pim() as any).from('saved_view').update({ name }).eq('id', id)
+  const { error } = await pim().from('saved_view').update({ name }).eq('id', id)
   if (error) throw new Error(error.message)
 }
 
 export async function deleteView(id: string) {
-  const { error } = await (pim() as any).from('saved_view').delete().eq('id', id)
+  const { error } = await pim().from('saved_view').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }
 
 export async function upsertViewPref(userId: string, viewId: string, patch: { sort_order?: number; color?: string | null; hidden?: boolean }): Promise<void> {
   const scope = `view:${viewId}`
-  const { data, error } = await (pim() as any).from('view_pref').select('id,config').eq('profile_id', userId).eq('scope', scope).maybeSingle()
+  const { data, error } = await pim().from('view_pref').select('id,config').eq('profile_id', userId).eq('scope', scope).maybeSingle()
   if (error) throw new Error(error.message)
-  const config = { ...(data?.config ?? {}), ...patch }
+  const config = { ...jsonObject(data?.config), ...patch } as Json
   const result = data?.id
-    ? await (pim() as any).from('view_pref').update({ config }).eq('id', data.id)
-    : await (pim() as any).from('view_pref').insert({ profile_id: userId, scope, config })
+    ? await pim().from('view_pref').update({ config }).eq('id', data.id)
+    : await pim().from('view_pref').insert({ profile_id: userId, scope, config })
   if (result.error) throw new Error(result.error.message)
 }

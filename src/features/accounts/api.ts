@@ -1,4 +1,4 @@
-import { core, pim, unwrap } from '@/lib/supabaseQuery'
+import { api, core, pim, unwrap } from '@/lib/supabaseQuery'
 import type { Buyer, Retailer } from '@/lib/types'
 
 export interface AccountCounts {
@@ -15,10 +15,10 @@ export interface AccountRow {
 export async function fetchAccountRows(search?: string): Promise<AccountRow[]> {
   const q = search?.trim().toLowerCase()
   const [companyResult, contactResult, projectResult, orderResult] = await Promise.all([
-    (core() as any).from('company').select('id,name,customer_status,metadata').order('name'),
+    (api() as any).from('customer_list').select('id,name,customer_status,is_potential').order('name'),
     (core() as any).from('contact_company').select('company_id,contact:contact_id(id,full_name,email)').order('company_id'),
-    (pim() as any).from('project').select('company_id'),
-    (pim() as any).from('customer_order').select('company_id'),
+    pim().from('project').select('company_id'),
+    pim().from('customer_order').select('company_id'),
   ])
   const companies = unwrap<any[]>({ data: companyResult.data, error: companyResult.error })
   const contacts = unwrap<any[]>({ data: contactResult.data, error: contactResult.error })
@@ -42,7 +42,7 @@ export async function fetchAccountRows(search?: string): Promise<AccountRow[]> {
 
   return companies
     .map((company) => ({
-      retailer: { id: company.id, name: company.name, customer_status: company.customer_status, resale_restriction: company.metadata?.resale_restriction ?? null, notes: company.metadata?.notes ?? null },
+      retailer: { id: company.id, name: company.name, customer_status: company.customer_status, is_potential: company.is_potential },
       buyers: buyersByCompany.get(company.id) ?? [],
       counts: { projects: projectCounts.get(company.id) ?? 0, orders: orderCounts.get(company.id) ?? 0 },
     }))

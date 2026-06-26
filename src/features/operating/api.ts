@@ -56,20 +56,26 @@ export async function createReminder(productId: string, title: string, dueAt?: s
 }
 
 export async function updateReminderStatus(id: string, status: PmReminder['status']): Promise<PmReminder> {
-  const patch = status === 'done' ? { read_at: new Date().toISOString(), payload: { status } } : { payload: { status } }
+  const existing = await (appSchema() as any).from('notification').select('payload').eq('id', id).single()
+  const existingRow = unwrap<{ payload?: unknown }>({ data: existing.data, error: existing.error })
+  const existingPayload = existingRow.payload && typeof existingRow.payload === 'object' && !Array.isArray(existingRow.payload)
+    ? existingRow.payload as Record<string, unknown>
+    : {}
+  const payload = { ...existingPayload, status }
+  const patch = status === 'done' ? { read_at: new Date().toISOString(), payload } : { payload }
   const { data, error } = await (appSchema() as any).from('notification').update(patch).eq('id', id).select('*').single()
   const row = unwrap<any>({ data, error })
   return { id: row.id, product: row.target_id, project: null, object_collection: 'product', object_id: row.target_id, title: row.title, due_at: row.payload?.due_at ?? null, assigned_to: row.profile_id, status, reminder_type: row.payload?.reminder_type ?? 'follow_up', snoozed_until: row.payload?.snoozed_until ?? null, completed_at: row.read_at, notes: row.body }
 }
 
 export async function fetchWorkflowTemplates(): Promise<PmWorkflowTemplate[]> {
-  const { data, error } = await (pim() as any).from('saved_view').select('*').eq('scope', 'workflow_template').order('name')
+  const { data, error } = await pim().from('saved_view').select('*').eq('scope', 'workflow_template').order('name')
   return unwrap<any[]>({ data, error }).map((row) => ({ id: row.id, name: row.name, business_unit: row.config?.business_unit ?? null, object_type: row.config?.object_type ?? 'product', template_type: row.config?.template_type ?? 'checklist', active: row.config?.active ?? true, description: row.config?.description ?? null, checklist_json: row.config?.checklist_json ?? [], required_evidence_json: row.config?.required_evidence_json ?? [], default_next_action: row.config?.default_next_action ?? null, default_owner_role: null }))
 }
 
 export async function createWorkflowTemplate(input: { name: string; businessUnit: string; objectType?: string; templateType?: string; description?: string | null }): Promise<PmWorkflowTemplate> {
   const config = { business_unit: input.businessUnit, object_type: input.objectType ?? 'product', template_type: input.templateType ?? 'checklist', active: true, description: input.description ?? null, checklist_json: [], required_evidence_json: [] }
-  const { data, error } = await (pim() as any).from('saved_view').insert({ name: input.name, scope: 'workflow_template', config, is_default: false }).select('*').single()
+  const { data, error } = await pim().from('saved_view').insert({ name: input.name, scope: 'workflow_template', config, is_default: false }).select('*').single()
   const row = unwrap<any>({ data, error })
   return { id: row.id, name: row.name, business_unit: input.businessUnit, object_type: config.object_type as never, template_type: config.template_type as never, active: true, description: input.description ?? null, checklist_json: [], required_evidence_json: [], default_next_action: null, default_owner_role: null }
 }
