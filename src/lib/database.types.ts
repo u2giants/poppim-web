@@ -712,7 +712,6 @@ export type Database = {
           domain: string | null
           id: string | null
           is_potential: boolean | null
-          metadata: Json | null
           name: string | null
           status: Database["app"]["Enums"]["entity_status"] | null
           updated_at: string | null
@@ -722,7 +721,6 @@ export type Database = {
           domain?: string | null
           id?: string | null
           is_potential?: boolean | null
-          metadata?: Json | null
           name?: string | null
           status?: Database["app"]["Enums"]["entity_status"] | null
           updated_at?: string | null
@@ -732,7 +730,6 @@ export type Database = {
           domain?: string | null
           id?: string | null
           is_potential?: boolean | null
-          metadata?: Json | null
           name?: string | null
           status?: Database["app"]["Enums"]["entity_status"] | null
           updated_at?: string | null
