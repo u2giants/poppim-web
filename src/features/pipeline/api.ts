@@ -1,7 +1,8 @@
 import type { Product, Stage } from '@/lib/types'
 import type { BusinessUnit } from '@/domain/products/types'
+import { enrichProductRowsWithBoardFields } from '@/domain/products/enrich'
 import { supabaseProductToProduct } from '@/domain/products/supabaseAdapter'
-import { api, metadata, pim, unwrap } from '@/lib/supabaseQuery'
+import { metadata, pim, unwrap } from '@/lib/supabaseQuery'
 
 export { fetchStages } from '@/domain/reference/api'
 export { setProductStage, stageId } from '../board/api'
@@ -55,28 +56,18 @@ function rowMatches(row: Record<string, unknown>, opts: Omit<FetchProductsOpts, 
 }
 
 async function fetchBoardRows(opts: FetchProductsOpts = {}) {
-  const { data, error } = await (api() as any)
-    .from('pm_product_board')
+  const { data, error } = await pim()
+    .from('product')
     .select('*')
     .order('updated_at', { ascending: false })
     .limit(opts.limit ?? 5000)
-  const boardRows = unwrap<Array<Record<string, unknown>>>({ data, error })
-  const ids = boardRows.map((row) => typeof row.id === 'string' ? row.id : null).filter((id): id is string => Boolean(id))
-  const metadataById = new Map<string, unknown>()
+  const productRows = unwrap<Array<Record<string, unknown>>>({ data, error })
+  let rows = productRows
   try {
-    for (let i = 0; i < ids.length; i += 1000) {
-      const batch = ids.slice(i, i + 1000)
-      const productResult = await pim().from('product').select('id,metadata').in('id', batch)
-      const productRows = unwrap<Array<{ id: string; metadata: unknown }>>({ data: productResult.data, error: productResult.error })
-      for (const row of productRows) metadataById.set(row.id, row.metadata)
-    }
+    rows = await enrichProductRowsWithBoardFields(productRows)
   } catch (error) {
-    console.error('Failed to load product metadata for pipeline filters', error)
+    console.error('Failed to load pipeline board enrichment', error)
   }
-  const rows = boardRows.map((row) => ({
-    ...row,
-    metadata: typeof row.id === 'string' ? metadataById.get(row.id) ?? row.metadata : row.metadata,
-  }))
   return rows.filter((row) => rowMatches(row, opts))
 }
 
