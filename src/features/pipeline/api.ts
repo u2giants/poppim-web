@@ -26,7 +26,8 @@ export interface ListFacet {
 function businessUnitMatches(row: Record<string, unknown>, unit?: BusinessUnit): boolean {
   if (!unit || unit === 'Unknown') return true
   const meta = metadata(row)
-  const value = String(meta.business_unit ?? meta.department ?? '').toLowerCase()
+  const value = String(row.business_unit ?? row.department ?? meta.business_unit ?? meta.department ?? '').toLowerCase()
+  if (!value) return true
   if (unit === 'Licensed') return ['licensed', 'pop', 'pop creations'].includes(value)
   if (unit === 'Generic') return ['generic', 'spruce', 'spruce line'].includes(value)
   return value === 'software'
@@ -43,12 +44,13 @@ function rowMatches(row: Record<string, unknown>, opts: Omit<FetchProductsOpts, 
     if (!haystack.includes(q)) return false
   }
   if (opts.licensorIds?.length && !opts.licensorIds.includes(String(row.licensor_id ?? ''))) return false
-  if (opts.listNames?.length && !opts.listNames.includes(String(meta.clickup_list_name ?? ''))) return false
+  const listName = row.clickup_list_name ?? meta.clickup_list_name
+  if (opts.listNames?.length && !opts.listNames.includes(String(listName ?? ''))) return false
   if (!businessUnitMatches(row, opts.businessUnit)) return false
   if (opts.lifecycleStates?.length && !opts.lifecycleStates.includes(String(row.lifecycle_status ?? meta.lifecycle_state ?? ''))) return false
-  const statusType = String(meta.clickup_status_type ?? '').toLowerCase()
+  const statusType = String(row.clickup_status_type ?? meta.clickup_status_type ?? '').toLowerCase()
   if (statusType && !['open', 'custom'].includes(statusType)) return false
-  if (meta.clickup_parent_id) return false
+  if (row.clickup_parent_id ?? meta.clickup_parent_id) return false
   return true
 }
 
@@ -61,11 +63,15 @@ async function fetchBoardRows(opts: FetchProductsOpts = {}) {
   const boardRows = unwrap<Array<Record<string, unknown>>>({ data, error })
   const ids = boardRows.map((row) => typeof row.id === 'string' ? row.id : null).filter((id): id is string => Boolean(id))
   const metadataById = new Map<string, unknown>()
-  for (let i = 0; i < ids.length; i += 1000) {
-    const batch = ids.slice(i, i + 1000)
-    const productResult = await pim().from('product').select('id,metadata').in('id', batch)
-    const productRows = unwrap<Array<{ id: string; metadata: unknown }>>({ data: productResult.data, error: productResult.error })
-    for (const row of productRows) metadataById.set(row.id, row.metadata)
+  try {
+    for (let i = 0; i < ids.length; i += 1000) {
+      const batch = ids.slice(i, i + 1000)
+      const productResult = await pim().from('product').select('id,metadata').in('id', batch)
+      const productRows = unwrap<Array<{ id: string; metadata: unknown }>>({ data: productResult.data, error: productResult.error })
+      for (const row of productRows) metadataById.set(row.id, row.metadata)
+    }
+  } catch (error) {
+    console.error('Failed to load product metadata for pipeline filters', error)
   }
   const rows = boardRows.map((row) => ({
     ...row,

@@ -66,13 +66,23 @@ export function PipelinePage() {
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [fetching, setFetching] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [activeTask, setActiveTask] = useState<ProductSummary | null>(null)
 
   const fetchVersion = useRef(0)
   const isFirstProducts = useRef(true)
 
   const debouncedSearch = useDebounce(searchQuery, 300)
-  const stageNames = useMemo(() => orderedStageNames(stages, businessUnit), [stages, businessUnit])
+  const stageNames = useMemo(() => {
+    const ordered = orderedStageNames(stages, businessUnit)
+    if (ordered.length > 0) return ordered
+
+    const seen = new Set<string>()
+    return tasks
+      .map((task) => task.stageName)
+      .filter((name) => name && name !== 'Unknown')
+      .filter((name) => (seen.has(name) ? false : (seen.add(name), true)))
+  }, [stages, businessUnit, tasks])
   const stageIdMap = useMemo(
     () => new Map(stages.filter((s) => stageNames.includes(s.name)).map((s) => [s.name, s.id])),
     [stages, stageNames],
@@ -109,6 +119,7 @@ export function PipelinePage() {
         if (v !== fetchVersion.current) return
         const mapped = await hydrateProductSummaryRollups(products.map(productToSummary))
         if (v !== fetchVersion.current) return
+        setLoadError(null)
         setTasks(mapped)
         setTotalCount(total)
         if (pendingId) {
@@ -116,7 +127,13 @@ export function PipelinePage() {
           if (match) setActiveTask(match)
         }
       })
-      .catch(console.error)
+      .catch((error) => {
+        console.error(error)
+        if (v !== fetchVersion.current) return
+        setTasks([])
+        setTotalCount(0)
+        setLoadError(error instanceof Error ? error.message : 'Unable to load the product pipeline.')
+      })
       .finally(() => {
         if (v !== fetchVersion.current) return
         setLoading(false)
@@ -139,6 +156,29 @@ export function PipelinePage() {
     return (
       <div className="flex h-full items-center justify-center text-sm" style={{ color: '#94A0B5' }}>
         Loading pipeline…
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex h-full items-center justify-center px-6 text-center">
+        <div>
+          <div className="text-[14px] font-semibold" style={{ color: '#1B2840' }}>
+            Product pipeline could not load.
+          </div>
+          <div className="mt-1 max-w-[560px] text-[12px]" style={{ color: '#5A6883' }}>
+            {loadError}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (tasks.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm" style={{ color: '#94A0B5' }}>
+        No products match the current filters.
       </div>
     )
   }
