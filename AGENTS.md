@@ -233,6 +233,19 @@ When adding fields to search, confirm the field exists on that collection or rel
 Search and licensor filters are pushed to the backend. The pipeline loads a bounded product set for the active department, with count/truncation UI when applicable. Search is debounced 300 ms; stale fetch results are discarded via an incrementing ref.
 Do not assume: all 15K+ products are loaded at once — they aren't.
 
+### Product Pipeline failures must be verified in a browser
+Looks like:
+If `Product pipeline` shows "could not load" or empty columns, it can be tempting to inspect only the source bundle, Supabase schema cache, or table row counts.
+
+Actually:
+The pipeline has several independent failure points that only became obvious in an authenticated browser on 2026-06-30. The confirmed chain was: an old `product_assignee` embed error, then overlong `api.pm_product_board?id=in.(...)` enrichment URLs, then `pim.product.select('*')` timing out on huge ClickUp `metadata`, then `app.comment` RLS denying comment-count rollups, then empty first-viewport columns because seeded/reference stages did not match restored ClickUp statuses.
+
+Why:
+The board is composed from `src/features/pipeline/api.ts`, `src/domain/products/enrich.ts`, `src/domain/products/rollups.ts`, and `src/features/pipeline/PipelinePage.tsx`. A fix in one layer can uncover the next failing layer, and unauthenticated checks only show the login page.
+
+Do not change because:
+Keep the pipeline fetch lean: do not reintroduce `select('*')` on `pim.product`; keep `pm_product_board` enrichment batches small; treat optional rollups such as comment counts as non-fatal unless RLS is fixed in `shared-db`; and put real loaded task stages before empty reference stages. Before reporting the pipeline fixed, authenticate a browser session, click `Product pipeline`, confirm cards are visible, check the current console/network errors, and verify production is serving the expected `build-sha`.
+
 ### Departments are hard-separated, not optional filters
 What changed:
 The app-level departments are `Licensed`, `Generic`, and `Software`. `Licensed` maps to legacy backend values `POP` / `POP Creations`; `Generic` maps to `Spruce` / `Spruce Line`; `Software` maps to `Software`.
