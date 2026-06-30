@@ -99,19 +99,31 @@ export async function setSubtaskDone(id: string, done: boolean) {
 export async function listAssignees(productId: string): Promise<ProductAssignee[]> {
   const { data, error } = await pim()
     .from('product_assignee')
-    .select('id,product_id,profile:profile_id(id,display_name,email,avatar_url)')
+    .select('id,product_id,profile_id')
     .eq('product_id', productId)
-  return unwrap<any[]>({ data, error }).map((row) => ({ id: row.id, product: row.product_id, profile: row.profile ? profile(row.profile) : row.profile_id }))
+  const rows = unwrap<any[]>({ data, error })
+  const profileIds = [...new Set(rows.map((row) => row.profile_id).filter(Boolean))]
+  const profileResult = profileIds.length > 0
+    ? await (appSchema() as any).from('profile').select('id,display_name,email,avatar_url').in('id', profileIds)
+    : { data: [], error: null }
+  const profiles = new Map(unwrap<any[]>({ data: profileResult.data, error: profileResult.error }).map((row) => [row.id, profile(row)]))
+  return rows.map((row) => ({ id: row.id, product: row.product_id, profile: profiles.get(row.profile_id) ?? row.profile_id }))
 }
 
 export async function addAssignee(productId: string, userId: string): Promise<ProductAssignee> {
   const { data, error } = await pim()
     .from('product_assignee')
     .insert({ product_id: productId, profile_id: userId })
-    .select('id,product_id,profile:profile_id(id,display_name,email,avatar_url)')
+    .select('id,product_id,profile_id')
     .single()
   const row = unwrap<any>({ data, error })
-  return { id: row.id, product: row.product_id, profile: row.profile ? profile(row.profile) : userId }
+  const profileResult = await (appSchema() as any)
+    .from('profile')
+    .select('id,display_name,email,avatar_url')
+    .eq('id', row.profile_id)
+    .maybeSingle()
+  const user = unwrap<any | null>({ data: profileResult.data, error: profileResult.error })
+  return { id: row.id, product: row.product_id, profile: user ? profile(user) : userId }
 }
 
 export async function removeAssignee(rowId: string) {

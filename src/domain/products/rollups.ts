@@ -50,6 +50,20 @@ function increment(map: Map<string, number>, id: string | null) {
   map.set(id, (map.get(id) ?? 0) + 1)
 }
 
+async function fetchProfiles(profileIds: string[]): Promise<Map<string, AppUser>> {
+  const ids = [...new Set(profileIds)].filter(Boolean)
+  if (ids.length === 0) return new Map()
+
+  const result = await (appSchema() as any)
+    .from('profile')
+    .select('id,display_name,email,avatar_url')
+    .in('id', ids)
+  return new Map(
+    unwrap<any[]>({ data: result.data, error: result.error })
+      .map((row) => [row.id, profileToUser(row)]),
+  )
+}
+
 export async function hydrateProductSummaryRollups(products: ProductSummary[]): Promise<ProductSummary[]> {
   const ids = products.map((product) => product.id)
   if (ids.length === 0) return products
@@ -58,7 +72,7 @@ export async function hydrateProductSummaryRollups(products: ProductSummary[]): 
     const [assigneeResult, checklistResult, fileResult, commentResult] = await Promise.all([
       pim()
         .from('product_assignee')
-        .select('product_id,profile:profile_id(id,display_name,email,avatar_url)')
+        .select('product_id,profile_id')
         .in('product_id', batch),
       pim()
         .from('checklist_item')
@@ -90,10 +104,14 @@ export async function hydrateProductSummaryRollups(products: ProductSummary[]): 
   const files = new Map<string, number>()
   const comments = new Map<string, number>()
   const autoCovers = new Map<string, { coverUrl: string; coverThumbUrl?: string }>()
+  const profileById = await fetchProfiles(
+    rollups.flatMap((rollup) => rollup.assigneeRows.map((row) => row.profile_id)),
+  )
 
   for (const rollup of rollups) {
     for (const row of rollup.assigneeRows) {
-      const person = row.profile ? appUserToPerson(profileToUser(row.profile)) : null
+      const profile = typeof row.profile_id === 'string' ? profileById.get(row.profile_id) : null
+      const person = profile ? appUserToPerson(profile) : null
       if (!row.product_id || !person) continue
       ;(assignees.get(row.product_id) ?? assignees.set(row.product_id, []).get(row.product_id)!).push(person)
     }
