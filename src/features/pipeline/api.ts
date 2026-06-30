@@ -7,7 +7,26 @@ import { metadata, pim, unwrap } from '@/lib/supabaseQuery'
 export { fetchStages } from '@/domain/reference/api'
 export { setProductStage, stageId } from '../board/api'
 
-export const PRODUCT_SUMMARY_FIELDS = ['*'] as const
+export const PRODUCT_SUMMARY_FIELDS = [
+  'id',
+  'code',
+  'name',
+  'status',
+  'stage',
+  'lifecycle_status',
+  'cover_url',
+  'project_id',
+  'company_id',
+  'buyer_contact_id',
+  'factory_id',
+  'licensor_id',
+  'property_id',
+  'product_type_id',
+  'clickup_task_id',
+  'clickup_parent_id',
+  'clickup_status',
+  'updated_at',
+] as const
 
 export interface FetchProductsOpts {
   search?: string
@@ -56,9 +75,9 @@ function rowMatches(row: Record<string, unknown>, opts: Omit<FetchProductsOpts, 
 }
 
 async function fetchBoardRows(opts: FetchProductsOpts = {}) {
-  const { data, error } = await pim()
+  const { data, error } = await (pim() as any)
     .from('product')
-    .select('*')
+    .select(PRODUCT_SUMMARY_FIELDS.join(','))
     .order('updated_at', { ascending: false })
     .limit(opts.limit ?? 5000)
   const productRows = unwrap<Array<Record<string, unknown>>>({ data, error })

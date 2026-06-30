@@ -75,13 +75,12 @@ export function PipelinePage() {
   const debouncedSearch = useDebounce(searchQuery, 300)
   const stageNames = useMemo(() => {
     const ordered = orderedStageNames(stages, businessUnit)
-    if (ordered.length > 0) return ordered
-
     const seen = new Set<string>()
-    return tasks
+    const taskStages = tasks
       .map((task) => task.stageName)
       .filter((name) => name && name !== 'Unknown')
       .filter((name) => (seen.has(name) ? false : (seen.add(name), true)))
+    return [...taskStages, ...ordered.filter((name) => !seen.has(name))]
   }, [stages, businessUnit, tasks])
   const stageIdMap = useMemo(
     () => new Map(stages.filter((s) => stageNames.includes(s.name)).map((s) => [s.name, s.id])),

@@ -50,6 +50,14 @@ function increment(map: Map<string, number>, id: string | null) {
   map.set(id, (map.get(id) ?? 0) + 1)
 }
 
+function optionalRows<T>(result: { data: T[] | null; error: { message?: string } | null }, label: string): T[] {
+  if (result.error) {
+    console.warn(`Unable to load ${label}`, result.error)
+    return []
+  }
+  return result.data ?? []
+}
+
 async function fetchProfiles(profileIds: string[]): Promise<Map<string, AppUser>> {
   const ids = [...new Set(profileIds)].filter(Boolean)
   if (ids.length === 0) return new Map()
@@ -94,7 +102,7 @@ export async function hydrateProductSummaryRollups(products: ProductSummary[]): 
       assigneeRows: unwrap<any[]>({ data: assigneeResult.data, error: assigneeResult.error }),
       checklistRows: unwrap<Array<{ product_id: string | null; status: string | null }>>({ data: checklistResult.data, error: checklistResult.error }),
       fileRows: unwrap<ProductFileCoverCandidate[]>({ data: fileResult.data, error: fileResult.error }),
-      commentRows: unwrap<Array<{ target_id: string | null }>>({ data: commentResult.data, error: commentResult.error }),
+      commentRows: optionalRows<Array<{ target_id: string | null }>[number]>(commentResult, 'product comment counts'),
     }
   }))
 
