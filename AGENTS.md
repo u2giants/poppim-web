@@ -46,6 +46,12 @@ Then load additional docs only when relevant:
 
 The cross-project infrastructure/server operating reference lives in [`u2giants/albert-standards`](https://github.com/u2giants/albert-standards), especially [`infrastructure/README.md`](https://github.com/u2giants/albert-standards/blob/main/infrastructure/README.md), [`infrastructure/CLAUDE.md`](https://github.com/u2giants/albert-standards/blob/main/infrastructure/CLAUDE.md), and [`.ai/AI_INFRASTRUCTURE_GUIDE.md`](https://github.com/u2giants/albert-standards/blob/main/.ai/AI_INFRASTRUCTURE_GUIDE.md). When this repo changes non-code infrastructure, hosting, server topology, deploy mechanics, runtime ownership, domains, or operations decisions that apply beyond one source file, update those standards docs in the same session.
 
+## Host/server boundary
+
+This repo is app-layer only. Durable host/OS changes belong in the canonical Ansible repo at `/worksp/ansible` / [`u2giants/ansible`](https://github.com/u2giants/ansible): packages, users, firewall, SSH/sudo, Docker engine or daemon config, systemd units/timers, cron, `/etc`, `/usr/local/bin`, `/usr/local/sbin`, Cloudflare Tunnel 1, Coolify host glue, and backup/DNS watchdogs.
+
+Do not SSH, sudo, or edit the host directly for durable infrastructure changes. Make a PR in `/worksp/ansible` and let GitHub Actions apply it. App code and app-owned config still change here and deploy through this repo's normal pipeline/Coolify. Break-glass direct host repair is allowed only when explicitly called out, and must be followed by an Ansible PR that captures or reconciles the drift.
+
 ## Shared-backend startup/shutdown hygiene
 
 Why this exists:
