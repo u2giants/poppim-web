@@ -2,8 +2,10 @@
 
 **Read `AGENTS.md` first** — it's the canonical guide (architecture, identifiers, deployment, quirks, pending work). This file only adds Claude-specific notes; it does not duplicate AGENTS.md.
 
-## Shared database / cross-app
-Before any shared Supabase database, schema, migration, or cross-app change, read and follow `shared-db/AGENTS.md` (the cross-app coordination playbook): app code here is `main`-only (no branches); `shared-db` changes use branch+PR and the AI owns the merge.
+## Shared DB Gatekeeper
+This repo shares the Supabase backend project `qsllyeztdwjgirsysgai` with the other POP apps. **All** database/schema changes for that shared backend must be authored in the canonical repo `u2giants/shared-db`: branch + PR + timestamped migration, preview-first, and the AI merges it before any dependent app code lands here.
+
+Never make app-side DDL in this repo: no inline/startup migrations, no dashboard SQL, no one-off `execute_sql`, no local `supabase/migrations/` folder, and no schema-changing SQL outside the vendored `shared-db/` mirror. The CI workflow `.github/workflows/shared-db-guard.yml` enforces this on `push` and `pull_request`. Legitimate emergency override is explicit only: PR label `db-change-approved`, or `[db-change-approved]` in a commit message.
 
 ## Ignore
 `.claudeignore` is honored by Claude Code. For other AI tools, paste `AGENTS.md` first and follow its "What to ignore" (§10). Don't load `node_modules/`, `dist/`, `.env`, or the leftover Vite-template assets (`src/assets/*`, `public/icons.svg`).
