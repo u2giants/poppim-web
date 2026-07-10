@@ -1,6 +1,6 @@
 # Remove Legacy CRM Account Naming — PM/PIM Audit
 
-Date: 2026-06-28
+Date: 2026-06-30
 
 ## Plain-English Summary
 
@@ -25,20 +25,26 @@ Active PM code does **not** appear to call `api.crm_account_*` or
 
 Known references:
 
-- `src/lib/database.types.ts` contains generated schema entries for legacy
-  `crm_account_*` objects. This is expected until database types are regenerated
-  after the shared-db migration is applied.
+- `src/lib/database.types.ts` was regenerated from production project
+  `qsllyeztdwjgirsysgai` on 2026-06-30 after shared-db rollout PRs #19, #20,
+  and #21 were applied. It now includes `crm_customer_*`,
+  `crm_customer_segment_*`, and `crm_update_customer`.
+- `src/lib/database.types.ts` still contains generated schema entries for legacy
+  `crm_account_*` objects. This is expected while shared-db keeps those
+  compatibility contracts alive; do not delete generated entries by hand.
 - `src/features/accounts/AccountsPage.tsx` and `src/App.tsx` contain PM's own
   "Accounts" screen. Do **not** blindly rename this as part of the CRM cleanup;
   decide separately whether PM product language should become "Customers."
 - `fix_new_schema.md` contains older planning notes that mention
   `api.crm_account_list`; treat those as historical unless actively updating
   that plan.
+- Existing active customer reads still use `api.customer_list` for shared/basic
+  picker data in `src/domain/reference/api.ts`, `src/features/board/collab.ts`,
+  and `src/features/accounts/api.ts`, per the PM/shared-picker rule.
 
 ## What Future AI Sessions Should Do
 
-After `/worksp/shared-db` PR `https://github.com/u2giants/shared-db/pull/19` is
-applied to the target schema:
+After any additional shared-db customer-contract change:
 
 1. Regenerate PM database types from the target Supabase schema.
 2. Search active PM code:
@@ -47,9 +53,9 @@ applied to the target schema:
    rg "crm_account|crm_update_account|accountSegment|AccountSegment" src
    ```
 
-3. If the only hits are generated type references, regenerate types again from
-   the correct project or document why the old compatibility objects are still
-   present.
+3. If the only hits are generated type references, confirm whether shared-db is
+   still intentionally exposing compatibility objects. Do not manually remove
+   generated type entries.
 4. If active PM code ever needs CRM customer fields, do **not** call
    `api.crm_account_*`. Use `api.customer_list` for basic data or add a
    PM-owned customer contract in `/worksp/shared-db`.

@@ -45,6 +45,7 @@ Then load additional docs only when relevant:
 | Continue unfinished work | `AGENTS.md` §15, **`HANDOFF.md`** (required reading when present) | docs outside the handoff scope |
 | Product scope / "what's built vs. missing" / roadmap | **`gaps.md`** — reconciled current-state: every gap re-checked against the live code on 2026-06-21 and tagged DONE/PARTIAL/OPEN with file evidence (authoritative for what exists). `docs/architecture-update-implementation-plan.md` is the original aspirational roadmap/spec, kept for historical reference only | day-to-day screen/deploy docs |
 | Pull secrets from 1Password (MCP server or `op` CLI), service-account tokens, `op://` references | **`docs/1password.md`** | unrelated app/deploy docs |
+| Set up or use ClickUp MCP for migration audits, or revise the PM gap-review PDF | **`docs/clickup-mcp.md`**, `docs/1password.md`, `docs/clickup-poppim-gap-review.html` (source), `docs/clickup-poppim-gap-review.pdf` (output) | deployment docs |
 | Claude Code session | `CLAUDE.md`, then `AGENTS.md` | other docs unless needed |
 | Documentation-only cleanup | `AGENTS.md`, `README.md`, affected `docs/` | source except to verify accuracy |
 
@@ -423,7 +424,7 @@ No production incidents since the app moved to `pm.designflow.app`.
 | done (frontend) | Saved Views sidebar (Space=department → Master + views) | 2026-06-17: replaced the literal ClickUp tree with saved views — shared+personal, per-user drag-reorder/recolor/hide, topbar "Save view", 15 seeded list-views. Current implementation reads/writes `pim.saved_view` / `pim.view_pref` in the shared Supabase schema. |
 | done | URL deep-linking (`?item=`) for the detail panel | `history.replaceState` + `URLSearchParams`; auto-opens on page load; 2026-06-12 |
 | done | Durable image storage for product covers | DigitalOcean Spaces originals + thumbs; future DAM can supersede this, but ClickUp CDN is no longer the source. |
-| partial | Durable storage for product-file attachments | Backend copied 20,234 / 20,281 imported `product_file` rows to Spaces on 2026-06-14. Remaining 47 ClickUp source URLs return 404 or 0 bytes even with token; recover those source bytes from old exports/NAS/user uploads if required. |
+| partial | Durable storage for product-file attachments | Backend copied 20,234 / 20,281 imported `product_file` rows to Spaces on 2026-06-14. Follow-ups recovered additional reachable rows; as of 2026-06-26 the legacy Directus source has 20,245 / 20,291 stored and 46 remaining ClickUp source URLs returning 403/404/416 or no useful bytes even with token. Recover those source bytes from old exports/NAS/user uploads if required. |
 | open | Confirm end-to-end Microsoft SSO from a real tenant login | Redirect chain verified; full round-trip unconfirmed |
 | done | Board + task detail + collaboration (assignees/checklist/subtasks/comments) | live |
 | done | Design theme (Prompt A), board layout (Prompt B), task-detail layout (Prompt C) | applied |

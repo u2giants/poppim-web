@@ -8,7 +8,12 @@ Shared infrastructure/server standards: [`u2giants/albert-standards`](https://gi
 
 ## Start here
 - **[`AGENTS.md`](./AGENTS.md)** — canonical operating guide + documentation map (read first).
-- [`docs/architecture.md`](./docs/architecture.md) · [`docs/development.md`](./docs/development.md) · [`docs/configuration.md`](./docs/configuration.md) · [`docs/deployment.md`](./docs/deployment.md)
+- [`docs/architecture.md`](./docs/architecture.md) · [`docs/development.md`](./docs/development.md) · [`docs/configuration.md`](./docs/configuration.md) · [`docs/deployment.md`](./docs/deployment.md) · [`docs/clickup-mcp.md`](./docs/clickup-mcp.md)
+
+## ClickUp migration review
+- [`docs/clickup-poppim-gap-review.pdf`](./docs/clickup-poppim-gap-review.pdf) — PM-facing worksheet with 30 numbered ClickUp/Poppim gap elements and annotated visual panels.
+- [`docs/clickup-poppim-gap-review.html`](./docs/clickup-poppim-gap-review.html) — editable source for regenerating the PDF.
+- [`docs/clickup-mcp.md`](./docs/clickup-mcp.md) — ClickUp MCP setup, current OAuth status on Hetzner, available MCP tools, and the 2026-06-30 ClickUp audit notes.
 
 ## Run
 ```bash

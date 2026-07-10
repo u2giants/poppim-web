@@ -28,6 +28,14 @@ Shared infrastructure/environment standards live in [`u2giants/albert-standards`
 ## Backend-side config this app requires (NOT set here)
 The backend is the shared Supabase.com project `qsllyeztdwjgirsysgai`. Shared schema, RLS, realtime, and migration decisions belong in `u2giants/shared-db`, then the frontend types/API are updated here. Supabase service-role keys and backend secrets must not be exposed through Vite env vars.
 
+Supabase Auth URL configuration is shared across CRM, PM, DAM, SG, and master-data apps. The project's `site_url` is `https://crm.designflow.app`, so every non-CRM frontend must pass an explicit `redirectTo` and must be present in the project's `uri_allow_list`. PM requires:
+
+- `https://pm.designflow.app`, `https://pm.designflow.app/`, `https://pm.designflow.app/**`
+- `https://pm-dev.designflow.app`, `https://pm-dev.designflow.app/`, `https://pm-dev.designflow.app/**`
+- `https://pm-ci.designflow.app`, `https://pm-ci.designflow.app/`, `https://pm-ci.designflow.app/**`
+
+If Microsoft SSO from PM lands on CRM, check this Supabase Auth allowlist first.
+
 ## Shared-db migration password
 Schema migrations are not run from this frontend repo. When a future session works in canonical `u2giants/shared-db`, the Supabase direct Postgres password is available from 1Password:
 
