@@ -15,6 +15,25 @@ This repo shares the Supabase backend project `qsllyeztdwjgirsysgai` with the ot
 
 Never make app-side DDL in this repo: no inline/startup migrations, no dashboard SQL, no one-off `execute_sql`, no local `supabase/migrations/` folder, and no schema-changing SQL outside the vendored `shared-db/` mirror. The CI workflow `.github/workflows/shared-db-guard.yml` enforces this on `push` and `pull_request`. Legitimate emergency override is explicit only: PR label `db-change-approved`, or `[db-change-approved]` in a commit message.
 
+### Shared query and search performance contract
+
+The production AI-tagging timeout remediation is the reference pattern for
+large shared-Supabase lists and searches. Read the auto-synced canonical note at
+`shared-db/docs/app-migration-notes/ai-tagging-keyset-timeout-20260714.md`
+before changing a high-volume PM query. The DAM-only
+`get_ai_tag_candidates(...)` RPC and its indexes are private worker
+infrastructure; PM must not call or copy them.
+
+For PM/PIM grids, product/project/order lists, and cross-domain asset pickers:
+prefer bounded keyset pagination with a deterministic ID tie-breaker, keep
+cursors opaque, select only required columns, and separate optional totals from
+list data so a count failure cannot blank the screen. Audit `.range()`, exact
+counts, client-side filtering of broad reads, N+1 joins, and nonunique ordering.
+Any new view/RPC/index belongs in canonical `shared-db`, must be proven with
+representative `EXPLAIN (ANALYZE, BUFFERS)` evidence, and must pass preview
+before app code lands. If PM needs DAM discovery, use a purpose-specific,
+authorized `api.*` contract rather than direct DAM tables or service-role RPCs.
+
 ## Multi-model AI note
 
 There is no universal ignore-file standard across AI coding tools.
