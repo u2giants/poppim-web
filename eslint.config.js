@@ -22,7 +22,7 @@ export default defineConfig([
     rules: {
       // HMR-only dev rule; not a production-correctness issue.
       'react-refresh/only-export-components': 'off',
-      // Targeted `as any` escape hatches for the Directus SDK's strict field typing — keep visible as warnings.
+      // Targeted `as any` escape hatches from legacy field typing — keep visible as warnings.
       '@typescript-eslint/no-explicit-any': 'warn',
       // Opinionated newer rule; our effect setState patterns are intentional.
       'react-hooks/set-state-in-effect': 'warn',

@@ -122,7 +122,7 @@ Legacy CRM account naming:
 - `src/lib/database.types.ts` was regenerated after shared-db PRs #19, #20, and #21. Remaining `crm_account_*` generated entries are expected while compatibility objects still exist; never delete generated entries by hand.
 
 Product files:
-- As of June 26, the legacy Directus source had 20,245 / 20,291 imported `product_file` rows stored in Spaces; 46 remain unstored.
+- As of June 26, the retired source had 20,245 / 20,291 imported `product_file` rows stored in Spaces; 46 remain unstored.
 - `TaskDetailModal` display logic prefers `thumbnail_url`, then image `stored_url`, then original ClickUp preview/source fallback.
 - Remaining source recovery is blocked on external source bytes, not frontend code.
 
