@@ -118,7 +118,7 @@ ClickUp gap-review worksheet:
 Legacy CRM account naming:
 - `fix_remove_account.md` says PM/PIM must not call CRM's legacy `api.crm_account_list`, `api.crm_account_overview`, or `api.crm_update_account` contracts.
 - Active PM code scan on June 30 found no active calls outside generated schema types.
-- Basic PM customer pickers should use shared `api.customer_list`; PM-specific customer data needs a PM-owned shared-db view/RPC, not CRM's private `crm_customer_*` contracts.
+- Basic PM customer pickers use `api.pm_customer_list` (Step 11, 2026-07-23). The removed `api.customer_list` must not be restored. CRM private `crm_customer_*` contracts stay out of PM.
 - `src/lib/database.types.ts` was regenerated after shared-db PRs #19, #20, and #21. Remaining `crm_account_*` generated entries are expected while compatibility objects still exist; never delete generated entries by hand.
 
 Product files:

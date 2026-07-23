@@ -1,5 +1,11 @@
 import { api, core, pim, unwrap } from '@/lib/supabaseQuery'
 import type { Buyer, Retailer } from '@/lib/types'
+import {
+  mapPmCustomerListRow,
+  PM_CUSTOMER_LIST,
+  PM_CUSTOMER_LIST_SELECT,
+  type PmCustomerListRow,
+} from '@/domain/reference/pmCustomerList'
 
 export interface AccountCounts {
   projects: number
@@ -15,12 +21,12 @@ export interface AccountRow {
 export async function fetchAccountRows(search?: string): Promise<AccountRow[]> {
   const q = search?.trim().toLowerCase()
   const [companyResult, contactResult, projectResult, orderResult] = await Promise.all([
-    (api() as any).from('customer_list').select('id,name,customer_status,is_potential').order('name'),
+    (api() as any).from(PM_CUSTOMER_LIST).select(PM_CUSTOMER_LIST_SELECT).order('name'),
     (core() as any).from('contact_company').select('company_id,contact:contact_id(id,full_name,email)').order('company_id'),
     pim().from('project').select('company_id'),
     pim().from('customer_order').select('company_id'),
   ])
-  const companies = unwrap<any[]>({ data: companyResult.data, error: companyResult.error })
+  const companies = unwrap<PmCustomerListRow[]>({ data: companyResult.data, error: companyResult.error }).map(mapPmCustomerListRow)
   const contacts = unwrap<any[]>({ data: contactResult.data, error: contactResult.error })
   const projects = unwrap<Array<{ company_id: string | null }>>({ data: projectResult.data, error: projectResult.error })
   const orders = unwrap<Array<{ company_id: string | null }>>({ data: orderResult.data, error: orderResult.error })
@@ -41,10 +47,10 @@ export async function fetchAccountRows(search?: string): Promise<AccountRow[]> {
   for (const row of orders) if (row.company_id) orderCounts.set(row.company_id, (orderCounts.get(row.company_id) ?? 0) + 1)
 
   return companies
-    .map((company) => ({
-      retailer: { id: company.id, name: company.name, customer_status: company.customer_status, is_potential: company.is_potential },
-      buyers: buyersByCompany.get(company.id) ?? [],
-      counts: { projects: projectCounts.get(company.id) ?? 0, orders: orderCounts.get(company.id) ?? 0 },
+    .map((retailer: Retailer) => ({
+      retailer,
+      buyers: buyersByCompany.get(retailer.id) ?? [],
+      counts: { projects: projectCounts.get(retailer.id) ?? 0, orders: orderCounts.get(retailer.id) ?? 0 },
     }))
     .filter((row) => !q || row.retailer.name.toLowerCase().includes(q) || row.buyers.some((buyer) => buyer.name?.toLowerCase().includes(q) || buyer.email?.toLowerCase().includes(q)))
 }

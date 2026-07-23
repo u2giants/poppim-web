@@ -9,10 +9,10 @@ export interface Stage {
   business_unit: string | null
 }
 
-// NOTE: the `retailer` collection is a dump of EVERY Twenty-CRM company, not a
-// curated list. Only rows whose customer_status is ACTIVE_CUSTOMER or
-// POTENTIAL_CUSTOMER are valid customers for app pickers. Filter on it — never
-// offer the raw collection as a choice list. See AGENTS.md §11.
+// Retailer pickers must read api.pm_customer_list (global active/potential AND
+// PM extension active). Do not call the removed api.customer_list relation.
+// customer_status / is_potential below are legacy display fields derived from
+// core_status for older UI; the server view already filters inactive rows.
 export type CustomerStatus = 'ACTIVE_CUSTOMER' | 'POTENTIAL_CUSTOMER' | 'OTHER' | 'UNASSIGNED'
 
 export interface Retailer {

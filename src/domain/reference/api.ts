@@ -1,14 +1,24 @@
 import { api, core, pim, unwrap } from '@/lib/supabaseQuery'
 import type { Licensor, Retailer, Stage } from '@/lib/types'
+import {
+  mapPmCustomerListRow,
+  PM_CUSTOMER_LIST,
+  PM_CUSTOMER_LIST_SELECT,
+  type PmCustomerListRow,
+} from '@/domain/reference/pmCustomerList'
 
 export async function fetchLicensors(): Promise<Licensor[]> {
   const { data, error } = await (core() as any).from('licensor').select('id,name').order('name')
   return unwrap<Array<Licensor>>({ data, error })
 }
 
+/** Active PM Customer list (api.pm_customer_list). Kept for shared reference imports. */
 export async function fetchRetailers(): Promise<Retailer[]> {
-  const { data, error } = await (api() as any).from('customer_list').select('id,name,customer_status,is_potential').order('name')
-  return unwrap<Array<Retailer>>({ data, error })
+  const { data, error } = await (api() as any)
+    .from(PM_CUSTOMER_LIST)
+    .select(PM_CUSTOMER_LIST_SELECT)
+    .order('name')
+  return unwrap<PmCustomerListRow[]>({ data, error }).map(mapPmCustomerListRow)
 }
 
 export async function fetchStages(): Promise<Stage[]> {

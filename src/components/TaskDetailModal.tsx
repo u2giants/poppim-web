@@ -146,6 +146,7 @@ export function TaskDetailModal({ task, onClose }: Props) {
   const [licensors, setLicensors] = useState<Licensor[]>([])
   const [productTypes, setProductTypes] = useState<ProductType[]>([])
   const [retailers, setRetailers] = useState<Retailer[]>([])
+  const [retailersError, setRetailersError] = useState<string | null>(null)
   const [buyers, setBuyers] = useState<Buyer[]>([])
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; coverUrl: string | null; previewUrl: string | null } | null>(null)
@@ -154,12 +155,23 @@ export function TaskDetailModal({ task, onClose }: Props) {
     if (!task) return
     setLocal({})
     setBuyers([])
+    setRetailersError(null)
     setLightboxUrl(null)
     setContextMenu(null)
     fetchStages().then(setStages).catch(() => {})
     fetchLicensors().then(setLicensors).catch(() => {})
     fetchProductTypes().then(setProductTypes).catch(() => {})
-    fetchCustomers().then(setRetailers).catch(() => {})
+    fetchCustomers()
+      .then((rows) => {
+        setRetailers(rows)
+        setRetailersError(null)
+      })
+      .catch((err: unknown) => {
+        setRetailers([])
+        const message = err instanceof Error ? err.message : 'Failed to load retailers'
+        setRetailersError(message)
+        console.error('TaskDetailModal: fetchCustomers failed', err)
+      })
     // Pre-load buyers for the current retailer if set
     const currentRetailerId = task.retailerId
     if (currentRetailerId) {
@@ -484,7 +496,11 @@ export function TaskDetailModal({ task, onClose }: Props) {
               <span className="text-[13.5px] font-semibold" style={{ color: '#1B2840' }}>{task.projectTitle ?? '—'}</span>
             </ModalField>
             <ModalField label="Retailer">
-              {retailers.length > 0 ? (
+              {retailersError ? (
+                <span className="text-[13px] font-medium text-red-700" role="alert">
+                  Could not load retailers: {retailersError}
+                </span>
+              ) : retailers.length > 0 ? (
                 <EditSelect
                   value={displayRetailerId ?? ''}
                   options={[{ value: '', label: '—' }, ...retailers.map(r => ({ value: r.id, label: r.name }))]}

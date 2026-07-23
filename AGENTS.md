@@ -367,16 +367,14 @@ Add schema fields in canonical `shared-db` first, then update `src/lib/types.ts`
 
 ### `retailer`/`buyer` are curated customer tables; the raw CRM dump lives in `ingested_*`
 What it is:
-Legacy CRM ingestion separated curated customers from raw ingested domains before the shared Supabase migration. Current app customer pickers should use the shared `api.customer_list` view; buyer/contact reads use `core.contact` / `core.contact_company` data exposed by the shared schema. Historical end state:
-- **`retailer`** = curated real customers only (`customer_status` active/potential), ~102 rows, editable. Safe to read directly as a picker.
-- **`buyer`** = curated buyers (contacts at customers + any referenced by live PIM work), ~747 rows.
-- **`ingested_domains`** = the old `retailer` (all ~3,740 ingested companies); the email worker writes here for dedup. **Not for app pickers.**
-- **`ingested_contact`** = the old `buyer` (all ~8,649 ingested email contacts).
-Customers are **copied** (kept in both `ingested_domains` and `retailer` with the same IDs) so the worker still sees "domain already ingested" and so `crm_*` relations stay on the `ingested_*` tables. PIM relations (`product`/`project`/`order`/`design.first_offered_to`/`design_collection.account_specific_for` and the buyer links) point at the curated tables.
+Legacy CRM ingestion separated curated customers from raw ingested domains before the shared Supabase migration. **Current app customer pickers must use `api.pm_customer_list`** (global active/potential AND PM extension active). The historical `api.customer_list` relation was deliberately removed and must not be resurrected. Buyer/contact reads use `core.contact` / `core.contact_company`. Historical end state:
+- **`retailer` (picker)** = rows from `api.pm_customer_list` only; labels prefer curated `display_name`.
+- **`buyer`** = curated buyers via `core.contact` / `core.contact_company`.
+- **`ingested_domains` / `ingested_contact`** = CRM-private email triage data. **Not for app pickers.** Never associate ingested domains with `core.customer`.
 Why:
-The product owner's rule: apps must only ever see real customers (active/potential), never a table that is ~97% ingested garbage (e.g. "1kms" = `OTHER`).
+The product owner's rule: apps must only ever see real customers (active/potential), never a table that is ~97% ingested garbage.
 Future sessions should:
-Read curated customer/contact data through `fetchCustomers()` / `fetchBuyers(retailerId)` in `features/board/collab.ts`. `fetchCustomers()` must read the shared `api.customer_list` view, not a raw customer table. Never point an app picker at raw ingested-domain/contact tables.
+Read curated customer/contact data through `fetchCustomers()` / `fetchBuyers(retailerId)` in `features/board/collab.ts`. `fetchCustomers()` must read `api.pm_customer_list` (constant `PM_CUSTOMER_LIST` in `domain/reference/pmCustomerList.ts`). Never call `.from('customer_list')`. Never point an app picker at raw ingested-domain/contact tables.
 
 ## 12. Credentials and environment
 

@@ -18,6 +18,12 @@ import type {
   Retailer,
   Subtask,
 } from '@/lib/types'
+import {
+  mapPmCustomerListRow,
+  PM_CUSTOMER_LIST,
+  PM_CUSTOMER_LIST_SELECT,
+  type PmCustomerListRow,
+} from '@/domain/reference/pmCustomerList'
 
 function profile(row: any): AppUser {
   const name = row.display_name ?? ''
@@ -311,8 +317,13 @@ export async function fetchProductTypes(): Promise<ProductType[]> {
 }
 
 export async function fetchCustomers(): Promise<Retailer[]> {
-  const { data, error } = await (api() as any).from('customer_list').select('id,name,customer_status,is_potential').order('name')
-  return unwrap<Retailer[]>({ data, error })
+  // api.pm_customer_list: global active/potential AND PM extension active.
+  // Identity is UUID company_id; labels prefer curated display_name.
+  const { data, error } = await (api() as any)
+    .from(PM_CUSTOMER_LIST)
+    .select(PM_CUSTOMER_LIST_SELECT)
+    .order('name')
+  return unwrap<PmCustomerListRow[]>({ data, error }).map(mapPmCustomerListRow)
 }
 
 export async function fetchBuyers(retailerId: string): Promise<Buyer[]> {
