@@ -6,10 +6,12 @@ Status: Phases 0–5 are implemented and verified. Shared-db PR #271 merged as
 `db5bcea830297c5677f13bad82cdca57b5f8859c`; all 18 approved PM migrations are
 applied and object-verified in preview and production. The shared-db consumer
 sync landed on app `main` as `954c4ef`, production types were regenerated, and
-all local gates plus final Grok review pass. Remaining: app commit/push, green
-CI/deploy/live-SHA verification, and authenticated production smoke. No
-approved Poppim production tester exists in 1Password, so the last smoke needs
-separately authorized production access.
+all local gates plus final Grok review pass. App commit
+`35a9e7bd004db834299d27f18031eefa8950bec4` was pushed; all three GitHub
+workflows passed and production plus both aliases served that exact SHA. The
+only remaining gate is authenticated production smoke. No approved Poppim
+production tester exists in 1Password, so it needs separately authorized
+production access.
 
 ## 2026-07-27 authenticated preview gate update
 
@@ -126,12 +128,13 @@ preview and authenticated UI evidence. The executable specification remains
 ### Application repository
 
 - Branch: `main`, tracking `origin/main`
-- Current base SHA: `954c4ef` (consumer sync for shared-db `db5bcea`)
-- State: intentionally dirty and **not committed/pushed**
-- Reason: final documentation and release verification are in progress.
-- Production remains on build SHA
-  `075ea083a6328311c2cfd26a89a42fcd70becbaa`, verified from the live HTML on
-  2026-07-27.
+- Release commit: `35a9e7bd004db834299d27f18031eefa8950bec4`
+- State: committed and pushed to `origin/main`
+- Production, `pm-dev`, and `pm-ci` all served release SHA `35a9e7b` in
+  `<meta name="build-sha">` on 2026-07-27.
+- GitHub workflows all passed:
+  deploy `30304699161`, shared-db guard `30304699311`, and Forbid Shared DB
+  Bypass `30304699576`.
 
 The local app worktree contains the complete Phase 0–4 bundle:
 
@@ -344,17 +347,7 @@ These failures and corrections are durable evidence in
 
 ## 6. Exact next steps
 
-1. Commit and push the application to `main` as Albert Hazan.
-   - Include all intended source, tests, docs, evidence, and generated types.
-   - Verification gate: local `main` equals `origin/main`; no mystery untracked
-     files remain.
-
-2. Watch the normal GitHub Actions → GHCR → Coolify release.
-   - Verification gate: all checks are green and
-     `https://pm.designflow.app/` contains the exact new app commit in
-     `<meta name="build-sha">`.
-
-3. Obtain separately approved Poppim production test access, then repeat the
+1. Obtain separately approved Poppim production test access, then repeat the
    critical authenticated smoke tests in production.
    - At minimum: three pipeline departments, continuation/search, one
      reversible saved-view preference, one authorized mutation, Reports/

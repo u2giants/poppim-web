@@ -4,9 +4,10 @@
 migrations pass rehearsal preview and are applied/object-verified in
 production; shared-db PR #271 merged and consumer sync completed. Step 19 gates
 pass. Step 20 authenticated preview passed across 16 screens and 26 API checks
-with zero console/network failures. Step 21 release is in progress; only
-commit/push, CI/deploy/live SHA, and separately authorized authenticated
-production smoke remain. See `HANDOFF.md` for evidence and exact state.
+with zero console/network failures. Step 21 commit/push, all three CI workflows,
+deployment, live SHA, and unauthenticated production smoke pass. Only the
+separately authorized authenticated production smoke remains. See `HANDOFF.md`
+for evidence and exact state.
 **Created:** 2026-07-26 (America/New_York)
 **Target application repo:** `/worksp/poppim-web`, GitHub `u2giants/poppim-web`, branch `main`
 **Canonical database repo:** `/worksp/shared-db`, GitHub `u2giants/shared-db`, dedicated branch + PR required
@@ -750,11 +751,11 @@ Verification gate: each numbered workflow has a pass record and screenshot where
 
 #### Step 21. Commit, push, CI, deploy, and verify
 
-**2026-07-27 status: IN PROGRESS.** Database-first prerequisites are complete:
-shared-db PR #271 merged, the exact authorized 18 migrations were applied and
-verified in production, consumer sync landed, production types were generated,
-and final local/Grok gates pass. Commit/push/deploy/live SHA and authenticated
-production smoke remain.
+**2026-07-27 status: COMPLETE EXCEPT AUTHENTICATED PRODUCTION ACCESS.**
+Database-first prerequisites, production types, local/Grok gates, app commit
+`35a9e7b`, all GitHub workflows, Coolify deploy, exact live SHA, and the
+unauthenticated login-page smoke pass. No approved PM production test login
+exists; do not create or borrow one without separate authorization.
 
 Actions:
 
