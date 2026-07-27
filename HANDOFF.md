@@ -2,6 +2,17 @@
 
 > **Current remediation plan (2026-07-26):** The whole-codebase audit found pipeline completeness/performance defects, saved-view persistence bugs, non-atomic mutations, misleading department reports, masked auth failures, incomplete secondary-screen queries, and engineering-health debt. The self-contained, Grok-critiqued implementation specification is [`plan_codebase_audit_remediation.md`](plan_codebase_audit_remediation.md). Read that plan before implementing any audit fix; it supersedes this older handoff's “Exact next steps” for codebase remediation while retaining the application history below.
 
+## 2026-07-26 codebase-audit planning closeout
+
+- The repository-wide review was planning/diagnostic work only; none of the identified application or shared-database fixes has been implemented.
+- The implementation plan was independently critiqued by xAI `grok-4.20-0309-reasoning`. Useful critique was integrated; unsafe `git reset --hard` and incorrect cross-repository merge advice were explicitly rejected and recorded in the plan.
+- Plan and initial handoff link were committed and pushed to app `main` as `4496dd47a6f89d99a6c6fa3c1bcac1e230fcf89c`.
+- GitHub checks `shared-db guard` and `Forbid Shared DB Bypass` passed for that commit.
+- The plan commit is Markdown-only, so `.github/workflows/deploy.yml` correctly did not run. At closeout, live `https://pm.designflow.app` reported build SHA `bce68c668f78766f9fb4848895e68afc275ace9a`; this is expected and is not a deployment gap.
+- `/worksp/poppim-web` was clean before this closeout-only handoff edit. Canonical `/worksp/shared-db` was safely fast-forwarded and left clean on `main` at `0a87c208f067bcc651f06b2eb05b3fad00a6f51b`. No database branch, migration, PR, preview apply, production apply, or new secret was created by this session.
+- **Exact next session action:** open [`plan_codebase_audit_remediation.md`](plan_codebase_audit_remediation.md), start at Phase 0 Step 1, re-check both repository states and in-flight shared-db work, then add the failing characterization tests before designing any database contract.
+- **Verification gate for the next session:** the new characterization tests must fail for the documented defects while the existing three `pmCustomerList` tests remain green; no shared-db migration should exist before that baseline is captured.
+
 ## 1. What this application is
 
 `poppim-web` is POP Creations' PIM/PM frontend: a React 19 + Vite + TypeScript single-page app served at `https://pm.designflow.app`. Internal staff use it as the replacement for the old ClickUp product/project board. It stores no data of its own; all reads/writes go through the shared Supabase backend project `qsllyeztdwjgirsysgai` at `https://qsllyeztdwjgirsysgai.supabase.co`.
