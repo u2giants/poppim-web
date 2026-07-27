@@ -1,0 +1,27 @@
+{
+  "startedAt": "2026-07-27T21:44:33.419Z",
+  "jwt": true,
+  "personal": {
+    "create": true,
+    "read": true,
+    "update": true,
+    "delete": true
+  },
+  "sharedAdmin": {
+    "create": true,
+    "update": true,
+    "delete": true
+  },
+  "foreignOwner": {
+    "insertDenied": 403,
+    "updateDeleteDenied": true
+  },
+  "preference": {
+    "create": true
+  },
+  "cleanup": {
+    "views": 0,
+    "prefs": 0
+  },
+  "finishedAt": "2026-07-27T21:44:35.012Z"
+}

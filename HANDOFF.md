@@ -12,10 +12,10 @@ workflows passed and production plus both aliases served that exact SHA.
 Albert then authorized a dedicated production tester and authenticated smoke.
 The final matrix exposed and fixed a Control Room concurrency timeout; build
 `552b170ca46e05f934aea9d6eb06e42eae07be8b` is live and the repeated matrix
-passes. One database correction remains production-pending: shared-db PR #273
-merged the owner-scoped saved-view CRUD grant/policy migration after preview
-proof, but it has not been applied to production because it requires a new
-exact approval.
+passes. Shared-db PR #273 then merged the owner-scoped saved-view CRUD
+grant/policy migration after preview proof; Albert explicitly approved that
+single migration, and it is now applied and genuine-JWT verified in production.
+The audit-remediation landing is complete.
 
 ## 2026-07-27 authenticated preview gate update
 
@@ -120,11 +120,20 @@ exact approval.
   `3f64638c5e14ee2e51f73892acce56f30af3cf97`. Grok review PASS, no
   Critical/High/Medium findings, session
   `019fa581-4042-7402-8f98-997b4380aeec`.
-- **Production gate:** migration `20260727213000` is not applied to
-  production. Obtain exact approval for this one migration, run bounded dry-run
-  and apply, verify grants/policies with the production JWT, then regenerate
-  production types only if the schema shape changed (this grants-only change
-  should not alter generated types).
+- Production promotion: Albert explicitly approved only migration
+  `20260727213000`. The ledger-aware bounded runner dry-run listed exactly that
+  file; the guard verified the output, and production apply succeeded without
+  `--include-all`.
+- Actual production objects: ledger 1/1; authenticated privileges exactly
+  `DELETE, INSERT, SELECT, UPDATE`; four `pm_saved_view_*` command-specific
+  policies; zero legacy generic `pm_read`/`pm_write` policies on this table.
+- Genuine production JWT proof: personal create/read/update/delete, admin
+  shared create/update/delete, preference upsert, foreign-owner insert HTTP
+  403, foreign-owner update/delete denied, and explicit cleanup
+  `views=0, prefs=0`. Evidence:
+  `.ai/evidence/phase5-production-saved-view-crud-20260727.json`.
+- The migration changes grants/policies only, not schema shape, so production
+  TypeScript type regeneration was not required.
 
 ## 1. What this application is
 
@@ -449,10 +458,8 @@ These failures and corrections are durable evidence in
 
 ## 9. Open questions and risks
 
-- Exact approval is required to promote only shared-db migration
-  `20260727213000_poppim_saved_view_crud_grants.sql`. Until then, production
-  create/rename/delete saved-view operations remain blocked by table grants;
-  reading shared/own views and preference RPC writes work.
+- Saved-view CRUD production correction is complete and verified. No open
+  approval remains from this remediation.
 - Licensor UUIDs are currently null for legacy products, so the new filter
   contract needs a separate data-reconciliation decision before it is useful
   for those records.

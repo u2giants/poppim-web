@@ -8,9 +8,10 @@ with zero console/network failures. Step 21 commit/push, all three CI workflows,
 deployment, live SHA, and authenticated production smoke pass after app commit
 `552b170` fixed a Control Room concurrency timeout exposed by the first matrix.
 The smoke also exposed missing `pim.saved_view` CRUD table grants. Shared-db PR
-#273 merged the owner-scoped correction after preview/JWT proof, but migration
-`20260727213000` still requires a new exact production approval. See
-`HANDOFF.md` for evidence and exact state.
+#273 merged the owner-scoped correction after preview/JWT proof; Albert
+explicitly approved the exact migration, and the bounded production apply plus
+genuine production-JWT owner/shared/denial/cleanup matrix pass. This plan is
+complete. See `HANDOFF.md` for evidence and exact state.
 **Created:** 2026-07-26 (America/New_York)
 **Target application repo:** `/worksp/poppim-web`, GitHub `u2giants/poppim-web`, branch `main`
 **Canonical database repo:** `/worksp/shared-db`, GitHub `u2giants/shared-db`, dedicated branch + PR required
@@ -754,12 +755,12 @@ Verification gate: each numbered workflow has a pass record and screenshot where
 
 #### Step 21. Commit, push, CI, deploy, and verify
 
-**2026-07-27 status: COMPLETE EXCEPT ONE NEW PRODUCTION MIGRATION APPROVAL.**
+**2026-07-27 status: COMPLETE.**
 Database-first prerequisites, production types, local/Grok gates, app release,
 all GitHub workflows, Coolify deploy, exact live SHA, and authenticated
 production smoke pass. The saved-view smoke found a real CRUD grant gap;
-shared-db PR #273 is merged and preview-verified, but migration
-`20260727213000` is not production-authorized or applied.
+shared-db PR #273 is merged; migration `20260727213000` is applied through an
+exact bounded production runner and verified with the dedicated production JWT.
 
 Actions:
 
