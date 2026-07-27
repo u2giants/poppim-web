@@ -1,5 +1,7 @@
 # Handoff — Poppim Shared-DB Gate + ClickUp Gap Review
 
+> **Current remediation plan (2026-07-26):** The whole-codebase audit found pipeline completeness/performance defects, saved-view persistence bugs, non-atomic mutations, misleading department reports, masked auth failures, incomplete secondary-screen queries, and engineering-health debt. The self-contained, Grok-critiqued implementation specification is [`plan_codebase_audit_remediation.md`](plan_codebase_audit_remediation.md). Read that plan before implementing any audit fix; it supersedes this older handoff's “Exact next steps” for codebase remediation while retaining the application history below.
+
 ## 1. What this application is
 
 `poppim-web` is POP Creations' PIM/PM frontend: a React 19 + Vite + TypeScript single-page app served at `https://pm.designflow.app`. Internal staff use it as the replacement for the old ClickUp product/project board. It stores no data of its own; all reads/writes go through the shared Supabase backend project `qsllyeztdwjgirsysgai` at `https://qsllyeztdwjgirsysgai.supabase.co`.
