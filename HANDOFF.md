@@ -8,10 +8,14 @@ applied and object-verified in preview and production. The shared-db consumer
 sync landed on app `main` as `954c4ef`, production types were regenerated, and
 all local gates plus final Grok review pass. App commit
 `35a9e7bd004db834299d27f18031eefa8950bec4` was pushed; all three GitHub
-workflows passed and production plus both aliases served that exact SHA. The
-only remaining gate is authenticated production smoke. No approved Poppim
-production tester exists in 1Password, so it needs separately authorized
-production access.
+workflows passed and production plus both aliases served that exact SHA.
+Albert then authorized a dedicated production tester and authenticated smoke.
+The final matrix exposed and fixed a Control Room concurrency timeout; build
+`552b170ca46e05f934aea9d6eb06e42eae07be8b` is live and the repeated matrix
+passes. One database correction remains production-pending: shared-db PR #273
+merged the owner-scoped saved-view CRUD grant/policy migration after preview
+proof, but it has not been applied to production because it requires a new
+exact approval.
 
 ## 2026-07-27 authenticated preview gate update
 
@@ -80,6 +84,47 @@ production access.
   `npm run types:production`.
 - Final Grok review passed with no Critical/High/Medium findings, session
   `019fa559-a224-7af2-a348-3e62b9252319`.
+
+### Authenticated production completion and saved-view follow-up
+
+- Dedicated production tester:
+  `Poppim production test login - Codex (pm.designflow.app)`, 1Password item
+  `5loykmzdtc6lqbyd6gknpimecq`. Auth user
+  `dd4539e7-a8a3-4de6-8b6b-875020c78c5e`, profile
+  `5758b63f-ba0b-4634-9149-37e26a12e2c1`; active PM-only access and
+  administrator role. Trigger-created CRM access is revoked. Retain this
+  account for future approved production smoke tests.
+- First production matrix exposed intermittent Licensed `pm_pipeline_page`
+  statement timeouts when Control Room launched three overlapping PIM reads
+  concurrently. Each call passed alone. App commit `552b170` serializes the
+  Control Room snapshot calls; targeted test, lint, build, CI, deploy, and live
+  SHA passed.
+- Fixed-build production matrix: 16 screens, 26 API checks, all three
+  departments, search/continuation contracts, Reports and Control Room
+  isolation, all secondary pages, zero console errors, zero failed responses.
+- Reversible production proof: an existing saved-view preference and one
+  own-profile PM notification were created, verified, and removed. Cleanup
+  queries returned zero rows. A real Licensed product opened and all five
+  product-detail work tabs passed at desktop and mobile sizes.
+- Only non-sensitive JSON evidence is committed:
+  `.ai/evidence/phase5-production-browser-matrix-20260727.json` and
+  `.ai/evidence/phase5-production-reversible-smoke-20260727.json`. Production
+  screenshots containing business data were deliberately removed.
+- Direct saved-view creation returned HTTP 403 because `authenticated` had only
+  `SELECT` on `pim.saved_view`. Shared-db migration
+  `20260727213000_poppim_saved_view_crud_grants.sql` grants CRUD and replaces
+  generic policies with owner/shared-scoped rules. Preview rollback SQL and a
+  genuine preview JWT create/read/update/delete/preference run pass with zero
+  fixtures left.
+- Shared-db PR #273 merged as
+  `3f64638c5e14ee2e51f73892acce56f30af3cf97`. Grok review PASS, no
+  Critical/High/Medium findings, session
+  `019fa581-4042-7402-8f98-997b4380aeec`.
+- **Production gate:** migration `20260727213000` is not applied to
+  production. Obtain exact approval for this one migration, run bounded dry-run
+  and apply, verify grants/policies with the production JWT, then regenerate
+  production types only if the schema shape changed (this grants-only change
+  should not alter generated types).
 
 ## 1. What this application is
 
@@ -390,6 +435,9 @@ These failures and corrections are durable evidence in
   `Supabase Preview Branch Credentials - shared POP database (shared-db-schema-rehearsal)`
 - Production DB password item:
   `Supabase DB Password - shared POP database`
+- Production PM tester item:
+  `Poppim production test login - Codex (pm.designflow.app)`, item
+  `5loykmzdtc6lqbyd6gknpimecq`
 - Supabase PAT item: `Supabase CLI Personal Access Token`
 - Secrets were injected at process runtime and never printed, written to repo
   files, or committed.
@@ -401,14 +449,15 @@ These failures and corrections are durable evidence in
 
 ## 9. Open questions and risks
 
-- No Poppim production test login exists in the approved vault. The final
-  authenticated production smoke needs explicit authorization to provision a
-  dedicated tester or use an approved existing PM account.
+- Exact approval is required to promote only shared-db migration
+  `20260727213000_poppim_saved_view_crud_grants.sql`. Until then, production
+  create/rename/delete saved-view operations remain blocked by table grants;
+  reading shared/own views and preference RPC writes work.
 - Licensor UUIDs are currently null for legacy products, so the new filter
   contract needs a separate data-reconciliation decision before it is useful
   for those records.
-- Preview's sparse secondary-domain data limits browser realism; authenticated
-  behavior and production smoke remain required.
+- Preview's sparse secondary-domain data limits browser realism, but the
+  authenticated production matrix now passes.
 - Five dev-tool advisories remain. Owner: next dependency-maintenance session.
   Review date: 2026-08-27 or sooner if shadcn publishes compatible patched
   transitive versions. Runtime exposure is currently zero.

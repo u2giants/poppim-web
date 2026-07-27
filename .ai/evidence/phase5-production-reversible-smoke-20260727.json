@@ -1,0 +1,27 @@
+{
+  "startedAt": "2026-07-27T21:32:02.256Z",
+  "mutations": {
+    "savedViewPreference": {
+      "scope": "view:595f822e-b025-4165-9887-efc053ccbbba",
+      "created": true
+    },
+    "notification": {
+      "id": "6e6e14c0-68ff-4d4d-b1db-0129030f21b6",
+      "created": true
+    }
+  },
+  "tabs": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "consoleErrors": [],
+  "failedResponses": [],
+  "cleanup": {
+    "notificationRows": 0,
+    "preferenceRows": 0
+  },
+  "finishedAt": "2026-07-27T21:32:30.357Z"
+}

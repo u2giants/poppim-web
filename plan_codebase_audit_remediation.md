@@ -5,9 +5,12 @@ migrations pass rehearsal preview and are applied/object-verified in
 production; shared-db PR #271 merged and consumer sync completed. Step 19 gates
 pass. Step 20 authenticated preview passed across 16 screens and 26 API checks
 with zero console/network failures. Step 21 commit/push, all three CI workflows,
-deployment, live SHA, and unauthenticated production smoke pass. Only the
-separately authorized authenticated production smoke remains. See `HANDOFF.md`
-for evidence and exact state.
+deployment, live SHA, and authenticated production smoke pass after app commit
+`552b170` fixed a Control Room concurrency timeout exposed by the first matrix.
+The smoke also exposed missing `pim.saved_view` CRUD table grants. Shared-db PR
+#273 merged the owner-scoped correction after preview/JWT proof, but migration
+`20260727213000` still requires a new exact production approval. See
+`HANDOFF.md` for evidence and exact state.
 **Created:** 2026-07-26 (America/New_York)
 **Target application repo:** `/worksp/poppim-web`, GitHub `u2giants/poppim-web`, branch `main`
 **Canonical database repo:** `/worksp/shared-db`, GitHub `u2giants/shared-db`, dedicated branch + PR required
@@ -751,11 +754,12 @@ Verification gate: each numbered workflow has a pass record and screenshot where
 
 #### Step 21. Commit, push, CI, deploy, and verify
 
-**2026-07-27 status: COMPLETE EXCEPT AUTHENTICATED PRODUCTION ACCESS.**
-Database-first prerequisites, production types, local/Grok gates, app commit
-`35a9e7b`, all GitHub workflows, Coolify deploy, exact live SHA, and the
-unauthenticated login-page smoke pass. No approved PM production test login
-exists; do not create or borrow one without separate authorization.
+**2026-07-27 status: COMPLETE EXCEPT ONE NEW PRODUCTION MIGRATION APPROVAL.**
+Database-first prerequisites, production types, local/Grok gates, app release,
+all GitHub workflows, Coolify deploy, exact live SHA, and authenticated
+production smoke pass. The saved-view smoke found a real CRUD grant gap;
+shared-db PR #273 is merged and preview-verified, but migration
+`20260727213000` is not production-authorized or applied.
 
 Actions:
 

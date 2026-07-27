@@ -1,0 +1,152 @@
+{
+  "startedAt": "2026-07-27T21:26:41.675Z",
+  "pages": [
+    "Product pipeline",
+    "Projects / offers",
+    "Design library",
+    "Design collections",
+    "Submissions",
+    "Samples / factory",
+    "Reviews / revisions",
+    "Orders",
+    "Accounts",
+    "Reports",
+    "My work",
+    "Schedule",
+    "Notes",
+    "People",
+    "Control room",
+    "Reports"
+  ],
+  "api": [
+    {
+      "name": "pm_pipeline_page",
+      "status": 200,
+      "rows": 51
+    },
+    {
+      "name": "pm_pipeline_count",
+      "status": 200,
+      "rows": 1
+    },
+    {
+      "name": "pm_pipeline_list_facets",
+      "status": 200,
+      "rows": 9
+    },
+    {
+      "name": "pipeline_Licensed",
+      "rows": 51
+    },
+    {
+      "name": "pm_pipeline_page",
+      "status": 200,
+      "rows": 51
+    },
+    {
+      "name": "pm_pipeline_count",
+      "status": 200,
+      "rows": 1
+    },
+    {
+      "name": "pm_pipeline_list_facets",
+      "status": 200,
+      "rows": 6
+    },
+    {
+      "name": "pipeline_Generic",
+      "rows": 51
+    },
+    {
+      "name": "pm_pipeline_page",
+      "status": 200,
+      "rows": 51
+    },
+    {
+      "name": "pm_pipeline_count",
+      "status": 200,
+      "rows": 1
+    },
+    {
+      "name": "pm_pipeline_list_facets",
+      "status": 200,
+      "rows": 2
+    },
+    {
+      "name": "pipeline_Software",
+      "rows": 51
+    },
+    {
+      "name": "pipeline_invalid_department_rejected",
+      "status": 400
+    },
+    {
+      "name": "pm_department_report",
+      "status": 200,
+      "rows": 1
+    },
+    {
+      "name": "pm_department_handoffs",
+      "status": 200,
+      "rows": 0
+    },
+    {
+      "name": "pm_project_page",
+      "status": 200,
+      "rows": 51
+    },
+    {
+      "name": "pm_people_workload_page",
+      "status": 200,
+      "rows": 26
+    },
+    {
+      "name": "pm_notes_page",
+      "status": 200,
+      "rows": 0
+    },
+    {
+      "name": "pm_schedule_page",
+      "status": 200,
+      "rows": 0
+    },
+    {
+      "name": "pm_account_page",
+      "status": 200,
+      "rows": 7
+    },
+    {
+      "name": "pm_design_page",
+      "status": 200,
+      "rows": 0
+    },
+    {
+      "name": "pm_design_collection_page",
+      "status": 200,
+      "rows": 0
+    },
+    {
+      "name": "pm_order_page",
+      "status": 200,
+      "rows": 0
+    },
+    {
+      "name": "pm_my_work_page",
+      "status": 200,
+      "rows": 0
+    },
+    {
+      "name": "pm_my_revision_page",
+      "status": 200,
+      "rows": 0
+    },
+    {
+      "name": "pm_my_reminder_page",
+      "status": 200,
+      "rows": 0
+    }
+  ],
+  "consoleErrors": [],
+  "failedResponses": [],
+  "finishedAt": "2026-07-27T21:27:33.559Z"
+}
