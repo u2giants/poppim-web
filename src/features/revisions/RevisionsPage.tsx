@@ -1,9 +1,10 @@
+import { pageLoadFailure } from '@/lib/uiError'
 import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, FilePenLine, Paperclip, UserRoundCheck } from 'lucide-react'
 import { productToSummary } from '@/domain/products/adapters'
 import { useAppState } from '@/lib/appState'
 import type { AppUser, Product, RevisionRequest } from '@/lib/types'
-import { fetchRevisions, updateRevisionStatus } from '@/features/workflow/api'
+import { fetchRevisionsPage, updateRevisionStatus } from '@/features/workflow/api'
 
 function titleCase(value: string | null | undefined) {
   return (value ?? 'unknown').replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())
@@ -47,11 +48,12 @@ export function RevisionsPage() {
   const { businessUnit, searchQuery } = useAppState()
   const [rows, setRows] = useState<RevisionRequest[]>([])
   const [loading, setLoading] = useState(true)
+  const [nextCursor,setNextCursor]=useState<string|null>(null)
 
   useEffect(() => {
     let active = true
-    fetchRevisions({ businessUnit, search: searchQuery })
-      .then((next) => { if (active) setRows(next) })
+    fetchRevisionsPage({ businessUnit, search: searchQuery })
+      .then((next) => { if (active) {setRows(next.rows);setNextCursor(next.nextCursor)} })
       .catch((error) => {
         console.error(error)
         if (active) setRows([])
@@ -101,6 +103,7 @@ export function RevisionsPage() {
             ))}
           </div>
         )}
+        {nextCursor&&<button type="button" className="rounded-lg border px-4 py-2 text-sm font-semibold" onClick={()=>{const cursor=nextCursor;setNextCursor(null);fetchRevisionsPage({businessUnit,search:searchQuery,cursor}).then((page)=>{setRows((current)=>[...current,...page.rows]);setNextCursor(page.nextCursor)}).catch(pageLoadFailure('pagination.loadMore', 'More records', cursor, setNextCursor))}}>Load more revisions</button>}
       </div>
     </div>
   )

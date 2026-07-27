@@ -1,6 +1,12 @@
 # Poppim Codebase Audit Remediation — Implementation Plan
 
-**Plan status:** Ready for implementation. Independent Grok critique has been evaluated and integrated; see the critique record near the end.
+**Plan status (2026-07-27):** Phases 0–5 are implemented. All 18 additive PM
+migrations pass rehearsal preview and are applied/object-verified in
+production; shared-db PR #271 merged and consumer sync completed. Step 19 gates
+pass. Step 20 authenticated preview passed across 16 screens and 26 API checks
+with zero console/network failures. Step 21 release is in progress; only
+commit/push, CI/deploy/live SHA, and separately authorized authenticated
+production smoke remain. See `HANDOFF.md` for evidence and exact state.
 **Created:** 2026-07-26 (America/New_York)
 **Target application repo:** `/worksp/poppim-web`, GitHub `u2giants/poppim-web`, branch `main`
 **Canonical database repo:** `/worksp/shared-db`, GitHub `u2giants/shared-db`, dedicated branch + PR required
@@ -692,6 +698,13 @@ Verification gate: clean `npm ci`; zero known high/critical advisories in shippe
 
 #### Step 19. Run full automated and database verification
 
+**2026-07-27 status: COMPLETE for the currently authorized local/preview
+scope.** Clean install, 38 tests, zero-warning lint, build/bundle, full/runtime
+audits, diff/pattern review, SQL checks, duplicate timestamps, bounded preview
+dry-run, rollback contract verification, object/grant/ledger checks, and
+representative EXPLAIN probes all passed. Exact metrics and the dev-only audit
+disposition are recorded in `HANDOFF.md`.
+
 Commands/checks:
 
 - `npm ci`
@@ -709,6 +722,12 @@ Commands/checks:
 Verification gate: every required command passes; advisory exceptions, if any, are documented with exploitability and owner/date rather than ignored.
 
 #### Step 20. Perform authenticated visual and functional verification
+
+**2026-07-27 status: COMPLETE FOR PREVIEW.** A dedicated Poppim preview account
+was provisioned through the canonical Auth path and stored in 1Password. The
+final matrix covered 16 screens and 26 API checks with zero console errors and
+zero failed responses; desktop/mobile evidence is in `.ai/evidence/`.
+Authenticated production repetition remains a Step 21 release gate.
 
 Use an approved Poppim test login from the `vibe_coding` 1Password vault. If no Poppim-specific non-SSO test account exists, request/create access through the approved auth process rather than borrowing another app's credentials or exposing secrets.
 
@@ -730,6 +749,12 @@ Capture screenshots and store only non-sensitive evidence in the repo's establis
 Verification gate: each numbered workflow has a pass record and screenshot where visual; no unexplained console/network error remains.
 
 #### Step 21. Commit, push, CI, deploy, and verify
+
+**2026-07-27 status: IN PROGRESS.** Database-first prerequisites are complete:
+shared-db PR #271 merged, the exact authorized 18 migrations were applied and
+verified in production, consumer sync landed, production types were generated,
+and final local/Grok gates pass. Commit/push/deploy/live SHA and authenticated
+production smoke remain.
 
 Actions:
 

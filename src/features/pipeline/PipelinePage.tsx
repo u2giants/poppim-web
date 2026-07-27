@@ -12,19 +12,20 @@ import {
 } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { ChevronRight } from 'lucide-react'
+import { toast } from 'sonner'
+import { reportOptionalDataError } from '@/lib/uiError'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useAppState } from '@/lib/appState'
 import { CATEGORY_COLORS, CATEGORY_ICONS, LICENSOR_META, STAGE_COLORS } from '@/domain/products/presentation'
 import { PimTaskCard } from '@/components/PimTaskCard'
 import { TaskDetailModal } from '@/components/TaskDetailModal'
 import { updateProduct } from '@/features/board/collab'
-import { fetchStages, fetchPipelineProducts, setProductStage, countPipelineProducts } from './api'
+import { fetchStages, fetchPipelinePage, fetchPipelineProductById, setProductStage, countPipelineProducts } from './api'
 import { orderedStageNames, productToSummary } from '@/domain/products/adapters'
 import { hydrateProductSummaryRollups } from '@/domain/products/rollups'
 import { stageColor } from '@/domain/products/presentation'
 import type { ProductSummary } from '@/domain/products/types'
 import type { Stage } from '@/lib/types'
-import type { FetchProductsOpts } from './api'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -63,7 +64,8 @@ export function PipelinePage() {
   const { pipelineView, searchQuery, filterLicensorIds, filterListNames, businessUnit } = useAppState()
   const [tasks, setTasks] = useState<ProductSummary[]>([])
   const [stages, setStages] = useState<Stage[]>([])
-  const [totalCount, setTotalCount] = useState(0)
+  const [totalCount, setTotalCount] = useState<number | null>(null)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetching, setFetching] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -93,7 +95,7 @@ export function PipelinePage() {
       .then((stages) => {
         setStages(stages as Stage[])
       })
-      .catch(console.error)
+      .catch((error) => reportOptionalDataError('pipeline.loadStages', 'Pipeline stages', error))
   }, [])
 
   // Products reload whenever debounced search or licensor filter changes.
@@ -102,35 +104,43 @@ export function PipelinePage() {
       ? new URLSearchParams(window.location.search).get('item')
       : null
 
-    const opts: FetchProductsOpts = {
+    const opts = {
       search: debouncedSearch.trim() || undefined,
       licensorIds: filterLicensorIds.size > 0 ? [...filterLicensorIds] : undefined,
       listNames: filterListNames.size > 0 ? [...filterListNames] : undefined,
       businessUnit,
-      limit: 5000,
+      limit: 100,
     }
 
     const v = ++fetchVersion.current
-    if (!isFirstProducts.current) setFetching(true)
+    queueMicrotask(() => {
+      if (v !== fetchVersion.current) return
+      setTotalCount(null)
+      setNextCursor(null)
+      if (!isFirstProducts.current) setFetching(true)
+    })
 
-    Promise.all([fetchPipelineProducts(opts), countPipelineProducts(opts)])
-      .then(async ([products, total]) => {
+    fetchPipelinePage(opts)
+      .then(async ({ products, nextCursor: cursor }) => {
         if (v !== fetchVersion.current) return
         const mapped = await hydrateProductSummaryRollups(products.map(productToSummary))
         if (v !== fetchVersion.current) return
         setLoadError(null)
         setTasks(mapped)
-        setTotalCount(total)
+        setNextCursor(cursor)
         if (pendingId) {
-          const match = mapped.find((t) => t.id === pendingId)
-          if (match) setActiveTask(match)
+          const loaded = mapped.find((t) => t.id === pendingId)
+          const fetched = loaded ? null : await fetchPipelineProductById(pendingId)
+          const deepLinked = loaded ?? (fetched ? productToSummary(fetched) : null)
+          if (v === fetchVersion.current && deepLinked) setActiveTask(deepLinked)
         }
       })
       .catch((error) => {
         console.error(error)
         if (v !== fetchVersion.current) return
         setTasks([])
-        setTotalCount(0)
+        setTotalCount(null)
+        setNextCursor(null)
         setLoadError(error instanceof Error ? error.message : 'Unable to load the product pipeline.')
       })
       .finally(() => {
@@ -139,7 +149,42 @@ export function PipelinePage() {
         setFetching(false)
         isFirstProducts.current = false
       })
+    countPipelineProducts(opts)
+      .then((total) => { if (v === fetchVersion.current) setTotalCount(total) })
+      .catch((error) => {
+        if (v === fetchVersion.current) {
+          setTotalCount(null)
+          console.warn('Pipeline count unavailable', error)
+        }
+      })
   }, [debouncedSearch, filterLicensorIds, filterListNames, businessUnit])
+
+  async function loadMore() {
+    if (!nextCursor || fetching) return
+    const v = fetchVersion.current
+    setFetching(true)
+    try {
+      const page = await fetchPipelinePage({
+        search: debouncedSearch.trim() || undefined,
+        licensorIds: filterLicensorIds.size > 0 ? [...filterLicensorIds] : undefined,
+        listNames: filterListNames.size > 0 ? [...filterListNames] : undefined,
+        businessUnit,
+        limit: 100,
+      }, nextCursor)
+      const mapped = await hydrateProductSummaryRollups(page.products.map(productToSummary))
+      if (v !== fetchVersion.current) return
+      setTasks((current) => {
+        const merged = new Map(current.map((task) => [task.id, task]))
+        mapped.forEach((task) => merged.set(task.id, task))
+        return [...merged.values()]
+      })
+      setNextCursor(page.nextCursor)
+    } catch (error) {
+      if (v === fetchVersion.current) toast.error(error instanceof Error ? error.message : 'Could not load more products.')
+    } finally {
+      if (v === fetchVersion.current) setFetching(false)
+    }
+  }
 
   function openTask(t: ProductSummary) {
     setActiveTask(t)
@@ -183,7 +228,7 @@ export function PipelinePage() {
   }
 
   const shown = tasks.length
-  const truncated = totalCount > shown
+  const truncated = nextCursor !== null
 
   return (
     <div className="relative h-full">
@@ -192,7 +237,7 @@ export function PipelinePage() {
           tasks={tasks}
           stageNames={stageNames}
           shown={shown}
-          total={totalCount}
+          total={totalCount ?? shown}
           fetching={fetching}
           onOpen={openTask}
           onMove={(taskId, toStageName) => {
@@ -200,8 +245,9 @@ export function PipelinePage() {
             setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, stageName: toStageName } : t)))
             const toStageId = stageIdMap.get(toStageName)
             if (toStageId) {
-              setProductStage(taskId, toStageId).catch(() => {
+              setProductStage(taskId, toStageId).catch((error) => {
                 setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, stageName: prevStage } : t)))
+                toast.error(error instanceof Error ? error.message : 'Stage change failed. The card was restored.')
               })
             }
           }}
@@ -211,24 +257,20 @@ export function PipelinePage() {
           tasks={tasks}
           stageNames={stageNames}
           shown={shown}
-          total={totalCount}
+          total={totalCount ?? shown}
           fetching={fetching}
           onOpen={openTask}
           onBulkPatch={async (ids, patch) => {
             const before = tasks
             setTasks((prev) => prev.map((task) => (ids.includes(task.id) ? productToSummary({ ...task.raw, ...patch } as never) : task)))
             try {
-              await Promise.all(ids.map((id) => updateProduct(id, patch)))
-              const opts: FetchProductsOpts = {
-                search: debouncedSearch.trim() || undefined,
-                licensorIds: filterLicensorIds.size > 0 ? [...filterLicensorIds] : undefined,
-                listNames: filterListNames.size > 0 ? [...filterListNames] : undefined,
-                businessUnit,
-                limit: 5000,
+              const results = await Promise.allSettled(ids.map((id) => updateProduct(id, patch)))
+              const failed = results.flatMap((result, index) => result.status === 'rejected' ? [ids[index]] : [])
+              if (failed.length) {
+                setTasks(before)
+                toast.error(`${failed.length} of ${ids.length} products failed to update: ${failed.join(', ')}`)
+                throw new Error('Some products failed to update')
               }
-              const products = await fetchPipelineProducts(opts)
-              const mapped = await hydrateProductSummaryRollups(products.map(productToSummary))
-              setTasks(mapped)
             } catch (error) {
               console.error(error)
               setTasks(before)
@@ -242,8 +284,18 @@ export function PipelinePage() {
           className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full px-4 py-1.5 text-[12px] font-medium shadow-md"
           style={{ background: '#1B2840', color: '#fff', zIndex: 10 }}
         >
-          Showing first {shown.toLocaleString()} of {totalCount.toLocaleString()} — search or filter to narrow
+          <button onClick={() => void loadMore()}>
+            Showing {shown.toLocaleString()}{totalCount == null ? '' : ` of ${totalCount.toLocaleString()}`} — load more
+          </button>
         </div>
+      )}
+      {pipelineView === 'table' && nextCursor && !fetching && (
+        <button
+          className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-[#1B2840] px-4 py-1.5 text-[12px] font-medium text-white shadow-md"
+          onClick={() => void loadMore()}
+        >
+          Load more products
+        </button>
       )}
       <TaskDetailModal task={activeTask} onClose={closeTask} />
     </div>

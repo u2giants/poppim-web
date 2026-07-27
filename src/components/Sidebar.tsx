@@ -5,6 +5,8 @@ import popLogo from '@/assets/pop-logo.png'
 import { useAuth } from '@/auth/auth'
 import { fetchViews, fetchViewPrefs, upsertViewPref, deleteView } from '@/features/views/api'
 import type { PmSavedView, PmViewPref, ViewFilters } from '@/lib/types'
+import { toast } from 'sonner'
+import { reportOptionalDataError, reportUiError } from '@/lib/uiError'
 
 const NAV_ITEMS: { screen: Screen; icon: typeof CheckSquare; label: string }[] = [
   { screen: 'home', icon: Gauge, label: 'Control room' },
@@ -117,7 +119,7 @@ function ViewsTree() {
 
   useEffect(() => {
     if (!userId) return
-    fetchViews(userId).then(setViews).catch(() => setViews([]))
+    fetchViews(userId).then(setViews).catch((error) => reportOptionalDataError('sidebar.loadViews', 'Saved views', error))
     fetchViewPrefs(userId).then((rows) => {
       const m = new Map<string, PmViewPref>()
       for (const p of rows) {
@@ -125,7 +127,7 @@ function ViewsTree() {
         if (vid) m.set(vid, p)
       }
       setPrefs(m)
-    }).catch(() => setPrefs(new Map()))
+    }).catch((error) => reportOptionalDataError('sidebar.loadViewPreferences', 'Saved-view preferences', error))
   }, [userId, app.viewsRefreshKey])
 
   useEffect(() => {
@@ -177,18 +179,36 @@ function ViewsTree() {
 
   async function recolor(viewId: string, color: string | null) {
     setMenu(null)
+    const previous = prefs.get(viewId)?.color ?? null
     patchPref(viewId, { color })
-    try { await upsertViewPref(userId, viewId, { color }) } catch { /* best-effort */ }
+    try {
+      await upsertViewPref(userId, viewId, { color })
+    } catch (error) {
+      patchPref(viewId, { color: previous })
+      reportUiError('sidebar.recolorView', 'The view color could not be saved. Your previous color was restored.', error)
+    }
   }
 
   async function removeView(v: PmSavedView, owned: boolean) {
     setMenu(null)
     if (owned) {
+      const previous = views
       setViews((vs) => vs.filter((x) => x.id !== v.id))
-      try { await deleteView(v.id) } catch { /* keep optimistic */ }
+      try {
+        await deleteView(v.id)
+      } catch (error) {
+        setViews(previous)
+        reportUiError('sidebar.deleteView', 'The view could not be deleted. It was restored.', error)
+      }
     } else {
+      const previous = prefs.get(v.id)?.hidden ?? false
       patchPref(v.id, { hidden: true })
-      try { await upsertViewPref(userId, v.id, { hidden: true }) } catch { /* */ }
+      try {
+        await upsertViewPref(userId, v.id, { hidden: true })
+      } catch (error) {
+        patchPref(v.id, { hidden: previous })
+        reportUiError('sidebar.hideView', 'The shared view could not be hidden. It was restored.', error)
+      }
     }
   }
 
@@ -203,9 +223,20 @@ function ViewsTree() {
     const reordered = [...ordered]
     const [moved] = reordered.splice(from, 1)
     reordered.splice(to, 0, moved)
+    const previousOrders = new Map(reordered.map((view) => [view.id, prefs.get(view.id)?.sort_order ?? null]))
     reordered.forEach((v, i) => patchPref(v.id, { sort_order: i }))
+    const failed: string[] = []
     for (let i = 0; i < reordered.length; i++) {
-      try { await upsertViewPref(userId, reordered[i].id, { sort_order: i }) } catch { /* */ }
+      try {
+        await upsertViewPref(userId, reordered[i].id, { sort_order: i })
+      } catch (error) {
+        failed.push(reordered[i].id)
+        console.error({ operation: 'sidebar.reorderView', message: error instanceof Error ? error.message : 'Save failed' })
+      }
+    }
+    if (failed.length) {
+      reordered.forEach((view) => patchPref(view.id, { sort_order: previousOrders.get(view.id) ?? null }))
+      toast.error(`The view order could not be saved for ${failed.length} item${failed.length === 1 ? '' : 's'}. The previous order was restored.`)
     }
   }
 

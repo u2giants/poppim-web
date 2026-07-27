@@ -1,34 +1,35 @@
-import { appSchema, pim, unwrap } from '@/lib/supabaseQuery'
+import { api, asDynamic } from '@/lib/supabaseQuery'
+import { unwrap } from '@/lib/supabaseQuery'
 import type { PmReminder, Product, RevisionRequest } from '@/lib/types'
 import { enrichProductRowsWithBoardFields } from '@/domain/products/enrich'
-import { supabaseProductToProduct } from '@/domain/products/supabaseAdapter'
-import { fetchAssignedRevisions, fetchLifecycleOwnedProducts } from '@/features/workflow/api'
+import { supabaseProductToProduct, type SupabaseProductRow } from '@/domain/products/supabaseAdapter'
+import type { BusinessUnit } from '@/domain/products/types'
 
-export async function fetchAssignedProductIds(userId: string): Promise<string[]> {
-  const { data, error } = await pim().from('product_assignee').select('product_id').eq('profile_id', userId)
-  return unwrap<Array<{ product_id: string | null }>>({ data, error }).map((row) => row.product_id).filter((id): id is string => Boolean(id))
+export async function fetchMyWorkPage(userId:string,roleId:string|null,businessUnit:BusinessUnit,cursor?:string|null):Promise<{products:Product[];nextCursor:string|null}> {
+  void userId // the RPC derives the signed-in profile; never accepts another user's id
+  const after=cursor?JSON.parse(atob(cursor)) as {updatedAt:string;id:string}:null
+  const { data, error } = await asDynamic(api()).rpc('pm_my_work_page', {
+    p_business_unit: businessUnit,
+    p_role_id: roleId,
+    p_after_updated_at: after?.updatedAt??null,
+    p_after_id: after?.id??null,
+    p_limit: 101,
+  })
+  const raw=unwrap<SupabaseProductRow[]>({data,error}),visible=raw.slice(0,100)
+  const rows=await enrichProductRowsWithBoardFields(visible)
+  const last=visible.at(-1)
+  return {products:rows.map((row)=>supabaseProductToProduct(row)),nextCursor:raw.length>100&&last?btoa(JSON.stringify({updatedAt:last.updated_at,id:last.id})):null}
+}
+export async function fetchMyWorkProducts(userId:string,roleId:string|null,businessUnit:BusinessUnit):Promise<Product[]>{return(await fetchMyWorkPage(userId,roleId,businessUnit)).products}
+
+export async function fetchMyRevisionWork(userId: string,businessUnit:BusinessUnit): Promise<RevisionRequest[]> {
+  void userId
+  const {data,error}=await asDynamic(api()).rpc('pm_my_revision_page',{p_business_unit:businessUnit,p_limit:100})
+  return unwrap<RevisionRequest[]>({data,error})
 }
 
-export async function fetchAssignedProducts(userId: string): Promise<Product[]> {
-  const ids = await fetchAssignedProductIds(userId)
-  if (ids.length === 0) return []
-  const { data, error } = await pim().from('product').select('*').in('id', ids)
-  const rows = await enrichProductRowsWithBoardFields(unwrap<any[]>({ data, error }))
-  return rows.map((row) => supabaseProductToProduct(row))
-}
-
-export async function fetchMyWorkProducts(userId: string, roleId: string | null): Promise<Product[]> {
-  const [assigned, lifecycleOwned] = await Promise.all([fetchAssignedProducts(userId), fetchLifecycleOwnedProducts(userId, roleId)])
-  const map = new Map<string, Product>()
-  for (const product of [...assigned, ...lifecycleOwned]) map.set(product.id, product)
-  return [...map.values()]
-}
-
-export async function fetchMyRevisionWork(userId: string): Promise<RevisionRequest[]> {
-  return fetchAssignedRevisions(userId)
-}
-
-export async function fetchMyReminders(userId: string): Promise<PmReminder[]> {
-  const { data, error } = await (appSchema() as any).from('notification').select('*').eq('profile_id', userId).is('read_at', null).order('created_at')
-  return unwrap<any[]>({ data, error }).map((row) => ({ id: row.id, product: row.target_id, project: null, object_collection: row.target_table, object_id: row.target_id, title: row.title, due_at: row.payload?.due_at ?? null, assigned_to: row.profile_id, status: row.payload?.status ?? 'open', reminder_type: row.payload?.reminder_type ?? null, snoozed_until: row.payload?.snoozed_until ?? null, completed_at: row.read_at, notes: row.body }))
+export async function fetchMyReminders(userId: string,businessUnit:BusinessUnit): Promise<PmReminder[]> {
+  void userId
+  const {data,error}=await asDynamic(api()).rpc('pm_my_reminder_page',{p_business_unit:businessUnit,p_limit:100})
+  return unwrap<PmReminder[]>({ data, error })
 }

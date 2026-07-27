@@ -1,233 +1,440 @@
-# Handoff — Poppim Shared-DB Gate + ClickUp Gap Review
+# Handoff — Poppim codebase audit remediation landing gate
 
-> **Current remediation plan (2026-07-26):** The whole-codebase audit found pipeline completeness/performance defects, saved-view persistence bugs, non-atomic mutations, misleading department reports, masked auth failures, incomplete secondary-screen queries, and engineering-health debt. The self-contained, Grok-critiqued implementation specification is [`plan_codebase_audit_remediation.md`](plan_codebase_audit_remediation.md). Read that plan before implementing any audit fix; it supersedes this older handoff's “Exact next steps” for codebase remediation while retaining the application history below.
+Date: 2026-07-27 (America/New_York)
 
-## 2026-07-26 codebase-audit planning closeout
+Status: Phases 0–5 are implemented and verified. Shared-db PR #271 merged as
+`db5bcea830297c5677f13bad82cdca57b5f8859c`; all 18 approved PM migrations are
+applied and object-verified in preview and production. The shared-db consumer
+sync landed on app `main` as `954c4ef`, production types were regenerated, and
+all local gates plus final Grok review pass. Remaining: app commit/push, green
+CI/deploy/live-SHA verification, and authenticated production smoke. No
+approved Poppim production tester exists in 1Password, so the last smoke needs
+separately authorized production access.
 
-- The repository-wide review was planning/diagnostic work only; none of the identified application or shared-database fixes has been implemented.
-- The implementation plan was independently critiqued by xAI `grok-4.20-0309-reasoning`. Useful critique was integrated; unsafe `git reset --hard` and incorrect cross-repository merge advice were explicitly rejected and recorded in the plan.
-- Plan and initial handoff link were committed and pushed to app `main` as `4496dd47a6f89d99a6c6fa3c1bcac1e230fcf89c`.
-- GitHub checks `shared-db guard` and `Forbid Shared DB Bypass` passed for that commit.
-- The plan commit is Markdown-only, so `.github/workflows/deploy.yml` correctly did not run. At closeout, live `https://pm.designflow.app` reported build SHA `bce68c668f78766f9fb4848895e68afc275ace9a`; this is expected and is not a deployment gap.
-- `/worksp/poppim-web` was clean before this closeout-only handoff edit. Canonical `/worksp/shared-db` was safely fast-forwarded and left clean on `main` at `0a87c208f067bcc651f06b2eb05b3fad00a6f51b`. No database branch, migration, PR, preview apply, production apply, or new secret was created by this session.
-- **Exact next session action:** open [`plan_codebase_audit_remediation.md`](plan_codebase_audit_remediation.md), start at Phase 0 Step 1, re-check both repository states and in-flight shared-db work, then add the failing characterization tests before designing any database contract.
-- **Verification gate for the next session:** the new characterization tests must fail for the documented defects while the existing three `pmCustomerList` tests remain green; no shared-db migration should exist before that baseline is captured.
+## 2026-07-27 authenticated preview gate update
+
+- Dedicated preview Auth user: created through the canonical invitation +
+  Supabase Auth trigger path; active canonical PM access and administrator role.
+- Credential: 1Password `vibe_coding` item
+  `Poppim preview test login - Codex (shared-db-schema-rehearsal)`, item ID
+  `lf7ope4i5lxggzmjzo3b6oxmli`. Never use it against production.
+- Passed before the blocker: email/password browser login; Licensed, Generic,
+  and Software pipeline page/count/facet RPCs; invalid `All` department
+  rejection; 15-screen navigation; preview Control Room/Pipeline/Reports
+  desktop captures and Reports mobile capture.
+- Blocker: authenticated `api.pm_department_report('Licensed')` returned
+  `42501 permission denied for table activity`. Real browser invoker execution
+  needs table grants in addition to function execute privilege and RLS.
+- Correction:
+  `/tmp/poppim-shared-landing/supabase/migrations/20260727200500_poppim_authenticated_app_record_grants.sql`.
+  It grants only the `app.activity`, `app.comment`, and `app.notification`
+  privileges already required by the new invoker functions and existing
+  Poppim collaboration/operating writes, plus an own/admin notification insert
+  policy.
+- Proof without persistent mutation: a single rollback transaction temporarily
+  applied the correction and successfully called all 13 secondary RPC groups
+  as the dedicated authenticated user. It ended with `ROLLBACK`.
+- Shared-db commit:
+  `3dbc7d1ee3fde2bd8b2fa33c01a812b06950d25f`, pushed to
+  `origin/codex/poppim-audit-remediation`; no PR opened.
+- Collision discovered: preview ledger versions `20260727190000` and
+  `20260727191000` belong to unmerged
+  `origin/codex/dam-customer-forward-20260727` and are absent from current
+  shared-db `main`. No repair, pull, `--include-all`, preview PM apply, PR,
+  merge, or production mutation was performed.
+- Exact resume order: serialize the DAM branch; approve the eighteenth Poppim
+  correction; bounded preview apply; rerun the complete browser matrix; then
+  resume PR/merge and bounded production landing.
+
+### Subsequent completion and production landing
+
+- DAM PR #269 and evidence PR #270 are merged; required Grok review passed with
+  no Critical/High/Medium findings. Both DAM versions are in production and
+  actual resolver/facet functions, trigger state, Rooms-to-Go links, and
+  multi-customer null behavior were verified.
+- PM migration `20260727200500` was the only file in the bounded preview dry
+  run and was applied successfully.
+- Final authenticated preview result: 16 screens, 26 API checks, zero console
+  errors, zero failed network responses. The browser exposed and verified a
+  narrow frontend fix: role slugs such as `administrator` are no longer sent to
+  the UUID-only My Work role parameter.
+- PM PR #271 merged as
+  `db5bcea830297c5677f13bad82cdca57b5f8859c`; its validate check passed.
+- Final PM Grok review passed with no Critical/High/Medium findings (session
+  `019fa550-1b0e-70f0-bcec-260de4b2b94f`).
+- The production migration guard built `/tmp/poppim-production-runner-18` from
+  exact merged `main`, the complete production ledger, and the exact approved
+  18-version allowlist. No unrelated pending migration remains in that runner.
+  Albert explicitly authorized the narrow `--include-all` exception for that
+  exact runner and exact allowlist. The dry run was machine-checked as
+  `exact-18-verified`; the apply succeeded with no unrelated migration.
+- Production verification: ledger 18/18; 19 `api.pm_*` functions; zero
+  `SECURITY DEFINER`; authenticated execute 19/19; anonymous execute 0/19; all
+  10 expected indexes; one `notification_insert_own` policy; required
+  authenticated activity/comment/notification grants; one scoped My Work
+  function.
+- Consumer sync succeeded and app `main` fast-forwarded to `954c4ef` without
+  disturbing local work. Production types were generated with
+  `npm run types:production`.
+- Final Grok review passed with no Critical/High/Medium findings, session
+  `019fa559-a224-7af2-a348-3e62b9252319`.
 
 ## 1. What this application is
 
-`poppim-web` is POP Creations' PIM/PM frontend: a React 19 + Vite + TypeScript single-page app served at `https://pm.designflow.app`. Internal staff use it as the replacement for the old ClickUp product/project board. It stores no data of its own; all reads/writes go through the shared Supabase backend project `qsllyeztdwjgirsysgai` at `https://qsllyeztdwjgirsysgai.supabase.co`.
+`poppim-web` is POP Creations' internal product/project-management frontend and
+ClickUp replacement. Designers, sales, licensing, and management use it for
+product pipelines, projects, workflow records, reports, reminders, and product
+details.
 
-Repo and runtime map:
-- App repo: `/worksp/poppim-web`, GitHub `u2giants/poppim-web`, main-only.
-- Live URL: `https://pm.designflow.app`; preview aliases `pm-dev.designflow.app` and `pm-ci.designflow.app`.
-- Shared schema source of truth: `/worksp/shared-db`, GitHub `u2giants/shared-db`.
-- Local `shared-db/` inside this repo is a read-only auto-synced mirror. Never edit it by hand.
-- Sibling apps on the same Supabase project: CRM (`popcrm-web`), DAM/SG (`popdam`), PLM/master-data work.
+- App checkout: `/worksp/poppim-web`
+- GitHub: `u2giants/poppim-web`, main-only
+- Stack: React 19, TypeScript, Vite 8, Tailwind, shadcn/Radix
+- Live app: `https://pm.designflow.app`
+- Preview aliases: `pm-dev.designflow.app`, `pm-ci.designflow.app` (the same
+  Coolify production service, not an isolated application environment)
+- Shared backend: hosted Supabase project `qsllyeztdwjgirsysgai`
+- Canonical schema checkout: `/worksp/shared-db`
+- Shared-db rehearsal preview: `rjyboqwcdzcocqgmsyel`
+- Shared-db remediation branch: `codex/poppim-audit-remediation`
 
-## 2. What we set out to do this session, and why
+The SPA stores no data. Browser reads, writes, auth, RLS, functions, and schema
+come from the shared Supabase backend used by PM/CRM/DAM/PLM. The
+`/worksp/poppim-web/shared-db/` directory is an auto-synced read-only mirror;
+never edit it.
 
-The final session goal was closeout: leave the repo synchronized, documented, committed, pushed, and handoff-safe. Immediately before closeout, we also added a CI enforcement gate so future app-side database/schema changes are blocked unless they are made through canonical `u2giants/shared-db`.
+## 2. What we set out to do, and why
 
-Business reason: the same Supabase project backs multiple POP apps. An app repo quietly adding DDL, migrations, dashboard SQL, or one-off schema changes can break other apps. The guard makes the shared-db rule visible and enforceable in GitHub Actions.
+The 2026-07-26 whole-codebase audit found business-correctness failures:
 
-Technical work covered in this closeout:
-- Added `.github/workflows/shared-db-guard.yml` from `u2giants/ai-devops`.
-- Added explicit "Shared DB Gatekeeper" sections to `AGENTS.md` and `CLAUDE.md`.
-- Preserved and documented earlier uncommitted work from June 30: ClickUp MCP setup docs, the PM gap-review PDF/source/assets, updated ClickUp file-recovery facts, and regenerated Supabase database types.
-- Reshaped this `HANDOFF.md` into the required fresh-developer format.
+- the pipeline filtered only after a capped read, hiding eligible products;
+- saved-view keys and persistence behavior were inconsistent;
+- stage/history and metadata mutations were non-atomic;
+- auth profile failures could masquerade as a successful login;
+- Reports, Control Room, and secondary screens mixed departments or presented
+  bounded data as complete;
+- important mutation/load failures were silent;
+- `TaskDetailModal` was too large to change safely;
+- tests, typing, dependency health, lint, and bundle size were weak.
+
+The implementation goal was to correct those contracts in canonical shared-db,
+adopt them in the frontend, protect behavior with tests, and land only after
+preview and authenticated UI evidence. The executable specification remains
+`plan_codebase_audit_remediation.md`; its status annotations are current.
 
 ## 3. Current state
 
-Committed and pushed:
-- `8aae0276cf0b4c244abd850967b107b6a34fed17` — `add shared DB guard [db-change-approved]`.
-- This commit added the new `shared-db guard` workflow and the gatekeeper docs.
-- GitHub Actions showed `shared-db guard` active and green on the push.
-- Existing workflow `Forbid Shared DB Bypass` also passed.
-- Deploy workflow for `8aae027` passed; live HTML at `https://pm.designflow.app` reported `<meta name="build-sha" content="8aae0276cf0b4c244abd850967b107b6a34fed17">`.
+### Application repository
 
-Remote/local branch state at closeout:
-- `main` was fast-forwarded after the guard commit to include an auto-sync from shared-db: `6c6e753 chore: sync shared-db @ u2giants/shared-db@94644d0`.
-- Local `main` matches `origin/main` before this closeout commit is created.
-- Canonical `/worksp/shared-db` was checked and has no dirty files; it is on branch `codex/popdam-rich-pdf-extraction-docs`, tracking origin. No shared-db schema work was started from this session.
+- Branch: `main`, tracking `origin/main`
+- Current base SHA: `954c4ef` (consumer sync for shared-db `db5bcea`)
+- State: intentionally dirty and **not committed/pushed**
+- Reason: final documentation and release verification are in progress.
+- Production remains on build SHA
+  `075ea083a6328311c2cfd26a89a42fcd70becbaa`, verified from the live HTML on
+  2026-07-27.
 
-Files ready to commit in this closeout:
-- `AGENTS.md`: docs map now points to `docs/clickup-mcp.md`; ClickUp file-recovery count updated.
-- `HANDOFF.md`: rewritten into this comprehensive closeout handoff.
-- `README.md`: added ClickUp migration review links.
-- `docs/architecture.md`: updated ClickUp file-preview/storage counts.
-- `docs/configuration.md`: documented Supabase Auth allowlist requirements for PM URLs.
-- `docs/clickup-mcp.md`: new ClickUp MCP setup/audit notes.
-- `docs/clickup-poppim-gap-review.html`: editable source for the PM gap-review worksheet.
-- `docs/clickup-poppim-gap-review.pdf`: generated 6-page PM worksheet.
-- `docs/gap-analysis-assets/poppim-card-detail-main.png` and `docs/gap-analysis-assets/poppim-pipeline-loaded.png`: live Poppim screenshots used by the worksheet.
-- `fix_remove_account.md`: updated legacy `crm_account_*` cleanup status.
-- `src/lib/database.types.ts`: regenerated from production Supabase after shared-db customer-contract rollouts; includes current generated CRM/customer type surface.
+The local app worktree contains the complete Phase 0–4 bundle:
 
-What works and how it was verified:
-- New shared-db guard workflow appears under GitHub Actions and passed on push.
-- Live app was serving build SHA `8aae027` after the guard commit deployed.
-- The ClickUp review PDF/source includes 30 numbered table rows and matching numbered visual markers; see the verification command in section 6.
-- No secret values were found in the closeout scan. Docs mention 1Password item names and environment variable names only.
+- pipeline paging/count/facets and atomic stage/metadata callers;
+- saved-view scope normalization, atomic preference writes, rollback/toasts;
+- explicit auth/profile states;
+- exact/paged/window contracts for Reports, Control Room, Schedule, Notes,
+  People, Accounts, Projects, My Work, workflow, designs, and orders;
+- decomposed product-detail domains under `src/features/product-detail/`;
+- shared required/optional error handling and mutation rollback helpers;
+- lazy-loaded screens, dependency cleanup, bundle budget, and generated
+  production database types;
+- 13 test files covering 38 tests;
+- durable accuracy rules in `docs/secondary-screen-accuracy-contracts.md`.
 
-What is half-done:
-- Product-file source recovery remains blocked on 46 missing source files. The app/repo work is complete for reachable files, but the missing bytes are not available from current ClickUp URLs.
-- Direct raw ClickUp browser screenshots for the gap-review PDF are not captured. The PDF deliberately uses MCP-verified evidence panels for ClickUp and live Poppim screenshots for Poppim.
+Every untracked application path is intentional:
 
-What is not started:
-- No new shared-db migration was started.
-- No external reminder delivery system (email/Teams/push) was built; PM reminders remain durable in-app Supabase records.
+- `.ai/evidence/`: Phase 0 baseline plus the four Phase 5 screenshots named
+  below;
+- `scripts/check-bundle.mjs`: entry-chunk regression gate;
+- `docs/secondary-screen-accuracy-contracts.md`: durable data semantics;
+- new `*.test.*`, `src/test/`, `src/lib/uiError*`,
+  `src/lib/uiMutation*`, `src/auth/authRequestGuard.ts`, and
+  `src/features/product-detail/`: implementation/tests from Phases 0–4.
 
-## 4. Everything we tried that did not work
+The temporary `.playwright-mcp/` capture directory and local Vite process were
+removed/stopped. There are no unknown database migrations or temporary files.
 
-Direct ClickUp browser screenshots:
-- Why it seemed right: the PM gap-review worksheet would be strongest with raw ClickUp screenshots beside Poppim screenshots.
-- What failed: headless/browser automation hit ClickUp's interactive login/SSO flow and could not reliably capture authenticated board/task screenshots.
-- Result: the PDF labels ClickUp visuals as MCP-verified evidence panels, not raw browser screenshots. Future sessions must not claim otherwise unless they replace those panels with real screenshots from an already-authenticated interactive browser.
+### Canonical shared-db repository
 
-Remaining product-file recovery from current ClickUp URLs:
-- Why it seemed right: rerun the old ClickUp attachment recovery for the remaining missing files.
-- What failed: the remaining 46 source URLs returned 403/404/416 or zero useful bytes, including with `CLICKUP_TOKEN`.
-- Result: no more files can be recovered from the current URLs unless ClickUp starts serving bytes again. The next source must be an old ClickUp export, NAS copy, or user re-upload.
+- Branch: `main`
+- Merge SHA: `db5bcea830297c5677f13bad82cdca57b5f8859c`
+- State: clean; validate and consumer-sync workflows passed
+- PR: `https://github.com/u2giants/shared-db/pull/271`
+- Production: all approved PM migrations applied and verified
 
-Exact-name local/NAS search for missing files:
-- Why it seemed right: source files might still exist somewhere under `/worksp`, `/home/ai`, Tailscale-mounted paths, or likely NAS shares.
-- What failed: exact-name searches found no matches under local paths; read-only NAS exact-name `find` attempts timed out or reached no matching files in the searched paths.
-- Result: do not spend another session repeating the same local exact-name search unless new source paths are identified.
+The merged change contains exactly 18 PM migrations:
 
-ClickUp task activity/history import:
-- Why it seemed right: imported task activity would close the parity gap for ClickUp history.
-- What failed: sampled `/api/v2/task/:id/history` and `/api/v3/task/:id/activity` calls returned 404 for live tasks with the available token/API shape.
-- Result: `product_activity` remains empty. If activity history is still desired, find an official ClickUp endpoint/export or recover activity from a separate export.
+- Phase 1:
+  `20260727013000_poppim_audit_remediation_contracts.sql`,
+  `20260727013100_poppim_atomic_contract_dml_grants.sql`,
+  `20260727013200_fix_pm_view_pref_conflict_target.sql`
+- Phase 3: all 14 consecutive files from
+  `20260727023000_poppim_secondary_screen_contracts.sql` through
+  `20260727024300_scope_poppim_my_work_department.sql`
+- Phase 5 correction:
+  `20260727200500_poppim_authenticated_app_record_grants.sql`
 
-ClickUp time-in-status and logged-time completeness:
-- Why it seemed right: time-in-status/logged time appears in ClickUp and may be relevant for PM parity.
-- What failed: MCP bulk time-in-status returned no task data; historical logged-time import only produced 4 entries mapped to current products. The workspace had 10 time entries across 8 ClickUp task ids, with 5 ids not mapping to current `product` rows.
-- Result: time estimate is a separate sparse product field; logged time/activity is still not complete.
+All 18 are applied to rehearsal preview `rjyboqwcdzcocqgmsyel` and production
+`qsllyeztdwjgirsysgai`.
 
-Initial partial staging during the shared-db guard commit:
-- Why it seemed right: `AGENTS.md` had pre-existing unrelated edits, so only the new gatekeeper hunk should be staged.
-- What failed: the first manual index patch staged the gatekeeper section at the bottom of `AGENTS.md`.
-- Result: the staged copy was reset and rebuilt from `HEAD:AGENTS.md` plus the gatekeeper section in the correct top location. Worktree content was not damaged.
+### Verification evidence
+
+Clean frontend verification on 2026-07-27:
+
+- Node `v20.20.2`; npm `11.16.0`
+- `npm ci`: passed; 534 packages added, 535 audited
+- `npm test`: 13 files passed, 38/38 tests passed, 1.25 seconds
+- `npm run lint -- --max-warnings=0`: passed with zero warnings
+- `npm run build`: TypeScript + Vite + bundle gate passed
+- Vite transformed 1,962 modules
+- entry chunk: `372,227` bytes / `116.12` kB gzip, under the `500,000`-byte
+  limit and about 55% smaller than the audited `827.62` kB baseline
+- `git diff --check`: passed in both repositories
+- shared-db `bash scripts/check-sql.sh`: static checks passed
+- duplicate migration timestamp scan: no duplicates
+
+Dependency audit:
+
+- runtime `npm audit --omit=dev --json`: 0 advisories
+- full audit: 4 dev-only advisories (2 moderate, 2 high, 0 critical)
+- paths: `shadcn` → `@modelcontextprotocol/sdk` →
+  `@hono/node-server` (moderate Windows static-path traversal);
+  transitive `brace-expansion` (two high DoS advisories); transitive `postcss`
+  (high source-map path disclosure)
+- disposition: none ship in the nginx SPA runtime. Do not run
+  `npm audit fix --force`; review patched compatible shadcn/tooling releases at
+  the next dependency maintenance pass.
+
+Broad-select/silent-catch audit:
+
+- no `catch(console.error)`, `catch(() => {})`, or empty catch remains in owned
+  source;
+- remaining `select('*')` calls are confined to bounded/per-ID detail,
+  collaboration, saved-view, operating-record, and small batched compatibility
+  reads. The high-volume pipeline and all audited secondary lists use narrow
+  server contracts. Do not reintroduce a broad `pim.product` list read.
+
+Preview verification repeated in this Phase 5 pass:
+
+- bounded dry-run excluding only the unrelated historical files
+  `20260726190000_style_tracker_rows_restrict_writes.sql` and
+  `20260726200000_style_tracker_rows_restore_open_writes.sql` reported
+  `Remote database is up to date`;
+- direct unbounded dry-run correctly refused because those two earlier local
+  migrations are not in the preview ledger. `--include-all` was not used;
+- `verify-preview.sql` inserted 12,050 rollback-only Licensed fixtures and
+  passed deep paging/no-gap, beyond-cap search, invalid cursor/department,
+  count/facet reconciliation, metadata merge/conflict/direct-key rejection,
+  atomic preference merge, stage no-op/history/forced rollback, non-PM RLS,
+  and anonymous-execute denial checks; transaction ended with `ROLLBACK`;
+- ledger: all 18 PM migration versions present;
+- current PM functions: 19 overloads, all `SECURITY INVOKER`, all executable by
+  `authenticated`, all denied to `anon`;
+- indexes: all 10 expected PM indexes present;
+- only department-scoped My Work/revision/reminder signatures remain.
+
+Fresh `EXPLAIN (ANALYZE, BUFFERS)` results under the 8-second preview timeout:
+
+| Probe | Time |
+|---|---:|
+| Licensed first 50 | 3,048 ms |
+| Licensed next 50 | 2,845 ms |
+| Generic first 50 | 300 ms |
+| Software first 50 | 213 ms |
+| Licensed selective search | 514 ms |
+| Licensed list filter | 2,598 ms |
+| Licensed exact count | 181 ms |
+| Licensed facets | 636 ms |
+| Underlying keyset predicate/order | 171 ms |
+
+The underlying plan used `pim_product_pipeline_keyset_idx` and a bounded 28 kB
+top-N heapsort.
+
+Authenticated preview evidence:
+
+- `.ai/evidence/phase5-preview-control-room-desktop-20260727.png`
+- `.ai/evidence/phase5-preview-pipeline-desktop-20260727.png`
+- `.ai/evidence/phase5-preview-reports-desktop-20260727.png`
+- `.ai/evidence/phase5-preview-reports-mobile-20260727.png`
+- `.ai/evidence/phase5-preview-browser-matrix-20260727.json`
+
+The final preview matrix covered 16 screens and 26 API checks with zero console
+errors and zero failed responses. The production login page had also been
+checked unauthenticated at desktop/mobile sizes. Authenticated production smoke
+remains pending because no approved PM production tester exists.
+
+## 4. Everything tried that did not work
+
+### Running the ordinary preview dry-run from the full shared-db checkout
+
+It appeared to be the normal final gate, but Supabase refused because two
+unrelated older style-tracker migrations precede the current preview ledger.
+Using `--include-all` would have expanded scope and was rejected. The safe
+method was a temporary checkout that removed only those two exact unrelated
+files; the bounded dry-run then reported the remote up to date.
+
+### Local unauthenticated app reaching the login page
+
+The combined local caller was pointed at production through the existing
+`.env`. Production lacks the 17 new RPC migrations, so auth/profile startup did
+not advance beyond loading during the capture. This is not evidence of a
+frontend regression and must not be “fixed” by committing the caller early or
+changing production. Use preview runtime values for the authenticated gate.
+
+### First authenticated Poppim visual pass
+
+The first attempt correctly stopped because no dedicated preview account
+existed. A Poppim-specific preview user was then provisioned through the
+canonical invitation/Auth-trigger path and stored in 1Password. The full matrix
+subsequently passed. Sibling credentials were never borrowed.
+
+### Zeroing the full npm audit with force
+
+The remaining findings are transitive development-tooling paths and runtime
+audit is clean. `npm audit fix --force` risks incompatible shadcn/tool changes,
+so it was not run. This is an explicit reviewed exception, not a hidden failure.
+
+### Earlier immutable migration corrections
+
+Preview rehearsal exposed real issues; applied migrations were never edited:
+
+1. stage mutation initially lacked underlying DML grants
+   (`20260727013100` fixed it);
+2. saved-view upsert conflict target was ambiguous (`20260727013200`);
+3. report `p.*` materialization timed out (`20260727023100` narrowed it);
+4. project page used historical `core.company`
+   (`20260727023400` corrected to `core.customer`);
+5. profile email `citext` disagreed with the return type
+   (`20260727023500`);
+6. report repeatedly detoasted metadata (`20260727023600`);
+7. schedule UNION cursor columns were unnamed (`20260727023900`);
+8. My Work supporting calls were not department-scoped
+   (`20260727024300` replaced the overloads).
+
+These failures and corrections are durable evidence in
+`/worksp/shared-db/docs/app-migration-notes/poppim-audit-remediation-20260727.md`.
 
 ## 5. Root causes and key findings
 
-Shared DB governance:
-- The frontend depends on Supabase project `qsllyeztdwjgirsysgai`, shared by PM/CRM/DAM/PLM.
-- Root rule now documented in `AGENTS.md` and `CLAUDE.md`: all schema/DDL changes must be authored in canonical `u2giants/shared-db` by branch + PR + timestamped migration, preview-first, AI merges.
-- Enforcement now lives in `.github/workflows/shared-db-guard.yml`. It runs on `push` and `pull_request`, excluding the vendored `shared-db/` mirror. Overrides are explicit: PR label `db-change-approved` or commit message `[db-change-approved]`.
-- The bootstrap commit used `[db-change-approved]` because the guard file itself contains DDL-keyword regex text and can flag its own first addition.
-
-ClickUp MCP:
-- `docs/clickup-mcp.md` records the official remote MCP server: `https://mcp.clickup.com/mcp`.
-- OAuth is configured for the Ubuntu `ai` user on Hetzner. The useful verification command is `su - ai -c 'codex mcp list'`, expecting `clickup  https://mcp.clickup.com/mcp  enabled  OAuth`.
-- Fixed OAuth callback port is `32803`; from Windows use `ssh -L 32803:127.0.0.1:32803 ai@hetz` before `codex mcp login clickup` on Hetzner.
-- This desktop Codex session may not expose the ClickUp tools even when the CLI is authenticated. Start a fresh session or use a focused nested `su - ai -c 'cd /worksp/poppim-web && codex exec ...'` read-only audit.
-
-ClickUp gap-review worksheet:
-- `docs/clickup-poppim-gap-review.html` is the editable source.
-- `docs/clickup-poppim-gap-review.pdf` is the generated PM-facing output.
-- `docs/gap-analysis-assets/` contains Poppim screenshots only. ClickUp visuals in the PDF are MCP evidence panels because raw browser capture was blocked.
-
-Legacy CRM account naming:
-- `fix_remove_account.md` says PM/PIM must not call CRM's legacy `api.crm_account_list`, `api.crm_account_overview`, or `api.crm_update_account` contracts.
-- Active PM code scan on June 30 found no active calls outside generated schema types.
-- Basic PM customer pickers use `api.pm_customer_list` (Step 11, 2026-07-23). The removed `api.customer_list` must not be restored. CRM private `crm_customer_*` contracts stay out of PM.
-- `src/lib/database.types.ts` was regenerated after shared-db PRs #19, #20, and #21. Remaining `crm_account_*` generated entries are expected while compatibility objects still exist; never delete generated entries by hand.
-
-Product files:
-- As of June 26, the retired source had 20,245 / 20,291 imported `product_file` rows stored in Spaces; 46 remain unstored.
-- `TaskDetailModal` display logic prefers `thumbnail_url`, then image `stored_url`, then original ClickUp preview/source fallback.
-- Remaining source recovery is blocked on external source bytes, not frontend code.
-
-Supabase Auth:
-- `docs/configuration.md` now documents the PM Auth allowlist requirement. Supabase project's `site_url` is `https://crm.designflow.app`, so PM must pass explicit `redirectTo` and PM URLs must stay in `uri_allow_list`:
-  `https://pm.designflow.app`, `https://pm.designflow.app/`, `https://pm.designflow.app/**`,
-  `https://pm-dev.designflow.app`, `https://pm-dev.designflow.app/`, `https://pm-dev.designflow.app/**`,
-  `https://pm-ci.designflow.app`, `https://pm-ci.designflow.app/`, `https://pm-ci.designflow.app/**`.
-- If Microsoft SSO from PM lands on CRM, check this allowlist before changing frontend routing.
+- Browser-side caps cannot support complete search, counts, or filters. The new
+  contracts apply mandatory department/eligibility predicates before bounded
+  keyset limits.
+- Counts/facets/supporting windows must fail independently from primary list
+  data.
+- Stage plus history and JSON metadata patching require database transactions,
+  not sequential browser writes.
+- Application ownership uses `app.profile.id`; `auth.users.id` is not a safe
+  fallback.
+- Department accuracy must be inherited through product/project relationships.
+  Unattributable records are excluded, never mixed into the selected department.
+- Production now has the complete approved PM migration set; the frontend can
+  land through the normal GitHub Actions → GHCR → Coolify path.
+- The rehearsal preview is production-like but its zero-row account/design/
+  collection/order probes describe preview data only; they do not prove those
+  domains are empty in production.
+- The current licensor UUID column is null on legacy products. The typed
+  licensor filter is correct but cannot match those rows until a separately
+  governed reconciliation populates IDs.
 
 ## 6. Exact next steps
 
-1. Commit and push this closeout bundle to `main`.
-   - You will know it worked when `git status --short --branch` shows `main...origin/main` with no dirty tracked/untracked files in `/worksp/poppim-web`.
+1. Commit and push the application to `main` as Albert Hazan.
+   - Include all intended source, tests, docs, evidence, and generated types.
+   - Verification gate: local `main` equals `origin/main`; no mystery untracked
+     files remain.
 
-2. Watch GitHub Actions for the closeout commit.
-   - You will know it worked when `gh run list --repo u2giants/poppim-web --branch main --limit 5` shows the guard workflows and deploy workflow completed successfully.
+2. Watch the normal GitHub Actions → GHCR → Coolify release.
+   - Verification gate: all checks are green and
+     `https://pm.designflow.app/` contains the exact new app commit in
+     `<meta name="build-sha">`.
 
-3. Verify the live deployed SHA.
-   - You will know it worked when `curl -fsSL https://pm.designflow.app/ | rg 'build-sha'` reports the closeout commit SHA.
-
-4. If the PM wants a more literal ClickUp visual packet, capture raw screenshots from an already-authenticated interactive ClickUp browser session.
-   - Replace only the ClickUp evidence panels in `docs/clickup-poppim-gap-review.html`.
-   - Regenerate `docs/clickup-poppim-gap-review.pdf`.
-   - You will know it worked when the HTML/PDF labels no longer need to say MCP-verified evidence panels for the replaced screenshots, and the marker count check below is clean.
-
-5. Before regenerating the PDF after any worksheet edit, run:
-   ```bash
-   node <<'NODE'
-   const fs=require('fs');
-   const html=fs.readFileSync('docs/clickup-poppim-gap-review.html','utf8');
-   const rows=[...html.matchAll(/<td class="num">(\d+)<\/td>/g)].map(m=>+m[1]);
-   const pins=[...html.matchAll(/class="pin(?: small)?"[^>]*>(\d+)<\/span>/g)].map(m=>+m[1]);
-   console.log({
-     rows: rows.length,
-     uniqueRows: new Set(rows).size,
-     missingRows: [...Array(30)].map((_,i)=>i+1).filter(n=>!rows.includes(n)),
-     missingPins: [...Array(30)].map((_,i)=>i+1).filter(n=>!pins.includes(n)),
-   });
-   NODE
-   ```
-   - You will know it worked when `rows` and `uniqueRows` are 30 and both missing arrays are empty.
-
-6. To regenerate the PDF, run:
-   ```bash
-   google-chrome --headless --no-sandbox --disable-gpu \
-     --print-to-pdf=/worksp/poppim-web/docs/clickup-poppim-gap-review.pdf \
-     file:///worksp/poppim-web/docs/clickup-poppim-gap-review.html
-   ```
-   - You will know it worked when the PDF timestamp/file size updates and opens as a 6-page worksheet.
-
-7. For the 46 missing product-file sources, do not rerun the same current ClickUp URLs unless new evidence says they are serving bytes again.
-   - Find an old ClickUp export, NAS source directory, or ask for user re-upload.
-   - You will know it worked when the recovered bytes can be uploaded to Spaces and the corresponding `product_file` rows get `stored_url` and, where applicable, `thumbnail_url`.
-
-8. If shared-db later removes legacy `crm_account_*` compatibility objects, regenerate `src/lib/database.types.ts`.
-   - Run `rg "crm_account|crm_update_account|accountSegment|AccountSegment" src`.
-   - You will know it worked when active PM source has no calls to the legacy CRM account contracts; generated hits are acceptable only if shared-db still exposes compatibility objects.
+3. Obtain separately approved Poppim production test access, then repeat the
+   critical authenticated smoke tests in production.
+   - At minimum: three pipeline departments, continuation/search, one
+     reversible saved-view preference, one authorized mutation, Reports/
+     Control Room isolation, secondary-page continuation/window labels, every
+     product-detail tab, console/network.
+   - Do not create a production user or borrow CRM/DAM credentials without
+     explicit authorization.
+   - Verification gate: production evidence is recorded; then mark the final
+     authenticated gate complete and remove this handoff if no work remains.
 
 ## 7. Constraints and gotchas
 
-- This app repo is main-only. Do not create a branch for normal app work.
-- All shared Supabase schema/DDL changes go through canonical `/worksp/shared-db` branch + PR + timestamped migration, preview-first. Do not create local app migrations here.
-- The `shared-db/` folder in this repo is an auto-synced mirror and is read-only.
-- Do not hand-edit generated schema entries out of `src/lib/database.types.ts`; regenerate types from the target Supabase project.
-- `src/components/ui/` is generated shadcn/Radix code; use the shadcn CLI rather than hand-editing primitives.
-- Product pipeline failures must be verified in an authenticated browser. Unauthenticated checks only prove the login page works.
-- PM departments are hard-separated: `Licensed`, `Generic`, `Software`. Do not reintroduce an "All" department.
-- `product.code` is an internal ClickUp-style id, not a human SKU. Do not display it.
-- Inline modal edits are optimistic and can silently revert on backend/RLS failure; check network responses if a field "didn't save."
-- Do not expose Supabase service-role keys through frontend env vars. Browser app env vars must remain `VITE_*` publishable/build-time values only.
+- App work is main-only. Shared-db uses branch + PR.
+- Production/shared cloud is read-only without explicit approval. The exact
+  18-migration PM production apply was explicitly authorized and is complete.
+- Do not edit the app's `shared-db/` mirror.
+- Never use `supabase db push --include-all` generally. The sole exception in
+  this session was explicitly authorized for the exact guard-built 18-file
+  runner after machine verification.
+- Never edit an applied migration; add a new timestamped correction.
+- Do not expose service-role credentials to the browser.
+- Departments remain hard-separated; never add “All.”
+- Do not display `product.code`.
+- Preserve numeric ClickUp order semantics, `PimTaskCard`'s `shrink-0`, and
+  original `cover_url`.
+- Do not hand-edit generated shadcn primitives or database types.
+- UI completion requires authenticated browser evidence.
+- Counts/supporting calls cannot blank primary lists.
+- Mutation failure must alert and rollback; no silent optimistic drift.
+- The preview branch contains production-like data. Screenshots/logs must not
+  expose customer or user data.
 
 ## 8. Access and environment
 
-- GitHub remote: `origin https://github.com/u2giants/poppim-web.git`.
-- Git branch for this repo: `main`.
-- Git author: `Albert Hazan <u2giants@users.noreply.github.com>`.
-- GitHub CLI is authenticated enough to list workflows/runs and push commits.
-- 1Password vault for secrets and setup notes: `vibe_coding`. Do not print secret values.
-- Supabase production project ref: `qsllyeztdwjgirsysgai`.
-- Supabase preview branch/project ref from shared-db docs: `xjcyeuvzkhtzsheknaiu`.
-- ClickUp MCP setup record: 1Password vault `vibe_coding`, item `ClickUp MCP Server - official remote setup`.
-- Supabase DB migration password record: 1Password vault `vibe_coding`, item `Supabase DB Password - shared POP database`, field `password`.
-- Runtime app is owned by Coolify/GitHub Actions/GHCR. Do not deploy by SSH or `docker run` on the server.
+- GitHub CLI and Supabase CLI were exercised with real read calls.
+- Supabase CLI version used: `2.98.2` (it reported `2.109.1` available; no
+  system binary was replaced).
+- 1Password vault: `vibe_coding`
+- Preview credential item:
+  `Supabase Preview Branch Credentials - shared POP database (shared-db-schema-rehearsal)`
+- Production DB password item:
+  `Supabase DB Password - shared POP database`
+- Supabase PAT item: `Supabase CLI Personal Access Token`
+- Secrets were injected at process runtime and never printed, written to repo
+  files, or committed.
+- Git author for commits:
+  `Albert Hazan <u2giants@users.noreply.github.com>`
+- Deploy ownership: GitHub Actions → GHCR
+  `ghcr.io/u2giants/poppim-web` → Coolify service
+  `ysvdyj3t7d5tyh5ogrvlka4y`
 
 ## 9. Open questions and risks
 
-- The 46 remaining unstored `product_file` sources may never be recoverable from ClickUp. Risk: old tasks may still show ClickUp fallback URLs that are dead. Decision so far: recover only when real source bytes are found.
-- Raw ClickUp browser screenshots are still missing from the PM gap-review worksheet. Risk: visual comparison is less literal than a screenshot packet. Decision so far: use MCP-verified panels and clearly label them.
-- Legacy `crm_account_*` generated types may remain until shared-db removes compatibility objects. Risk: future AI sessions may mistake generated type references for active PM usage. Decision: document that generated entries are not to be manually deleted.
-- Supabase Auth is shared across apps and CRM is the project `site_url`. Risk: PM Microsoft SSO can route to CRM if redirect allowlist config drifts. Decision: document the required PM allowlist entries.
+- No Poppim production test login exists in the approved vault. The final
+  authenticated production smoke needs explicit authorization to provision a
+  dedicated tester or use an approved existing PM account.
+- Licensor UUIDs are currently null for legacy products, so the new filter
+  contract needs a separate data-reconciliation decision before it is useful
+  for those records.
+- Preview's sparse secondary-domain data limits browser realism; authenticated
+  behavior and production smoke remain required.
+- Five dev-tool advisories remain. Owner: next dependency-maintenance session.
+  Review date: 2026-08-27 or sooner if shadcn publishes compatible patched
+  transitive versions. Runtime exposure is currently zero.
+- The consumer-sync commit has already been reconciled without losing local
+  work.
 
 ## Self-audit
 
-Passed. This handoff names what the app is, why the session happened, current branch/deploy state, what worked, what failed and why, root causes, exact next steps with verification gates, constraints, access locations, and remaining risks. A fresh developer should be able to continue without reading this chat.
+Passed on 2026-07-27:
+
+1. A newcomer can identify the app, repositories, branches, runtime, and
+   backend without this chat.
+2. The exact local/remote/preview/production state and remaining release gate
+   are explicit.
+3. Failed approaches and immutable migration corrections are recorded with
+   reasons.
+4. Every remaining next step has an executable verification gate.
+5. Access item titles, URLs, SHAs, migration set, metrics, screenshots, and
+   constraints are named without exposing secrets.
+
+A fresh developer should be able to continue as effectively as this session
+without asking what was done, what failed, or what must happen next.

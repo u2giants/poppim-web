@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Bell, CalendarDays, ClipboardCheck, PackageCheck, Search, Send } from 'lucide-react'
+import { Bell, CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck, PackageCheck, Search, Send } from 'lucide-react'
 import { useAppState } from '@/lib/appState'
 import { fetchScheduleItems, type ScheduleItem } from './api'
 
@@ -20,14 +20,23 @@ function monthKey(iso: string) {
 }
 
 export function SchedulePage() {
-  const { searchQuery } = useAppState()
+  const { searchQuery, businessUnit } = useAppState()
   const [items, setItems] = useState<ScheduleItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [windowOffset, setWindowOffset] = useState(0)
+  const window = useMemo(() => {
+    const start = new Date()
+    start.setDate(1)
+    start.setMonth(start.getMonth() + windowOffset)
+    const end = new Date(start)
+    end.setMonth(end.getMonth() + 6)
+    return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) }
+  }, [windowOffset])
 
   useEffect(() => {
     let active = true
-    setLoading(true)
-    fetchScheduleItems(searchQuery)
+    queueMicrotask(() => { if (active) setLoading(true) })
+    fetchScheduleItems({ search: searchQuery, businessUnit, ...window })
       .then((next) => { if (active) setItems(next) })
       .catch((error) => {
         console.error(error)
@@ -35,7 +44,7 @@ export function SchedulePage() {
       })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [searchQuery])
+  }, [searchQuery, businessUnit, window])
 
   const groups = useMemo(() => {
     const map = new Map<string, ScheduleItem[]>()
@@ -54,12 +63,14 @@ export function SchedulePage() {
           <div>
             <h1 className="text-[22px] font-extrabold leading-tight" style={{ color: '#1B2840' }}>Schedule</h1>
             <p className="mt-1 text-[13.5px]" style={{ color: '#5A6883' }}>
-              {items.length.toLocaleString()} dated product, sample, submission, and reminder item{items.length === 1 ? '' : 's'}
+              First 100 {businessUnit} dated items from {formatDate(window.start)} through {formatDate(window.end)}
             </p>
           </div>
           <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-[12.5px]" style={{ borderColor: '#EAEEF5', color: '#5A6883' }}>
+            <button type="button" aria-label="Previous six months" onClick={() => setWindowOffset((value) => value - 6)}><ChevronLeft className="size-4" /></button>
             <Search className="size-4" />
             <span>{searchQuery.trim() ? `Searching "${searchQuery.trim()}"` : 'Use sidebar search'}</span>
+            <button type="button" aria-label="Next six months" onClick={() => setWindowOffset((value) => value + 6)}><ChevronRight className="size-4" /></button>
           </div>
         </div>
 

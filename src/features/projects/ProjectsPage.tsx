@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Briefcase, X, ChevronRight } from 'lucide-react'
 import type { Project, Product } from '@/lib/types'
-import { fetchProjects, fetchProjectProductCounts, fetchProjectProducts } from './api'
+import { fetchProjects, fetchProjectProducts } from './api'
+import { useAppState } from '@/lib/appState'
 import { productToSummary } from '@/domain/products/adapters'
 import { CATEGORY_COLORS, CATEGORY_ICONS, LICENSOR_META, STAGE_COLORS, stageColor } from '@/domain/products/presentation'
+import { pageLoadFailure, reportUiError } from '@/lib/uiError'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -43,35 +45,35 @@ function useDebounce<T>(value: T, ms: number): T {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function ProjectsPage() {
+  const { businessUnit } = useAppState()
   const [projects, setProjects] = useState<Project[]>([])
   const [counts, setCounts] = useState<Map<string, number>>(new Map())
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'won'>('all')
   const [selected, setSelected] = useState<Project | null>(null)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const debouncedSearch = useDebounce(search, 200)
 
   useEffect(() => {
-    Promise.all([fetchProjects(), fetchProjectProductCounts()])
-      .then(([ps, c]) => { setProjects(ps); setCounts(c) })
-      .catch(console.error)
+    queueMicrotask(() => setLoading(true))
+    fetchProjects(businessUnit, debouncedSearch)
+      .then(({ projects: ps, counts: c, nextCursor: cursor }) => { setProjects(ps); setCounts(c); setNextCursor(cursor); setLoadError(null) })
+      .catch((error) => {
+        setLoadError('Projects could not be loaded.')
+        reportUiError('projects.load', 'Projects could not be loaded. Try again.', error)
+      })
       .finally(() => setLoading(false))
-  }, [])
+  }, [businessUnit, debouncedSearch])
 
   const visible = useMemo(() => {
-    const q = debouncedSearch.trim().toLowerCase()
     return projects.filter((p) => {
       if (statusFilter !== 'all' && p.status !== statusFilter) return false
-      if (q && ![
-        p.title,
-        retailerName(p.retailer),
-        buyerName(p.buyer),
-        designCollectionName(p.design_collection),
-      ].some((value) => value?.toLowerCase().includes(q))) return false
       return true
     })
-  }, [projects, debouncedSearch, statusFilter])
+  }, [projects, statusFilter])
 
   if (loading) {
     return (
@@ -79,6 +81,9 @@ export function ProjectsPage() {
         Loading projects…
       </div>
     )
+  }
+  if (loadError && projects.length === 0) {
+    return <div className="flex h-full items-center justify-center p-8 text-sm text-red-700" role="alert">{loadError} Change the search or department to retry.</div>
   }
 
   return (
@@ -118,6 +123,14 @@ export function ProjectsPage() {
 
         <div className="flex-1" />
         <span className="text-[12px]" style={{ color: '#94A0B5' }}>{visible.length} project{visible.length !== 1 ? 's' : ''}</span>
+        {nextCursor && <button type="button" className="rounded-lg border px-3 py-1.5 text-[12px] font-semibold" onClick={() => {
+          const cursor=nextCursor; setNextCursor(null)
+          fetchProjects(businessUnit,debouncedSearch,cursor).then((page) => {
+            setProjects((current)=>[...current,...page.projects])
+            setCounts((current)=>new Map([...current,...page.counts]))
+            setNextCursor(page.nextCursor)
+          }).catch(pageLoadFailure('projects.loadMore', 'More projects', cursor, setNextCursor))
+        }}>Load more</button>}
       </div>
 
       {/* Table */}

@@ -1,47 +1,55 @@
-import { pim, unwrap } from '@/lib/supabaseQuery'
+import { api, metadata, pim, unwrap } from '@/lib/supabaseQuery'
+import type { Database } from '@/lib/database.types'
 import type { PmSavedView, PmViewPref, ViewFilters } from '@/lib/types'
 import type { BusinessUnitFilter, Screen } from '@/lib/appState'
 import { saveCurrentView } from '@/features/settings/api'
-import type { Json } from '@/lib/database.types'
+const VIEW_SCOPE = /^view:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i
 
-function jsonObject(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
-}
+type SavedViewRow = Database['pim']['Tables']['saved_view']['Row']
 
-function savedView(row: any): PmSavedView {
+function savedView(row: SavedViewRow): PmSavedView {
+  const config = metadata({ metadata: row.config })
   return {
     id: row.id,
     user: row.owner_profile_id,
     role: row.role_id,
     name: row.name,
-    screen: row.config?.screen ?? 'pipeline',
-    business_unit: row.config?.business_unit ?? 'Licensed',
-    filters_json: row.config?.filters ?? {},
-    sort_json: row.config?.sort ?? {},
-    columns_json: row.config?.columns ?? {},
+    screen: config.screen ?? 'pipeline',
+    business_unit: config.business_unit ?? 'Licensed',
+    filters_json: config.filters ?? {},
+    sort_json: config.sort ?? {},
+    columns_json: config.columns ?? {},
     is_default: row.is_default,
     visibility: row.scope === 'shared' ? 'shared' : 'personal',
-    origin: row.config?.origin ?? 'user',
-    color: row.config?.color ?? null,
-    sort_order: row.config?.sort_order ?? null,
+    origin: config.origin ?? 'user',
+    color: config.color ?? null,
+    sort_order: config.sort_order ?? null,
   } as PmSavedView
 }
 
 export async function fetchViews(userId: string): Promise<PmSavedView[]> {
   const { data, error } = await pim().from('saved_view').select('*').or(`owner_profile_id.eq.${userId},scope.eq.shared`).order('name')
-  return unwrap<any[]>({ data, error }).map(savedView)
+  return unwrap<SavedViewRow[]>({ data, error }).map(savedView)
 }
 
 export async function fetchViewPrefs(userId: string): Promise<PmViewPref[]> {
   const { data, error } = await pim().from('view_pref').select('*').eq('profile_id', userId)
-  return unwrap<any[]>({ data, error }).map((row) => ({
+  return unwrap<Database['pim']['Tables']['view_pref']['Row'][]>({ data, error }).flatMap((row) => {
+    const config = metadata({ metadata: row.config })
+    const match = typeof row.scope === 'string' ? VIEW_SCOPE.exec(row.scope) : null
+    if (!match) {
+      console.warn('Ignoring invalid saved-view preference scope', { preferenceId: row.id })
+      return []
+    }
+    return [{
     id: row.id,
     user: row.profile_id,
-    view: row.scope,
-    sort_order: row.config?.sort_order ?? null,
-    color: row.config?.color ?? null,
-    hidden: row.config?.hidden ?? false,
-  })) as PmViewPref[]
+    view: match[1],
+    sort_order: config.sort_order ?? null,
+    color: config.color ?? null,
+    hidden: config.hidden ?? false,
+    }]
+  }) as PmViewPref[]
 }
 
 export interface CreateViewInput {
@@ -50,10 +58,14 @@ export interface CreateViewInput {
   businessUnit: BusinessUnitFilter
   filters: ViewFilters
   visibility: 'personal' | 'shared'
+  canCreateShared?: boolean
   screen?: Screen
 }
 
 export async function createView(input: CreateViewInput): Promise<PmSavedView> {
+  if (input.visibility === 'shared' && !input.canCreateShared) {
+    throw new Error('Only administrators can create a shared view.')
+  }
   return saveCurrentView({
     userId: input.userId,
     roleId: null,
@@ -62,7 +74,8 @@ export async function createView(input: CreateViewInput): Promise<PmSavedView> {
     businessUnit: input.businessUnit,
     filters: input.filters,
     sort: {},
-    columns: { visibility: input.visibility, origin: 'user' },
+    visibility: input.visibility,
+    columns: { origin: 'user' },
   })
 }
 
@@ -76,13 +89,20 @@ export async function deleteView(id: string) {
   if (error) throw new Error(error.message)
 }
 
-export async function upsertViewPref(userId: string, viewId: string, patch: { sort_order?: number; color?: string | null; hidden?: boolean }): Promise<void> {
+export async function upsertViewPref(userId: string, viewId: string, patch: { sort_order?: number; color?: string | null; hidden?: boolean }): Promise<PmViewPref> {
+  void userId
   const scope = `view:${viewId}`
-  const { data, error } = await pim().from('view_pref').select('id,config').eq('profile_id', userId).eq('scope', scope).maybeSingle()
+  const { data, error } = await api().rpc('pm_upsert_view_pref', { p_scope: scope, p_patch: patch })
   if (error) throw new Error(error.message)
-  const config = { ...jsonObject(data?.config), ...patch } as Json
-  const result = data?.id
-    ? await pim().from('view_pref').update({ config }).eq('id', data.id)
-    : await pim().from('view_pref').insert({ profile_id: userId, scope, config })
-  if (result.error) throw new Error(result.error.message)
+  const row = data?.[0]
+  if (!row) throw new Error('The saved-view preference was not returned after saving.')
+  const config = row.config && typeof row.config === 'object' && !Array.isArray(row.config) ? row.config : {}
+  return {
+    id: row.id,
+    user: row.profile_id,
+    view: viewId,
+    sort_order: typeof config.sort_order === 'number' ? config.sort_order : null,
+    color: typeof config.color === 'string' ? config.color : null,
+    hidden: config.hidden === true,
+  } as PmViewPref
 }

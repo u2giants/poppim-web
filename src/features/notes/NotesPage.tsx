@@ -1,29 +1,31 @@
+import { pageLoadFailure } from '@/lib/uiError'
 import { useEffect, useState } from 'react'
 import { Activity, MessageSquareText, Search } from 'lucide-react'
 import { useAppState } from '@/lib/appState'
-import { fetchNotes, type NoteItem } from './api'
+import { fetchNotesPage, type NoteItem } from './api'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
 export function NotesPage() {
-  const { searchQuery } = useAppState()
+  const { searchQuery, businessUnit } = useAppState()
   const [notes, setNotes] = useState<NoteItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [nextCursor,setNextCursor]=useState<string|null>(null)
 
   useEffect(() => {
     let active = true
-    setLoading(true)
-    fetchNotes(searchQuery)
-      .then((next) => { if (active) setNotes(next) })
+    queueMicrotask(() => { if (active) setLoading(true) })
+    fetchNotesPage(searchQuery, businessUnit)
+      .then((next) => { if (active) { setNotes(next.notes);setNextCursor(next.nextCursor) } })
       .catch((error) => {
         console.error(error)
         if (active) setNotes([])
       })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [searchQuery])
+  }, [searchQuery, businessUnit])
 
   if (loading) {
     return <div className="flex h-full items-center justify-center text-sm" style={{ color: '#94A0B5' }}>Loading notes...</div>
@@ -36,7 +38,7 @@ export function NotesPage() {
           <div>
             <h1 className="text-[22px] font-extrabold leading-tight" style={{ color: '#1B2840' }}>Notes</h1>
             <p className="mt-1 text-[13.5px]" style={{ color: '#5A6883' }}>
-              {notes.length.toLocaleString()} recent comment and activity note{notes.length === 1 ? '' : 's'}
+              {notes.length.toLocaleString()} comment and activity note{notes.length === 1 ? '' : 's'} from the last 30 days
             </p>
           </div>
           <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-[12.5px]" style={{ borderColor: '#EAEEF5', color: '#5A6883' }}>
@@ -54,6 +56,10 @@ export function NotesPage() {
             {notes.map((note) => <NoteRow key={`${note.kind}:${note.id}`} note={note} />)}
           </div>
         )}
+        {nextCursor&&<button type="button" className="rounded-lg border px-4 py-2 text-sm font-semibold" onClick={()=>{
+          const cursor=nextCursor;setNextCursor(null)
+          fetchNotesPage(searchQuery,businessUnit,cursor).then((page)=>{setNotes((current)=>[...current,...page.notes]);setNextCursor(page.nextCursor)}).catch(pageLoadFailure('pagination.loadMore', 'More records', cursor, setNextCursor))
+        }}>Load older notes</button>}
       </div>
     </div>
   )

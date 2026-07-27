@@ -1,6 +1,7 @@
+import { dynamicApp } from '@/lib/supabaseQuery'
 import { appUserToPerson } from './adapters'
 import type { PersonSummary, ProductSummary } from './types'
-import { appSchema, metadata, pim, unwrap } from '@/lib/supabaseQuery'
+import { metadata, pim, unwrap } from '@/lib/supabaseQuery'
 import type { AppUser } from '@/lib/types'
 
 const ROLLUP_BATCH_SIZE = 200
@@ -33,7 +34,16 @@ function filePreviewUrl(file: ProductFileCoverCandidate): string | null {
   return null
 }
 
-function profileToUser(row: any): AppUser {
+interface ProfileRow {
+  id: string
+  display_name?: string | null
+  first_name?: string | null
+  last_name?: string | null
+  email?: string | null
+  avatar_url?: string | null
+}
+
+function profileToUser(row: ProfileRow): AppUser {
   const parts = (row.display_name ?? '').trim().split(/\s+/).filter(Boolean)
   return {
     id: row.id,
@@ -50,24 +60,24 @@ function increment(map: Map<string, number>, id: string | null) {
   map.set(id, (map.get(id) ?? 0) + 1)
 }
 
-function optionalRows<T>(result: { data: T[] | null; error: { message?: string } | null }, label: string): T[] {
+function optionalRows<T>(result: { data: unknown; error: { message?: string } | null }, label: string): T[] {
   if (result.error) {
     console.warn(`Unable to load ${label}`, result.error)
     return []
   }
-  return result.data ?? []
+  return Array.isArray(result.data) ? result.data as T[] : []
 }
 
 async function fetchProfiles(profileIds: string[]): Promise<Map<string, AppUser>> {
   const ids = [...new Set(profileIds)].filter(Boolean)
   if (ids.length === 0) return new Map()
 
-  const result = await (appSchema() as any)
+  const result = await dynamicApp()
     .from('profile')
     .select('id,display_name,email,avatar_url')
     .in('id', ids)
   return new Map(
-    unwrap<any[]>({ data: result.data, error: result.error })
+    unwrap<ProfileRow[]>({ data: result.data, error: result.error })
       .map((row) => [row.id, profileToUser(row)]),
   )
 }
@@ -91,7 +101,7 @@ export async function hydrateProductSummaryRollups(products: ProductSummary[]): 
         .select('product_id,stored_url,source_url,thumbnail_url,metadata')
         .in('product_id', batch)
         .order('created_at'),
-      (appSchema() as any)
+      dynamicApp()
         .from('comment')
         .select('target_id')
         .eq('target_schema', 'pim')
@@ -99,7 +109,7 @@ export async function hydrateProductSummaryRollups(products: ProductSummary[]): 
         .in('target_id', batch),
     ])
     return {
-      assigneeRows: unwrap<any[]>({ data: assigneeResult.data, error: assigneeResult.error }),
+      assigneeRows: unwrap({ data: assigneeResult.data, error: assigneeResult.error }),
       checklistRows: unwrap<Array<{ product_id: string | null; status: string | null }>>({ data: checklistResult.data, error: checklistResult.error }),
       fileRows: unwrap<ProductFileCoverCandidate[]>({ data: fileResult.data, error: fileResult.error }),
       commentRows: optionalRows<Array<{ target_id: string | null }>[number]>(commentResult, 'product comment counts'),

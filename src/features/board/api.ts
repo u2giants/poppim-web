@@ -1,37 +1,15 @@
-import { pim, unwrap } from '@/lib/supabaseQuery'
+import { api, pim, unwrap } from '@/lib/supabaseQuery'
 import type { Product, Stage } from '@/lib/types'
 import { enrichProductRowsWithBoardFields } from '@/domain/products/enrich'
 import { supabaseProductToProduct } from '@/domain/products/supabaseAdapter'
 
 export async function setProductStage(productId: string, stageId: string | null) {
-  const current = await pim().from('product').select('stage').eq('id', productId).maybeSingle()
-  const currentStageName = unwrap<{ stage: string | null } | null>({ data: current.data, error: current.error })?.stage ?? null
-  const stage = stageId ? await stageName(stageId) : null
-  const { data, error } = await pim()
-    .from('product')
-    .update({ stage })
-    .eq('id', productId)
-    .select('*')
-    .single()
-  const updated = unwrap<Record<string, unknown>>({ data, error })
-  const fromStageId = currentStageName ? await stageIdByName(currentStageName) : null
-  if (fromStageId !== stageId) {
-    const history = await pim().from('stage_history').insert({ product_id: productId, from_stage_id: fromStageId, to_stage_id: stageId })
-    if (history.error) throw new Error(history.error.message)
-  }
-  return updated
-}
-
-async function stageName(stageId: string): Promise<string | null> {
-  const { data, error } = await pim().from('stage').select('name').eq('id', stageId).maybeSingle()
-  const row = unwrap<{ name: string } | null>({ data, error })
-  return row?.name ?? null
-}
-
-async function stageIdByName(name: string): Promise<string | null> {
-  const { data, error } = await pim().from('stage').select('id').eq('name', name).limit(1).maybeSingle()
-  const row = unwrap<{ id: string } | null>({ data, error })
-  return row?.id ?? null
+  if (!stageId) throw new Error('A target stage is required.')
+  const { data, error } = await api().rpc('pm_set_product_stage', {
+    p_product_id: productId,
+    p_target_stage_id: stageId,
+  })
+  return unwrap<Array<Record<string, unknown>>>({ data, error })[0]
 }
 
 export async function fetchStages(): Promise<Stage[]> {

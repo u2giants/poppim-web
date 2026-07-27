@@ -1,8 +1,9 @@
+import { pageLoadFailure } from '@/lib/uiError'
 import { useEffect, useMemo, useState } from 'react'
 import { Layers3, Search } from 'lucide-react'
 import { useAppState } from '@/lib/appState'
 import type { DesignCollection } from '@/lib/types'
-import { fetchDesignCollections, fetchProjectCountsByDesignCollection } from './api'
+import { fetchCollectionPage } from './api'
 
 function relationName(value: DesignCollection['account_specific_for']): string {
   if (!value) return 'Account-agnostic'
@@ -27,17 +28,16 @@ export function DesignCollectionsPage() {
   const [collections, setCollections] = useState<DesignCollection[]>([])
   const [counts, setCounts] = useState<Map<string, number>>(new Map())
   const [loading, setLoading] = useState(true)
+  const [nextCursor,setNextCursor]=useState<string|null>(null)
 
   useEffect(() => {
     let active = true
-    Promise.all([
-      fetchDesignCollections({ businessUnit, search: searchQuery }),
-      fetchProjectCountsByDesignCollection(),
-    ])
-      .then(([nextCollections, nextCounts]) => {
+    fetchCollectionPage({ businessUnit, search: searchQuery })
+      .then(({collections:nextCollections,counts:nextCounts,nextCursor:cursor}) => {
         if (!active) return
         setCollections(nextCollections)
         setCounts(nextCounts)
+        setNextCursor(cursor)
       })
       .catch((error) => {
         console.error(error)
@@ -75,7 +75,7 @@ export function DesignCollectionsPage() {
               Design collections
             </h1>
             <p className="mt-1 text-[13.5px]" style={{ color: '#5A6883' }}>
-              {collections.length.toLocaleString()} Spruce trend/art collection{collections.length === 1 ? '' : 's'} in this view
+              {collections.length.toLocaleString()} trend/art collection{collections.length === 1 ? '' : 's'} in this {businessUnit} view{nextCursor?' · more available':''}
             </p>
           </div>
           <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-[12.5px]" style={{ borderColor: '#EAEEF5', color: '#5A6883' }}>
@@ -111,6 +111,10 @@ export function DesignCollectionsPage() {
             ))}
           </div>
         )}
+        {nextCursor&&<button type="button" className="rounded-lg border px-4 py-2 text-sm font-semibold" onClick={()=>{
+          const cursor=nextCursor;setNextCursor(null)
+          fetchCollectionPage({businessUnit,search:searchQuery,cursor}).then((page)=>{setCollections((current)=>[...current,...page.collections]);setCounts((current)=>new Map([...current,...page.counts]));setNextCursor(page.nextCursor)}).catch(pageLoadFailure('pagination.loadMore', 'More records', cursor, setNextCursor))
+        }}>Load more collections</button>}
       </div>
     </div>
   )

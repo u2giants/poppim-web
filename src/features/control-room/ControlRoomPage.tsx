@@ -74,7 +74,7 @@ export function ControlRoomPage() {
               Control room
             </h1>
             <p className="mt-1 text-[13.5px]" style={{ color: '#5A6883' }}>
-              {businessUnit} work across projects, products, deadlines, and stage load
+              {businessUnit} exact totals as of {new Date(data.asOf).toLocaleString()}; attention lists are a bounded newest sample
             </p>
           </div>
           <div className="flex items-center rounded-[10px] p-1" style={{ background: '#F6F8FC' }}>
@@ -98,8 +98,8 @@ export function ControlRoomPage() {
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Metric label="Open products" value={formatNumber(data.totalProducts)} icon={PackageCheck} color="#0094FF" />
           <Metric label="Active projects" value={formatNumber(data.activeProjects)} icon={Briefcase} color="#10B981" />
-          <Metric label="Urgent / high" value={formatNumber(data.urgentProducts.length)} icon={AlertTriangle} color="#E0483A" />
-          <Metric label="Blocked / waiting" value={formatNumber(data.blockedProducts.length)} icon={Clock3} color="#F2A23C" />
+          <Metric label="Urgent / high" value={formatNumber(data.urgentCount)} icon={AlertTriangle} color="#E0483A" />
+          <Metric label="Blocked / waiting" value={formatNumber(data.blockedCount)} icon={Clock3} color="#F2A23C" />
         </div>
 
         <div className="grid min-h-0 gap-5 xl:grid-cols-[1.1fr_0.9fr]">

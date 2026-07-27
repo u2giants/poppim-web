@@ -1,7 +1,7 @@
 import type { Product, Stage } from '@/lib/types'
 import { metadata, numberMeta, textMeta } from '@/lib/supabaseQuery'
 
-type SupabaseProductRow = Record<string, unknown> & {
+export type SupabaseProductRow = Record<string, unknown> & {
   id: string
   code?: string | null
   name?: string | null

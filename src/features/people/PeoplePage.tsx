@@ -1,35 +1,31 @@
-import { useEffect, useMemo, useState } from 'react'
+import { pageLoadFailure } from '@/lib/uiError'
+import { useEffect, useState } from 'react'
 import { Bell, FilePenLine, Search, UserRoundCheck } from 'lucide-react'
 import { useAppState } from '@/lib/appState'
-import { fetchPeopleWorkload, type PersonWorkload } from './api'
+import { fetchPeoplePage, type PersonWorkload } from './api'
 
 function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || '?'
 }
 
 export function PeoplePage() {
-  const { searchQuery } = useAppState()
+  const { searchQuery, businessUnit } = useAppState()
   const [people, setPeople] = useState<PersonWorkload[]>([])
   const [loading, setLoading] = useState(true)
+  const [nextCursor,setNextCursor]=useState<string|null>(null)
 
   useEffect(() => {
     let active = true
-    setLoading(true)
-    fetchPeopleWorkload(searchQuery)
-      .then((next) => { if (active) setPeople(next) })
+    queueMicrotask(() => { if (active) setLoading(true) })
+    fetchPeoplePage(searchQuery, businessUnit)
+      .then((next) => { if (active) { setPeople(next.people);setNextCursor(next.nextCursor) } })
       .catch((error) => {
         console.error(error)
         if (active) setPeople([])
       })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [searchQuery])
-
-  const totals = useMemo(() => ({
-    assignments: people.reduce((sum, person) => sum + person.assignments, 0),
-    reminders: people.reduce((sum, person) => sum + person.reminders, 0),
-    revisions: people.reduce((sum, person) => sum + person.revisions, 0),
-  }), [people])
+  }, [searchQuery, businessUnit])
 
   if (loading) {
     return <div className="flex h-full items-center justify-center text-sm" style={{ color: '#94A0B5' }}>Loading people...</div>
@@ -42,7 +38,7 @@ export function PeoplePage() {
           <div>
             <h1 className="text-[22px] font-extrabold leading-tight" style={{ color: '#1B2840' }}>People</h1>
             <p className="mt-1 text-[13.5px]" style={{ color: '#5A6883' }}>
-              {people.length.toLocaleString()} profile{people.length === 1 ? '' : 's'} · {totals.assignments} assignments · {totals.reminders} reminders · {totals.revisions} revisions
+              First {people.length.toLocaleString()} {businessUnit} profile{people.length === 1 ? '' : 's'} · exact workload counts per person
             </p>
           </div>
           <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-[12.5px]" style={{ borderColor: '#EAEEF5', color: '#5A6883' }}>
@@ -60,6 +56,10 @@ export function PeoplePage() {
             {people.map((person) => <PersonCard key={person.id} person={person} />)}
           </div>
         )}
+        {nextCursor&&<button type="button" className="rounded-lg border px-4 py-2 text-sm font-semibold" onClick={()=>{
+          const cursor=nextCursor;setNextCursor(null)
+          fetchPeoplePage(searchQuery,businessUnit,cursor).then((page)=>{setPeople((current)=>[...current,...page.people]);setNextCursor(page.nextCursor)}).catch(pageLoadFailure('pagination.loadMore', 'More records', cursor, setNextCursor))
+        }}>Load more people</button>}
       </div>
     </div>
   )

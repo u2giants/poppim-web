@@ -1,4 +1,6 @@
-import { api, core, pim, unwrap } from '@/lib/supabaseQuery'
+import { api, asDynamic } from '@/lib/supabaseQuery'
+import { dynamicCore } from '@/lib/supabaseQuery'
+import { pim, unwrap } from '@/lib/supabaseQuery'
 import type { Licensor, Retailer, Stage } from '@/lib/types'
 import {
   mapPmCustomerListRow,
@@ -8,13 +10,13 @@ import {
 } from '@/domain/reference/pmCustomerList'
 
 export async function fetchLicensors(): Promise<Licensor[]> {
-  const { data, error } = await (core() as any).from('licensor').select('id,name').order('name')
+  const { data, error } = await dynamicCore().from('licensor').select('id,name').order('name')
   return unwrap<Array<Licensor>>({ data, error })
 }
 
 /** Active PM Customer list (api.pm_customer_list). Kept for shared reference imports. */
 export async function fetchRetailers(): Promise<Retailer[]> {
-  const { data, error } = await (api() as any)
+  const { data, error } = await asDynamic(api())
     .from(PM_CUSTOMER_LIST)
     .select(PM_CUSTOMER_LIST_SELECT)
     .order('name')

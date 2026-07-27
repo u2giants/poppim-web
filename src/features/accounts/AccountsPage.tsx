@@ -1,25 +1,27 @@
+import { pageLoadFailure } from '@/lib/uiError'
 import { useEffect, useMemo, useState } from 'react'
 import { Building2, Mail, PackageCheck, Search, ShoppingCart, UserRoundCheck } from 'lucide-react'
 import { useAppState } from '@/lib/appState'
 import type { AccountRow } from './api'
-import { fetchAccountRows } from './api'
+import { fetchAccountPage } from './api'
 
 export function AccountsPage() {
-  const { searchQuery } = useAppState()
+  const { searchQuery, businessUnit } = useAppState()
   const [rows, setRows] = useState<AccountRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
-    fetchAccountRows(searchQuery)
-      .then((next) => { if (active) setRows(next) })
+    fetchAccountPage(searchQuery, businessUnit)
+      .then((next) => { if (active) { setRows(next.rows); setNextCursor(next.nextCursor) } })
       .catch((error) => {
         console.error(error)
         if (active) setRows([])
       })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [searchQuery])
+  }, [searchQuery, businessUnit])
 
   const totals = useMemo(() => ({
     buyers: rows.reduce((sum, row) => sum + row.buyers.length, 0),
@@ -44,7 +46,7 @@ export function AccountsPage() {
               Accounts
             </h1>
             <p className="mt-1 text-[13.5px]" style={{ color: '#5A6883' }}>
-              Retailers, buyers, sample rules, project load, and order history context
+              First 50 {businessUnit} retailers with exact project and order counts
             </p>
           </div>
           <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-[12.5px]" style={{ borderColor: '#EAEEF5', color: '#5A6883' }}>
@@ -68,6 +70,11 @@ export function AccountsPage() {
             {rows.map((row) => <AccountCard key={row.retailer.id} row={row} />)}
           </div>
         )}
+        {nextCursor && <button type="button" className="rounded-lg border px-4 py-2 text-sm font-semibold" onClick={() => {
+          const cursor = nextCursor
+          setNextCursor(null)
+          fetchAccountPage(searchQuery,businessUnit,cursor).then((page) => { setRows((current) => [...current,...page.rows]); setNextCursor(page.nextCursor) }).catch(pageLoadFailure('pagination.loadMore', 'More records', cursor, setNextCursor))
+        }}>Load more accounts</button>}
       </div>
     </div>
   )

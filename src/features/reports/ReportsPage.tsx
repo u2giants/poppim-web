@@ -69,7 +69,7 @@ export function ReportsPage() {
               Reports
             </h1>
             <p className="mt-1 text-[13.5px]" style={{ color: '#5A6883' }}>
-              Stage mix, closure reasons, and recent Supabase stage handoffs
+              Exact department metrics as of {new Date(data.asOf).toLocaleString()} · stage handoffs from the last 30 days
             </p>
           </div>
           <div className="flex items-center rounded-[10px] p-1" style={{ background: '#F6F8FC' }}>
@@ -166,7 +166,9 @@ export function ReportsPage() {
         </div>
 
         <Panel title="Recent Stage Handoffs" icon={Shuffle}>
-          {data.recentHandoffs.length === 0 ? (
+          {!data.handoffsAvailable ? (
+            <EmptyState label="Recent handoffs are temporarily unavailable; exact report totals are unaffected." />
+          ) : data.recentHandoffs.length === 0 ? (
             <EmptyState label="No Supabase stage handoffs have been recorded yet for this filter." />
           ) : (
             <div className="divide-y" style={{ borderColor: '#EAEEF5' }}>

@@ -12,6 +12,8 @@ import { createView } from '@/features/views/api'
 import type { Licensor, ViewFilters } from '@/lib/types'
 import { useAuth } from '@/auth/auth'
 import type { BusinessUnitFilter } from '@/lib/appState'
+import { toast } from 'sonner'
+import { reportOptionalDataError } from '@/lib/uiError'
 
 const COLOR_OPTIONS: { value: ColorBy; label: string }[] = [
   { value: 'category',  label: 'Category' },
@@ -71,6 +73,7 @@ export function Topbar() {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [saveName, setSaveName] = useState('')
   const [saveShared, setSaveShared] = useState(false)
+  const canCreateShared = /admin/i.test(user?.role?.name ?? '')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => { if (searchOpen) searchInputRef.current?.focus() }, [searchOpen])
@@ -105,12 +108,15 @@ export function Topbar() {
         businessUnit,
         filters: currentFilters(),
         visibility: saveShared ? 'shared' : 'personal',
+        canCreateShared,
       })
       setSaveName('')
       setSaveShared(false)
       bumpViewsRefresh()
       setActiveViewId(created.id)
-    } catch { /* surfaced by no new view appearing */ } finally {
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'The view could not be saved.')
+    } finally {
       setSaving(false)
     }
   }
@@ -129,12 +135,12 @@ export function Topbar() {
 
   useEffect(() => {
     if (!isPipeline) return
-    fetchLicensors().then(setLicensors).catch(() => setLicensors([]))
+    fetchLicensors().then(setLicensors).catch((error) => reportOptionalDataError('topbar.loadLicensors', 'Licensor filters', error))
   }, [isPipeline])
 
   useEffect(() => {
     if (!isPipeline) return
-    fetchListFacets(businessUnit).then(setListFacets).catch(() => setListFacets([]))
+    fetchListFacets(businessUnit).then(setListFacets).catch((error) => reportOptionalDataError('topbar.loadListFacets', 'List filters', error))
   }, [isPipeline, businessUnit])
 
   function toggleLicensor(id: string) {
@@ -441,7 +447,7 @@ export function Topbar() {
                 autoFocus
               />
               <label className="mb-2 flex cursor-pointer items-center gap-2 text-[12.5px]" style={{ color: '#5A6883' }}>
-                <input type="checkbox" checked={saveShared} onChange={(e) => setSaveShared(e.target.checked)} className="size-3.5" />
+                <input type="checkbox" checked={saveShared} disabled={!canCreateShared} onChange={(e) => setSaveShared(e.target.checked)} className="size-3.5" />
                 Share with the whole company
               </label>
               <button

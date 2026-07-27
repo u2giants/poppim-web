@@ -1,10 +1,15 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { signInWithMicrosoft, supabase } from '@/lib/supabase'
 import type { AppUser } from '@/lib/types'
+import { createAuthRequestGuard } from './authRequestGuard'
+
+export type AuthStatus = 'loading' | 'signed_out' | 'authenticated' | 'profile_missing' | 'profile_error'
 
 interface AuthState {
   user: AppUser | null
+  status: AuthStatus
   loading: boolean
+  profileError: string | null
   login: (email: string, password: string) => Promise<void>
   loginWithMicrosoft: () => Promise<void>
   logout: () => Promise<void>
@@ -13,93 +18,117 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null)
 
+type ProfileRow = {
+  id?: string | null
+  email?: string | null
+  display_name?: string | null
+  avatar_url?: string | null
+  roles?: string[] | null
+}
+
+function toAppUser(profile: ProfileRow, sessionEmail: string | null): AppUser {
+  const parts = (profile.display_name ?? '').trim().split(/\s+/).filter(Boolean)
+  const primaryRole = profile.roles?.[0] ?? null
+  return {
+    id: profile.id!,
+    first_name: parts[0] ?? null,
+    last_name: parts.length > 1 ? parts.slice(1).join(' ') : null,
+    email: profile.email ?? sessionEmail,
+    avatar: profile.avatar_url ?? null,
+    role: primaryRole ? { id: primaryRole, name: primaryRole } : null,
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<{ user: AppUser | null; loading: boolean }>({ user: null, loading: true })
+  const [state, setState] = useState<{ user: AppUser | null; status: AuthStatus; profileError: string | null }>({
+    user: null,
+    status: 'loading',
+    profileError: null,
+  })
+  const requestGuard = useRef(createAuthRequestGuard())
 
-  function fallbackUser(id: string, email: string | null): AppUser {
-    return {
-      id,
-      first_name: null,
-      last_name: null,
-      email,
-      avatar: null,
-      role: null,
+  const resolveProfile = useCallback(async () => {
+    const currentRequest = requestGuard.current.begin()
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+    if (!requestGuard.current.isCurrent(currentRequest)) return
+    if (sessionError) {
+      setState({ user: null, status: 'profile_error', profileError: sessionError.message })
+      return
     }
-  }
-
-  async function fetchMe(): Promise<AppUser | null> {
-    const { data: sessionData } = await supabase.auth.getSession()
     const session = sessionData.session
-    if (!session) return null
-    try {
-      const { data, error } = await supabase.schema('api').rpc('current_user_profile')
-      if (error) throw error
-      const profile = data as {
-        id?: string | null
-        email?: string | null
-        display_name?: string | null
-        avatar_url?: string | null
-        roles?: string[] | null
-      } | null
-      if (!profile?.id) return fallbackUser(session.user.id, session.user.email ?? null)
-      const parts = (profile.display_name ?? '').trim().split(/\s+/).filter(Boolean)
-      const primaryRole = profile.roles?.[0] ?? null
-      return {
-        id: profile.id,
-        first_name: parts[0] ?? null,
-        last_name: parts.length > 1 ? parts.slice(1).join(' ') : null,
-        email: profile.email ?? session.user.email ?? null,
-        avatar: profile.avatar_url ?? null,
-        role: primaryRole ? { id: primaryRole, name: primaryRole } : null,
-      }
-    } catch {
-      return fallbackUser(session.user.id, session.user.email ?? null)
+    if (!session) {
+      setState({ user: null, status: 'signed_out', profileError: null })
+      return
     }
-  }
+    const { data, error } = await supabase.schema('api').rpc('current_user_profile')
+    if (!requestGuard.current.isCurrent(currentRequest)) return
+    if (error) {
+      setState({ user: null, status: 'profile_error', profileError: error.message })
+      return
+    }
+    const profile = data as ProfileRow | null
+    if (!profile?.id) {
+      setState({ user: null, status: 'profile_missing', profileError: null })
+      return
+    }
+    setState({
+      user: toAppUser(profile, session.user.email ?? null),
+      status: 'authenticated',
+      profileError: null,
+    })
+  }, [])
 
   useEffect(() => {
-    let active = true
-    fetchMe().then((user) => {
-      if (active) setState({ user, loading: false })
-    })
+    const guard = requestGuard.current
+    queueMicrotask(() => void resolveProfile())
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        void refresh()
+        void resolveProfile()
       }
     })
     return () => {
-      active = false
+      guard.unmount()
       sub.subscription.unsubscribe()
     }
-  }, [])
+  }, [resolveProfile])
 
-  async function refresh() {
-    const user = await fetchMe()
-    setState((prev) => ({ ...prev, user }))
-  }
+  const refresh = useCallback(async () => {
+    const request = requestGuard.current.begin()
+    if (requestGuard.current.isCurrent(request)) setState((previous) => ({ ...previous, status: 'loading', profileError: null }))
+    await resolveProfile()
+  }, [resolveProfile])
 
-  async function login(email: string, password: string) {
+  const login = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
-    const user = await fetchMe()
-    setState({ user, loading: false })
-  }
+    await resolveProfile()
+  }, [resolveProfile])
 
-  async function loginWithMicrosoft() {
+  const loginWithMicrosoft = useCallback(async () => {
     const { error } = await signInWithMicrosoft()
     if (error) throw error
-  }
+  }, [])
 
-  async function logout() {
+  const logout = useCallback(async () => {
     try {
       await supabase.auth.signOut()
     } finally {
-      setState({ user: null, loading: false })
+      const request = requestGuard.current.begin()
+      if (requestGuard.current.isCurrent(request)) setState({ user: null, status: 'signed_out', profileError: null })
     }
-  }
+  }, [])
 
   return (
-    <AuthContext.Provider value={{ user: state.user, loading: state.loading, login, loginWithMicrosoft, logout, refresh }}>
+    <AuthContext.Provider value={{
+      user: state.user,
+      status: state.status,
+      loading: state.status === 'loading',
+      profileError: state.profileError,
+      login,
+      loginWithMicrosoft,
+      logout,
+      refresh,
+    }}>
       {children}
     </AuthContext.Provider>
   )

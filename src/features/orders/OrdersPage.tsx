@@ -1,9 +1,10 @@
+import { pageLoadFailure } from '@/lib/uiError'
 import { useEffect, useMemo, useState } from 'react'
 import { ReceiptText, Search } from 'lucide-react'
 import { productToSummary } from '@/domain/products/adapters'
 import type { Order, Product } from '@/lib/types'
 import { useAppState } from '@/lib/appState'
-import { fetchOrders } from './api'
+import { fetchOrderPage } from './api'
 
 function relationName(value: unknown): string | null {
   if (!value || typeof value === 'string') return null
@@ -25,11 +26,12 @@ export function OrdersPage() {
   const { businessUnit, searchQuery } = useAppState()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
+  const [nextCursor,setNextCursor]=useState<string|null>(null)
 
   useEffect(() => {
     let active = true
-    fetchOrders({ businessUnit, search: searchQuery })
-      .then((next) => { if (active) setOrders(next) })
+    fetchOrderPage({ businessUnit, search: searchQuery })
+      .then((next) => { if (active) {setOrders(next.orders);setNextCursor(next.nextCursor)} })
       .catch((error) => {
         console.error(error)
         if (active) setOrders([])
@@ -65,7 +67,7 @@ export function OrdersPage() {
               Orders
             </h1>
             <p className="mt-1 text-[13.5px]" style={{ color: '#5A6883' }}>
-              {orders.length.toLocaleString()} purchase-order record{orders.length === 1 ? '' : 's'} in this view
+              {orders.length.toLocaleString()} purchase-order record{orders.length === 1 ? '' : 's'} in this {businessUnit} view{nextCursor?' · more available':''}
             </p>
           </div>
           <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-[12.5px]" style={{ borderColor: '#EAEEF5', color: '#5A6883' }}>
@@ -73,6 +75,10 @@ export function OrdersPage() {
             <span>{searchQuery.trim() ? `Searching "${searchQuery.trim()}"` : 'Use sidebar search'}</span>
           </div>
         </div>
+        {nextCursor&&<button type="button" className="rounded-lg border px-4 py-2 text-sm font-semibold" onClick={()=>{
+          const cursor=nextCursor;setNextCursor(null)
+          fetchOrderPage({businessUnit,search:searchQuery,cursor}).then((page)=>{setOrders((current)=>[...current,...page.orders]);setNextCursor(page.nextCursor)}).catch(pageLoadFailure('pagination.loadMore', 'More records', cursor, setNextCursor))
+        }}>Load more orders</button>}
 
         {orders.length === 0 ? (
           <div className="rounded-lg border px-5 py-10 text-center text-[13.5px]" style={{ borderColor: '#EAEEF5', color: '#94A0B5' }}>

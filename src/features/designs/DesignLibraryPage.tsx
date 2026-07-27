@@ -1,8 +1,9 @@
+import { pageLoadFailure } from '@/lib/uiError'
 import { useEffect, useMemo, useState } from 'react'
 import { ExternalLink, FileText, Image, Search } from 'lucide-react'
 import { useAppState } from '@/lib/appState'
 import type { Design } from '@/lib/types'
-import { fetchDesigns, fetchProductCountsByDesign } from './api'
+import { fetchDesignPage } from './api'
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
   unpicked: { bg: '#FBEBD3', color: '#9A5A00', label: 'Unpicked' },
@@ -33,17 +34,16 @@ export function DesignLibraryPage() {
   const [designs, setDesigns] = useState<Design[]>([])
   const [counts, setCounts] = useState<Map<string, number>>(new Map())
   const [loading, setLoading] = useState(true)
+  const [nextCursor,setNextCursor]=useState<string|null>(null)
 
   useEffect(() => {
     let active = true
-    Promise.all([
-      fetchDesigns({ businessUnit, search: searchQuery }),
-      fetchProductCountsByDesign(),
-    ])
-      .then(([nextDesigns, nextCounts]) => {
+    fetchDesignPage({ businessUnit, search: searchQuery })
+      .then(({designs:nextDesigns,counts:nextCounts,nextCursor:cursor}) => {
         if (!active) return
         setDesigns(nextDesigns)
         setCounts(nextCounts)
+        setNextCursor(cursor)
       })
       .catch((error) => {
         console.error(error)
@@ -81,7 +81,7 @@ export function DesignLibraryPage() {
               Design library
             </h1>
             <p className="mt-1 text-[13.5px]" style={{ color: '#5A6883' }}>
-              {designs.length.toLocaleString()} reusable design record{designs.length === 1 ? '' : 's'} in this view
+              {designs.length.toLocaleString()} reusable design record{designs.length === 1 ? '' : 's'} in this view{nextCursor ? ' · more available' : ''}
             </p>
           </div>
           <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-[12.5px]" style={{ borderColor: '#EAEEF5', color: '#5A6883' }}>
@@ -113,6 +113,10 @@ export function DesignLibraryPage() {
             ))}
           </div>
         )}
+        {nextCursor&&<button type="button" className="rounded-lg border px-4 py-2 text-sm font-semibold" onClick={()=>{
+          const cursor=nextCursor;setNextCursor(null)
+          fetchDesignPage({businessUnit,search:searchQuery,cursor}).then((page)=>{setDesigns((current)=>[...current,...page.designs]);setCounts((current)=>new Map([...current,...page.counts]));setNextCursor(page.nextCursor)}).catch(pageLoadFailure('pagination.loadMore', 'More records', cursor, setNextCursor))
+        }}>Load more designs</button>}
       </div>
     </div>
   )

@@ -24,6 +24,28 @@ npm run lint      # eslint
 ## Backend connection
 `VITE_SUPABASE_URL` (in `.env`) points the SDK at the backend; use `https://qsllyeztdwjgirsysgai.supabase.co` for the shared production project. Local browser auth depends on the Supabase project's site URL / redirect URL configuration.
 
+## Generated database types
+
+Regenerate the checked-in Supabase types from the shared rehearsal preview after
+its migrations are applied:
+
+```bash
+SUPABASE_ACCESS_TOKEN=... npm run types:preview
+```
+
+After the reviewed migrations have been promoted to production, regenerate the
+committed types from the production project before landing dependent app code:
+
+```bash
+SUPABASE_ACCESS_TOKEN=... npm run types:production
+```
+
+Resolve `SUPABASE_ACCESS_TOKEN` at runtime from the 1Password
+`vibe_coding` vault item `Supabase CLI Personal Access Token`; never put it in
+`.env` or commit it. The script deliberately targets preview project
+`rjyboqwcdzcocqgmsyel` and overwrites the generated file. Do not hand-edit
+`src/lib/database.types.ts`.
+
 ## shadcn/ui components
 UI primitives in `src/components/ui/` are **generated**. Add/update them with the CLI, not by hand:
 ```bash

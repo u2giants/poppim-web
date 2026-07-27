@@ -1,9 +1,10 @@
+import { pageLoadFailure } from '@/lib/uiError'
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, ExternalLink, FileCheck2, Send, UserRound } from 'lucide-react'
 import { productToSummary } from '@/domain/products/adapters'
 import { useAppState } from '@/lib/appState'
 import type { AppUser, Product, ProductSubmission } from '@/lib/types'
-import { fetchSubmissions, updateSubmissionStatus } from '@/features/workflow/api'
+import { fetchSubmissionsPage, updateSubmissionStatus } from '@/features/workflow/api'
 
 function titleCase(value: string | null | undefined) {
   return (value ?? 'unknown').replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())
@@ -47,11 +48,12 @@ export function SubmissionsPage() {
   const { businessUnit, searchQuery } = useAppState()
   const [rows, setRows] = useState<ProductSubmission[]>([])
   const [loading, setLoading] = useState(true)
+  const [nextCursor,setNextCursor]=useState<string|null>(null)
 
   useEffect(() => {
     let active = true
-    fetchSubmissions({ businessUnit, search: searchQuery })
-      .then((next) => { if (active) setRows(next) })
+    fetchSubmissionsPage({ businessUnit, search: searchQuery })
+      .then((next) => { if (active) {setRows(next.rows);setNextCursor(next.nextCursor)} })
       .catch((error) => {
         console.error(error)
         if (active) setRows([])
@@ -112,6 +114,7 @@ export function SubmissionsPage() {
             ))}
           </div>
         )}
+        {nextCursor&&<button type="button" className="rounded-lg border px-4 py-2 text-sm font-semibold" onClick={()=>{const cursor=nextCursor;setNextCursor(null);fetchSubmissionsPage({businessUnit,search:searchQuery,cursor}).then((page)=>{setRows((current)=>[...current,...page.rows]);setNextCursor(page.nextCursor)}).catch(pageLoadFailure('pagination.loadMore', 'More records', cursor, setNextCursor))}}>Load more submissions</button>}
       </div>
     </div>
   )

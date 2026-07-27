@@ -1,4 +1,5 @@
-import { api, unwrap } from '@/lib/supabaseQuery'
+import { api, asDynamic } from '@/lib/supabaseQuery'
+import { unwrap } from '@/lib/supabaseQuery'
 
 type ProductLikeRow = Record<string, unknown> & { id?: string | null; metadata?: unknown }
 
@@ -11,7 +12,7 @@ export async function enrichProductRowsWithBoardFields<T extends ProductLikeRow>
   const boardById = new Map<string, Record<string, unknown>>()
   for (let i = 0; i < ids.length; i += BOARD_ENRICH_BATCH_SIZE) {
     const batch = ids.slice(i, i + BOARD_ENRICH_BATCH_SIZE)
-    const result = await (api() as any).from('pm_product_board').select('*').in('id', batch)
+    const result = await asDynamic(api()).from('pm_product_board').select('*').in('id', batch)
     for (const row of unwrap<Array<Record<string, unknown>>>({ data: result.data, error: result.error })) {
       if (typeof row.id === 'string') boardById.set(row.id, row)
     }

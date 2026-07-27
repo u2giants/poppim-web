@@ -1,3 +1,4 @@
+import { pageLoadFailure } from '@/lib/uiError'
 import { useEffect, useMemo, useState } from 'react'
 import { Bell, ChevronRight, FilePenLine, Flag } from 'lucide-react'
 import { useAuth } from '@/auth/auth'
@@ -7,7 +8,8 @@ import { hydrateProductSummaryRollups } from '@/domain/products/rollups'
 import type { ProductSummary } from '@/domain/products/types'
 import type { PmReminder, RevisionRequest } from '@/lib/types'
 import { CATEGORY_COLORS, CATEGORY_ICONS, LICENSOR_META, STAGE_COLORS, stageColor } from '@/domain/products/presentation'
-import { fetchMyReminders, fetchMyRevisionWork, fetchMyWorkProducts } from './api'
+import { fetchMyReminders, fetchMyRevisionWork, fetchMyWorkPage } from './api'
+import { useAppState } from '@/lib/appState'
 
 function resolveStageColor(name: string) {
   return STAGE_COLORS[name] ?? stageColor(name)
@@ -27,7 +29,14 @@ function formatDate(iso: string | null | undefined) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+function assignmentRoleId(value: string | null | undefined) {
+  return value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    ? value
+    : null
+}
+
 export function MyWorkPage() {
+  const {businessUnit}=useAppState()
   const { user, loading: authLoading } = useAuth()
   const [activeProduct, setActiveProduct] = useState<ProductSummary | null>(null)
   const [products, setProducts] = useState<ProductSummary[]>([])
@@ -35,18 +44,22 @@ export function MyWorkPage() {
   const [reminders, setReminders] = useState<PmReminder[]>([])
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [nextCursor,setNextCursor]=useState<string|null>(null)
   const userId = user?.id ?? null
-  const roleId = user?.role?.id ?? null
+  // current_user_profile returns role slugs (for example "administrator"),
+  // while legacy next_owner_role metadata and the RPC accept UUIDs only.
+  const roleId = assignmentRoleId(user?.role?.id)
 
   useEffect(() => {
     if (!userId) return
     let active = true
-    Promise.all([fetchMyWorkProducts(userId, roleId), fetchMyRevisionWork(userId), fetchMyReminders(userId)])
-      .then(async ([rows, revisionRows, reminderRows]) => {
+    Promise.all([fetchMyWorkPage(userId, roleId,businessUnit), fetchMyRevisionWork(userId,businessUnit), fetchMyReminders(userId,businessUnit)])
+      .then(async ([page, revisionRows, reminderRows]) => {
         if (!active) return
-        const hydrated = await hydrateProductSummaryRollups(rows.map(productToSummary))
+        const hydrated = await hydrateProductSummaryRollups(page.products.map(productToSummary))
         if (!active) return
         setProducts(hydrated)
+        setNextCursor(page.nextCursor)
         setRevisions(revisionRows)
         setReminders(reminderRows)
         setLoadedUserId(userId)
@@ -59,7 +72,7 @@ export function MyWorkPage() {
         setLoadedUserId(userId)
       })
     return () => { active = false }
-  }, [roleId, userId])
+  }, [businessUnit, roleId, userId])
 
   const visibleProducts = useMemo(() => (userId === loadedUserId ? products : []), [loadedUserId, products, userId])
   const loading = authLoading || (Boolean(userId) && userId !== loadedUserId)
@@ -98,8 +111,12 @@ export function MyWorkPage() {
             My work
           </h2>
           <p className="mt-1 text-[13.5px]" style={{ color: '#5A6883' }}>
-            Work owned by {userDisplayName(user)} · {visibleProducts.length} product{visibleProducts.length === 1 ? '' : 's'} · {revisions.length} revision{revisions.length === 1 ? '' : 's'} · {reminders.length} reminder{reminders.length === 1 ? '' : 's'}
+            {businessUnit} work owned by {userDisplayName(user)} · up to 100 products, revisions, and PM reminders per section
           </p>
+          {nextCursor&&userId&&<button type="button" className="mt-3 rounded-lg border px-3 py-1.5 text-[12px] font-semibold" onClick={()=>{
+            const cursor=nextCursor;setNextCursor(null)
+            fetchMyWorkPage(userId,roleId,businessUnit,cursor).then(async(page)=>{const hydrated=await hydrateProductSummaryRollups(page.products.map(productToSummary));setProducts((current)=>[...current,...hydrated]);setNextCursor(page.nextCursor)}).catch(pageLoadFailure('pagination.loadMore', 'More records', cursor, setNextCursor))
+          }}>Load more assigned products</button>}
         </div>
 
         {visibleProducts.length === 0 && revisions.length === 0 && reminders.length === 0 ? (
