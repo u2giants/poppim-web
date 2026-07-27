@@ -25,11 +25,13 @@ export interface ControlRoomData {
 }
 
 export async function fetchControlRoomData(businessUnit: BusinessUnit): Promise<ControlRoomData> {
-  const [report, pipeline, projectPage] = await Promise.all([
-    fetchReportsData(businessUnit),
-    fetchPipelinePage({ businessUnit, limit: 200 }),
-    fetchProjects(businessUnit),
-  ])
+  // These three contracts scan overlapping production PIM data. Running them
+  // concurrently can push the Licensed pipeline query over Supabase's statement
+  // timeout even though each call succeeds alone, so keep the control-room
+  // snapshot serialized and deterministic.
+  const report = await fetchReportsData(businessUnit)
+  const pipeline = await fetchPipelinePage({ businessUnit, limit: 200 })
+  const projectPage = await fetchProjects(businessUnit)
   const summaries = pipeline.products.map(productToSummary)
   const today = Date.now()
   const in21Days = today + 21 * 86_400_000
