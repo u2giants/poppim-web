@@ -44,6 +44,11 @@ When using any other AI tool, paste this file as your first message and follow t
 
 ## Documentation map: what to read for each task
 
+Business logic is companywide and organized by topic, not by application. Start at
+[companywide application and task map](https://github.com/u2giants/shared-db/blob/main/docs/business-rules/application-map.md)
+and load only the topics the task touches. This repo documents PM/PIM implementation; it
+must not maintain a competing copy of a business rule.
+
 Always start with:
 
 - `AGENTS.md`

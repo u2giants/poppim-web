@@ -2,6 +2,11 @@
 
 > **Status (2026-06-21): original roadmap/spec — kept for historical reference. Do not bulk-load (~52KB).**
 > This is the original aspirational roadmap. **For the current build status (what's actually done vs. missing, line-by-line with file evidence), see [`../gaps.md`](../gaps.md) — reconciled 2026-06-21, the authoritative current-state doc.** This plan predates the completed business screens (`AGENTS.md` §15) and the shared **Supabase.com** cutover (`shared-db/AGENTS.md`); use it only for original intent/spec context, not as a current to-do list.
+>
+> **Business-rule correction (2026-08-18):** workflow descriptions in this plan are
+> evidence of intended process, not current companywide authority. The official collection
+> point is [`shared-db/docs/business-rules/product-development-workflow.md`](../shared-db/docs/business-rules/product-development-workflow.md).
+> Rules still naming individual employees or lacking current owner confirmation remain Proposed.
 
 **Purpose.** This document defines the architecture update and implementation plan required to turn `poppim-web` from a phase-one ClickUp-board replacement into the project management system POP Creations actually needs.
 
@@ -1657,6 +1662,11 @@ Give Adam and leadership buyer/account context across POP and Spruce.
 ---
 
 ## 8. Workflow Rules
+
+> **Status: Proposed / historical evidence.** Do not implement these transitions as settled
+> company behavior merely because they appear in this plan. Confirm them through the
+> companywide product-development workflow document. Responsibilities must be expressed as
+> jobs or roles, not as the names of current employees.
 
 ## 8.1 POP stage requirements
 

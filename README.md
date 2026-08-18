@@ -1,5 +1,9 @@
 # poppim-web
 
+Companywide business rules are indexed by topic in
+[companywide application and task map](https://github.com/u2giants/shared-db/blob/main/docs/business-rules/application-map.md).
+Use its PM/PIM row or task map to load only the relevant rules.
+
 PIM (product/project management) **frontend** for POP Creations — a React + Vite + TypeScript + Tailwind v4 + shadcn/ui SPA on the shared **Supabase.com** backend (`https://qsllyeztdwjgirsysgai.supabase.co`). It's the human UI replacing the ClickUp board; it stores no data of its own.
 
 Live app: **https://pm.designflow.app** · Preview aliases: `pm-dev` / `pm-ci` · Shared backend schema repo: `u2giants/shared-db` · Siblings: `popcrm-web` (CRM), `popdam-web` (DAM).
