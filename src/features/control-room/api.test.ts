@@ -17,4 +17,21 @@ describe('Control Room accuracy',()=>{
     expect(mocks.projects).toHaveBeenCalledWith('Software')
     expect(data).toMatchObject({totalProducts:900,activeProjects:12,urgentCount:30,blockedCount:20,listsAreSampled:true,asOf:'2026-07-27T12:00:00Z'})
   })
+
+  it('selects upcoming products from real dates, not the humanised due label',async()=>{
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-27T12:00:00Z'))
+    try {
+      mocks.report.mockResolvedValue({asOf:'2026-07-27T12:00:00Z',totals:{products:2},operational:{activeProjects:0,urgent:0,blocked:0},stageBuckets:[]})
+      mocks.projects.mockResolvedValue({projects:[],counts:new Map(),nextCursor:null})
+      mocks.pipeline.mockResolvedValue({products:[
+        {id:'soon',name:'Due in a week',business_unit:'Software',pps_requested_date:'2026-08-03T00:00:00Z'},
+        {id:'later',name:'Due in a year',business_unit:'Software',pps_requested_date:'2027-08-03T00:00:00Z'},
+      ],nextCursor:null})
+      const data=await fetchControlRoomData('Software')
+      expect(data.upcomingProducts.map((product)=>product.id)).toEqual(['soon'])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })

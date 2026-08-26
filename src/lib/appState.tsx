@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import type { BusinessUnit } from '@/domain/products/types'
 
 export type Screen =
@@ -60,22 +60,27 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [activeViewId, setActiveViewId] = useState<string | null>(null)
   const [viewsRefreshKey, setViewsRefreshKey] = useState(0)
 
-  return (
-    <AppStateCtx.Provider value={{
-      screen, setScreen,
-      pipelineView, setPipelineView,
-      colorBy, setColorBy,
-      groupBy, setGroupBy,
-      businessUnit, setBusinessUnit,
-      searchQuery, setSearchQuery,
-      filterLicensorIds, setFilterLicensorIds,
-      filterListNames, setFilterListNames,
-      activeViewId, setActiveViewId,
-      viewsRefreshKey, bumpViewsRefresh: () => setViewsRefreshKey((k) => k + 1),
-    }}>
-      {children}
-    </AppStateCtx.Provider>
-  )
+  const bumpViewsRefresh = useCallback(() => setViewsRefreshKey((k) => k + 1), [])
+
+  // Memoised so a state change only re-renders consumers of the changed value's
+  // subtree, instead of every useAppState() caller on every render.
+  const value = useMemo<AppState>(() => ({
+    screen, setScreen,
+    pipelineView, setPipelineView,
+    colorBy, setColorBy,
+    groupBy, setGroupBy,
+    businessUnit, setBusinessUnit,
+    searchQuery, setSearchQuery,
+    filterLicensorIds, setFilterLicensorIds,
+    filterListNames, setFilterListNames,
+    activeViewId, setActiveViewId,
+    viewsRefreshKey, bumpViewsRefresh,
+  }), [
+    screen, pipelineView, colorBy, groupBy, businessUnit, searchQuery,
+    filterLicensorIds, filterListNames, activeViewId, viewsRefreshKey, bumpViewsRefresh,
+  ])
+
+  return <AppStateCtx.Provider value={value}>{children}</AppStateCtx.Provider>
 }
 
 export function useAppState() {

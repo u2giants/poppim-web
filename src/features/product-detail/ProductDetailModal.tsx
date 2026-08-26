@@ -22,6 +22,7 @@ import {
   createSampleForProduct,
   createSubmissionForProduct,
 } from '@/features/workflow/api'
+import { cachedReference } from '@/lib/referenceCache'
 import { useProductFieldMutation } from './useProductFieldMutation'
 import { ModalField, PaneTab, WorkflowActionButton } from './ProductDetailPrimitives'
 import { formatDate, formatDuration } from './formatters'
@@ -65,10 +66,10 @@ function ProductDetailContent({ task, onClose }: { task: ProductSummary; onClose
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; coverUrl: string | null; previewUrl: string | null } | null>(null)
 
   useEffect(() => {
-    fetchStages().then(setStages).catch((error) => reportOptionalDataError('productDetail.loadStages', 'Stages', error))
-    fetchLicensors().then(setLicensors).catch((error) => reportOptionalDataError('productDetail.loadLicensors', 'Licensors', error))
-    fetchProductTypes().then(setProductTypes).catch((error) => reportOptionalDataError('productDetail.loadProductTypes', 'Product types', error))
-    fetchCustomers()
+    cachedReference('stages', fetchStages).then(setStages).catch((error) => reportOptionalDataError('productDetail.loadStages', 'Stages', error))
+    cachedReference('licensors', fetchLicensors).then(setLicensors).catch((error) => reportOptionalDataError('productDetail.loadLicensors', 'Licensors', error))
+    cachedReference('productTypes', fetchProductTypes).then(setProductTypes).catch((error) => reportOptionalDataError('productDetail.loadProductTypes', 'Product types', error))
+    cachedReference('customers', fetchCustomers)
       .then((rows) => {
         setRetailers(rows)
         setRetailersError(null)
@@ -82,7 +83,9 @@ function ProductDetailContent({ task, onClose }: { task: ProductSummary; onClose
     // Pre-load buyers for the current retailer if set
     const currentRetailerId = task.retailerId
     if (currentRetailerId) {
-      fetchBuyers(currentRetailerId).then(setBuyers).catch((error) => reportOptionalDataError('productDetail.loadBuyers', 'Buyers', error))
+      cachedReference(`buyers:${currentRetailerId}`, () => fetchBuyers(currentRetailerId))
+        .then(setBuyers)
+        .catch((error) => reportOptionalDataError('productDetail.loadBuyers', 'Buyers', error))
     }
   }, [task])
 

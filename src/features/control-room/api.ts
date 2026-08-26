@@ -44,7 +44,10 @@ export async function fetchControlRoomData(businessUnit: BusinessUnit): Promise<
     stageCounts: report.stageBuckets.map((bucket) => ({ id: bucket.key, name: bucket.label, count: bucket.count })),
     urgentProducts: summaries.filter((p) => p.priority === 'urgent' || p.priority === 'high').slice(0, 80),
     upcomingProducts: summaries.filter((p) => {
-      const date = p.due ? new Date(p.due).getTime() : Number.NaN
+      // p.due is a humanised label ("Overdue", "3d left"); the real dates are
+      // the ISO fields the label was derived from.
+      const iso = p.ppsRequestedDate ?? p.raw.clickup_due_at ?? p.onShelfDate
+      const date = iso ? new Date(iso).getTime() : Number.NaN
       return Number.isFinite(date) && date >= today && date <= in21Days
     }).slice(0, 80),
     blockedProducts: summaries.filter((p) => p.blockerReason || p.waitingOn || p.lifecycleState === 'blocked' || p.lifecycleState === 'waiting').slice(0, 80),
