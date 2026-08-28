@@ -36,6 +36,20 @@ const STATUS_STYLE: Record<string, { bg: string; dot: string; label: string }> =
   won:    { bg: '#D8EFE7', dot: '#10B981', label: 'Won' },
 }
 
+const UNKNOWN_STATUS_STYLE = { bg: '#EAEEF5', dot: '#94A0B5' }
+
+function normaliseStatus(status: string | null | undefined): string {
+  return (status ?? '').trim().toLowerCase()
+}
+
+// Never relabel an unrecognised status as "Active" - show it verbatim instead.
+function statusStyle(status: string | null | undefined) {
+  const key = normaliseStatus(status)
+  const known = STATUS_STYLE[key]
+  if (known) return known
+  return { ...UNKNOWN_STATUS_STYLE, label: status?.trim() || 'Unknown' }
+}
+
 function useDebounce<T>(value: T, ms: number): T {
   const [d, setD] = useState(value)
   useEffect(() => { const t = setTimeout(() => setD(value), ms); return () => clearTimeout(t) }, [value, ms])
@@ -49,6 +63,7 @@ export function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [counts, setCounts] = useState<Map<string, number>>(new Map())
   const [loading, setLoading] = useState(true)
+  const firstLoad = useRef(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'won'>('all')
   const [selected, setSelected] = useState<Project | null>(null)
@@ -58,19 +73,19 @@ export function ProjectsPage() {
   const debouncedSearch = useDebounce(search, 200)
 
   useEffect(() => {
-    queueMicrotask(() => setLoading(true))
+    if (firstLoad.current) queueMicrotask(() => setLoading(true))
     fetchProjects(businessUnit, debouncedSearch)
       .then(({ projects: ps, counts: c, nextCursor: cursor }) => { setProjects(ps); setCounts(c); setNextCursor(cursor); setLoadError(null) })
       .catch((error) => {
         setLoadError('Projects could not be loaded.')
         reportUiError('projects.load', 'Projects could not be loaded. Try again.', error)
       })
-      .finally(() => setLoading(false))
+      .finally(() => { setLoading(false); firstLoad.current = false })
   }, [businessUnit, debouncedSearch])
 
   const visible = useMemo(() => {
     return projects.filter((p) => {
-      if (statusFilter !== 'all' && p.status !== statusFilter) return false
+      if (statusFilter !== 'all' && normaliseStatus(p.status) !== statusFilter) return false
       return true
     })
   }, [projects, statusFilter])
@@ -116,7 +131,7 @@ export function ProjectsPage() {
                   : { color: '#5A6883' }
               }
             >
-              {v === 'all' ? `All (${projects.length})` : `${v.charAt(0).toUpperCase() + v.slice(1)} (${projects.filter(p => p.status === v).length})`}
+              {v === 'all' ? `All (${projects.length})` : `${v.charAt(0).toUpperCase() + v.slice(1)} (${projects.filter((p) => normaliseStatus(p.status) === v).length})`}
             </button>
           ))}
         </div>
@@ -151,7 +166,7 @@ export function ProjectsPage() {
           </thead>
           <tbody>
             {visible.map((project) => {
-              const st = STATUS_STYLE[project.status ?? ''] ?? STATUS_STYLE.active
+              const st = statusStyle(project.status)
               const count = counts.get(project.id) ?? 0
               return (
                 <tr
@@ -243,7 +258,7 @@ function ProjectDetailModal({ project, onClose }: { project: Project; onClose: (
       .finally(() => setLoadingProducts(false))
   }, [project.id])
 
-  const st = STATUS_STYLE[project.status ?? ''] ?? STATUS_STYLE.active
+  const st = statusStyle(project.status)
 
   return (
     <div

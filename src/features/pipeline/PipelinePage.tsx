@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -473,20 +473,20 @@ function TableView({
     () => allRows.slice(safePage * TABLE_PAGE_SIZE, (safePage + 1) * TABLE_PAGE_SIZE),
     [allRows, safePage])
   const pageIds = useMemo(() => pageRows.map((row) => row.id), [pageRows])
-  const selectedIds = useMemo(() => [...selected].filter((id) => tasks.some((task) => task.id === id)), [selected, tasks])
+  const taskIds = useMemo(() => new Set(tasks.map((task) => task.id)), [tasks])
+  const selectedIds = useMemo(() => [...selected].filter((id) => taskIds.has(id)), [selected, taskIds])
   const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id))
 
   // Determine which groups appear on this page (to render headers)
   const visibleGroups = useMemo(() => {
-    const seen = new Set<string>()
-    const result: typeof groups = []
+    const totalByKey = new Map(groups.map((group) => [group.key, group.items.length]))
+    const byKey = new Map<string, typeof pageRows>()
     for (const row of pageRows) {
-      if (!seen.has(row._group)) {
-        seen.add(row._group)
-        result.push(groups.find((g) => g.key === row._group)!)
-      }
+      const bucket = byKey.get(row._group)
+      if (bucket) bucket.push(row)
+      else byKey.set(row._group, [row])
     }
-    return result
+    return [...byKey].map(([key, items]) => ({ key, items, total: totalByKey.get(key) ?? items.length }))
   }, [pageRows, groups])
 
   function toggleSelected(id: string) {
@@ -547,12 +547,10 @@ function TableView({
             </tr>
           </thead>
           <tbody>
-            {visibleGroups.map(({ key }) => {
-              const groupItems = pageRows.filter((r) => r._group === key)
+            {visibleGroups.map(({ key, items: groupItems, total: groupTotal }) => {
               return (
-                <>
+                <Fragment key={key}>
                   <tr
-                    key={`h-${key}`}
                     className="cursor-pointer"
                     onClick={() => setCollapsed((p) => { const n = new Set(p); if (n.has(key)) n.delete(key); else n.add(key); return n })}
                     style={{ background: '#F6F8FC', borderBottom: '1px solid #EAEEF5' }}
@@ -568,7 +566,7 @@ function TableView({
                         )}
                         <span className="text-[13px] font-bold capitalize" style={{ color: '#1B2840' }}>{key}</span>
                         <span className="rounded px-1.5 py-0.5 text-[11px] font-semibold" style={{ background: '#EAEEF5', color: '#5A6883' }}>
-                          {groups.find(g => g.key === key)?.items.length ?? 0}
+                          {groupTotal}
                         </span>
                       </div>
                     </td>
@@ -576,7 +574,7 @@ function TableView({
                   {!collapsed.has(key) && groupItems.map((task) => (
                     <TableTaskRow key={task.id} task={task} selected={selected.has(task.id)} onToggleSelected={toggleSelected} onOpen={onOpen} />
                   ))}
-                </>
+                </Fragment>
               )
             })}
           </tbody>
