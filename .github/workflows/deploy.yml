@@ -113,7 +113,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"docker_compose_raw\": \"${DC_B64}\"}"
 
-          curl -fsS -X GET \
+          curl -fsS -X POST \
             "${COOLIFY_URL}/api/v1/services/${COOLIFY_APP_UUID}/restart" \
             -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"
 
