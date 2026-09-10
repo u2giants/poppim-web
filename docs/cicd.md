@@ -18,7 +18,7 @@ push to main
   → GitHub Actions (.github/workflows/deploy.yml)
        verify   : npm ci → lint → build (tsc + vite)   [gate]
        publish  : docker build → push ghcr.io/u2giants/poppim-web:main  + :sha-<commit>
-       deploy   : GET /api/v1/services/{uuid}/restart  (Coolify service restart — see §QUIRK-1)
+       deploy   : POST /api/v1/services/{uuid}/restart  (Coolify service restart — see §QUIRK-1)
        verify   : poll https://pm.designflow.app/?_v=<sha> for the commit SHA in the HTML (see §QUIRK-2)
   → Coolify pulls the new :main image and runs it
   → VPS runs the container
@@ -86,7 +86,7 @@ Do **not** use the `/deploy` endpoint for this service — it will no-op.
 
 **Correct deploy flow (what the workflow does):**
 1. `PATCH /api/v1/services/{uuid}` — update `docker_compose_raw` (base64-encoded) to reference the immutable `:sha-<commit>` tag for this exact commit. Coolify requires base64 encoding; plain text returns 422.
-2. `GET /api/v1/services/{uuid}/restart` — Coolify runs `docker compose up -d` with the updated config. Because `:sha-<commit>` is a new unique tag (never on the server), Docker **must** pull it from GHCR.
+2. `POST /api/v1/services/{uuid}/restart` — Coolify runs `docker compose up -d` with the updated config. Because `:sha-<commit>` is a new unique tag (never on the server), Docker **must** pull it from GHCR. GET returns HTTP 405 and must not be used.
 
 **Why not stop+start?** `stop` is async ("request queued") and `start` returns HTTP 400 "Service is already running" if the stop hasn't completed — or if the prior container auto-restarted. `restart` is the correct atomic operation; it reads the updated config and pulls the new tag in one step.
 
@@ -104,7 +104,7 @@ Do **not** attempt to fix this by reconfiguring Caddy labels — the Caddy confi
 - Platform: **Coolify** at `http://178.156.180.212:8000`, server `onwp0kd7w1w74w9yeotnoihp`, project **POP PIM** (`jdq36h5dq74o6ddhich9l796`).
 - Service: **`poppim-web`** uuid **`ysvdyj3t7d5tyh5ogrvlka4y`** — a compose service running `image: ghcr.io/u2giants/poppim-web:main`, port 80.
 - Domain: `pm.designflow.app`. Bound via the Coolify sub-app `fqdn` (`service_applications.fqdn = https://<host>:80`).
-- Deploy trigger (in the workflow): `PATCH` docker_compose_raw to `:sha-<commit>`, then `GET /restart` (see §QUIRK-1, §QUIRK-3).
+- Deploy trigger (in the workflow): `PATCH` docker_compose_raw to `:sha-<commit>`, then `POST /restart` (see §QUIRK-1, §QUIRK-3).
 
 ## 2026-06-12 stale deploy incident
 
@@ -114,7 +114,7 @@ GitHub Actions run `27414801292` pushed `ghcr.io/u2giants/poppim-web:main` for c
 
 **Recovery:** manually called `GET /api/v1/services/ysvdyj3t7d5tyh5ogrvlka4y/stop` then `/start`, forcing a fresh pull of `:main`.
 
-**Permanent fix:** workflow updated to use `GET /api/v1/services/{uuid}/restart` (see §QUIRK-1). A second discovery: `/version.json` is intercepted by Caddy (see §QUIRK-2), so the workflow now verifies by polling the HTML for the commit SHA baked into `<meta name="build-sha">`.
+**Permanent fix:** the workflow uses `POST /api/v1/services/{uuid}/restart` after updating the immutable image tag. A second discovery: `/version.json` is intercepted by Caddy (see §QUIRK-2), so the workflow now verifies by polling the HTML for the commit SHA baked into `<meta name="build-sha">`.
 
 ## Status — live (2026-06-12)
 
