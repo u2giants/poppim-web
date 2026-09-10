@@ -11,6 +11,11 @@ Canonical operating guide for **poppim-web**. Read this first; it routes you to 
 
 ## Shared DB Gatekeeper
 
+Repository-local task routing is declared in `.ai-devops/task-gates.json` and
+verified by `scripts/test-task-gates.sh`. Protected browser, authorization,
+deployment, and shared-database paths require their full declared treatment;
+acknowledgement never bypasses a database-route refusal.
+
 This repo shares the Supabase backend project `qsllyeztdwjgirsysgai` with the other POP apps. **All** database/schema changes for that shared backend must be authored in the canonical repo [`u2giants/shared-db`](https://github.com/u2giants/shared-db): branch + PR + timestamped migration, preview-first, and the AI merges it before any dependent app code lands here.
 
 Never make app-side DDL in this repo: no inline/startup migrations, no dashboard SQL, no one-off `execute_sql`, no local `supabase/migrations/` folder, and no schema-changing SQL outside the vendored `shared-db/` mirror. The CI workflow `.github/workflows/shared-db-guard.yml` enforces this on `push` and `pull_request`. Legitimate emergency override is explicit only: PR label `db-change-approved`, or `[db-change-approved]` in a commit message.
