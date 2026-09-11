@@ -48,7 +48,7 @@ describe('canonical item link', () => {
     const calls: QueryCall[] = []
     mocks.api.mockReturnValue(schemaDouble({ pim_item_picker: { data: [], error: null } }, { pim_item_picker: calls }))
     await searchCanonicalItems('100%_*', 'cursor-uuid')
-    expect(calls).toContainEqual({ method: 'ilike', args: ['item_number', '%100\\%\\_\\*%'] })
+    expect(calls).toContainEqual({ method: 'ilike', args: ['item_number', '%100\\%\\__%'] })
     expect(calls).toContainEqual({ method: 'gt', args: ['item_id', 'cursor-uuid'] })
     expect(calls).toContainEqual({ method: 'limit', args: [21] })
     expect(itemLabel(item)).not.toEqual(itemLabel({ ...item, company_code: 'C2', division_code: 'D2' }))

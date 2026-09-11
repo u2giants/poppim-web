@@ -19,7 +19,9 @@ export async function searchCanonicalItems(search: string, after?: string) {
   let query = dynamicApi().from('pim_item_picker').select(FIELDS)
     .order('item_id', { ascending: true }).limit(PAGE_SIZE + 1)
   const term = search.trim()
-  if (term) query = query.ilike('item_number', `%${term.replace(/[\\%_*]/g, '\\$&')}%`)
+  // PostgREST rewrites '*' to '%' before SQL sees it, so '\*' would mean a literal '%'.
+  // A '*' in the term becomes the single-character wildcard '_', which still finds 'A*B'.
+  if (term) query = query.ilike('item_number', `%${term.replace(/[\\%_]/g, '\\$&').replace(/\*/g, '_')}%`)
   if (after) query = query.gt('item_id', after)
   const rows = unwrap<CanonicalItem[]>(await query)
   const items = rows.slice(0, PAGE_SIZE)
