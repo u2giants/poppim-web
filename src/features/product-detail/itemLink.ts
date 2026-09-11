@@ -19,27 +19,32 @@ export async function searchCanonicalItems(search: string, after?: string) {
   let query = dynamicApi().from('pim_item_picker').select(FIELDS)
     .order('item_id', { ascending: true }).limit(PAGE_SIZE + 1)
   const term = search.trim()
-  if (term) query = query.ilike('item_number', `%${term.replace(/[\\%_]/g, '\\$&')}%`)
+  if (term) query = query.ilike('item_number', `%${term.replace(/[\\%_*]/g, '\\$&')}%`)
   if (after) query = query.gt('item_id', after)
   const rows = unwrap<CanonicalItem[]>(await query)
   const items = rows.slice(0, PAGE_SIZE)
   return { items, next: rows.length > PAGE_SIZE ? items.at(-1)!.item_id : null }
 }
 
-export async function readProductItemLink(productId: string) {
-  const product = unwrap<{ plm_item_id: string | null }>(await pim().from('product')
-    .select('plm_item_id').eq('id', productId).single())
-  if (!product.plm_item_id) return null
-  const item = unwrap<CanonicalItem | null>(await dynamicApi().from('pim_item_picker')
-    .select(FIELDS).eq('item_id', product.plm_item_id).maybeSingle())
-  if (!item) throw new Error('The linked item is unavailable. The saved link has not been changed.')
-  return item
+/** The saved FK and, when the picker view still returns it, the resolved item. */
+export interface ItemLink {
+  itemId: string | null
+  item: CanonicalItem | null
 }
 
-export async function saveProductItemLink(productId: string, itemId: string | null) {
+export async function readProductItemLink(productId: string): Promise<ItemLink> {
+  const product = unwrap<{ plm_item_id: string | null }>(await pim().from('product')
+    .select('plm_item_id').eq('id', productId).single())
+  if (!product.plm_item_id) return { itemId: null, item: null }
+  const item = unwrap<CanonicalItem | null>(await dynamicApi().from('pim_item_picker')
+    .select(FIELDS).eq('item_id', product.plm_item_id).maybeSingle())
+  return { itemId: product.plm_item_id, item }
+}
+
+export async function saveProductItemLink(productId: string, itemId: string | null): Promise<ItemLink> {
   await updateProduct(productId, { plm_item_id: itemId })
   const saved = await readProductItemLink(productId)
-  if ((saved?.item_id ?? null) !== itemId) throw new Error('The item link changed. Reload before trying again.')
+  if (saved.itemId !== itemId) throw new Error('The item link changed. Reload before trying again.')
   return saved
 }
 
