@@ -32,6 +32,7 @@ import { AttachmentGallery, FilesPane } from './FilesPane'
 import { AssigneesField, ChecklistPanel, FieldsPane, ProductTags, SubtasksPanel } from './CollaborationPanels'
 import { ActivityPane } from './ActivityPane'
 import { OperatingPane } from './OperatingPane'
+import { ItemLinkField } from './ItemLinkField'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -284,6 +285,10 @@ function ProductDetailContent({ task, onClose }: { task: ProductSummary; onClose
                   {displayStageName}
                 </span>
               )}
+            </ModalField>
+
+            <ModalField label="Canonical item">
+              <ItemLinkField productId={task.id} />
             </ModalField>
 
             <ModalField label="Licensor">

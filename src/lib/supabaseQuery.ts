@@ -18,6 +18,8 @@ export interface DynamicQuery extends PromiseLike<DynamicResult> {
   update(values: unknown): DynamicQuery
   delete(): DynamicQuery
   eq(column: string, value: unknown): DynamicQuery
+  gt(column: string, value: unknown): DynamicQuery
+  ilike(column: string, pattern: string): DynamicQuery
   neq(column: string, value: unknown): DynamicQuery
   in(column: string, values: readonly unknown[]): DynamicQuery
   is(column: string, value: unknown): DynamicQuery

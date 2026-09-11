@@ -134,6 +134,7 @@ export interface Design extends WorkflowFields {
 }
 
 export interface Product extends WorkflowFields {
+  plm_item_id?: string | null
   id: string
   code: string | null
   name: string | null

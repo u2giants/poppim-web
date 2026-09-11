@@ -23,6 +23,7 @@ export function queryDouble<T>(
     'or',
     'ilike',
     'gte',
+    'gt',
     'is',
     'maybeSingle',
     'single',

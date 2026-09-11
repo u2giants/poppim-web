@@ -298,6 +298,7 @@ export async function updateProduct(id: string, patch: Record<string, unknown>, 
     'product_type_id',
     'company_id',
     'buyer_contact_id',
+    'plm_item_id',
   ])
   const aliases: Record<string, ProductUpdateKey> = {
     licensor: 'licensor_id',

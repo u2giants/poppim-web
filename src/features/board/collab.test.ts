@@ -18,6 +18,21 @@ vi.mock('@/lib/supabaseQuery', async (importOriginal) => {
 import { updateProduct } from './collab'
 
 describe('product mutation characterization', () => {
+  it('writes selected item UUID and clear to the real FK, never metadata', async () => {
+    const calls: QueryCall[] = []
+    const rpc = vi.fn()
+    mocks.api.mockReturnValue({ rpc })
+    mocks.pim.mockReturnValue(schemaDouble({ product: [
+      { data: { id: 'product-1', plm_item_id: 'canonical-uuid' }, error: null },
+      { data: { id: 'product-1', plm_item_id: null }, error: null },
+    ] }, { product: calls }))
+    await updateProduct('product-1', { plm_item_id: 'canonical-uuid' })
+    await updateProduct('product-1', { plm_item_id: null })
+    expect(calls.filter((call) => call.method === 'update').map((call) => call.args[0])).toEqual([
+      { plm_item_id: 'canonical-uuid' }, { plm_item_id: null },
+    ])
+    expect(rpc).not.toHaveBeenCalled()
+  })
   it('product-field aliases map to direct typed columns', async () => {
     const calls: QueryCall[] = []
     mocks.pim.mockReturnValue(schemaDouble({

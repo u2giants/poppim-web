@@ -153,7 +153,7 @@ export async function fetchPipelineInitial(opts: FetchProductsOpts): Promise<Pip
 export async function fetchPipelineProductById(id: string): Promise<Product | null> {
   const { data, error } = await pim()
     .from('product')
-    .select('id,code,name,status,stage,lifecycle_status,cover_url,project_id,company_id,buyer_contact_id,factory_id,licensor_id,property_id,product_type_id,clickup_task_id,clickup_parent_id,clickup_status,updated_at,metadata')
+    .select('id,plm_item_id,code,name,status,stage,lifecycle_status,cover_url,project_id,company_id,buyer_contact_id,factory_id,licensor_id,property_id,product_type_id,clickup_task_id,clickup_parent_id,clickup_status,updated_at,metadata')
     .eq('id', id)
     .maybeSingle()
   const row = unwrap<Record<string, unknown> | null>({ data, error })

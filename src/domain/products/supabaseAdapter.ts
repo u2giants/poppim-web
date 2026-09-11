@@ -3,6 +3,7 @@ import { metadata, numberMeta, textMeta } from '@/lib/supabaseQuery'
 
 export type SupabaseProductRow = Record<string, unknown> & {
   id: string
+  plm_item_id?: string | null
   code?: string | null
   name?: string | null
   status?: string | null
@@ -48,6 +49,7 @@ function stageRelation(row: SupabaseProductRow): Stage | null {
 export function supabaseProductToProduct(row: SupabaseProductRow): Product {
   return {
     id: row.id,
+    plm_item_id: row.plm_item_id ?? null,
     code: row.code ?? row.clickup_task_id ?? null,
     name: row.name ?? null,
     description: textMeta(row, 'description'),
