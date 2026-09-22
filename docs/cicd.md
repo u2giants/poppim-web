@@ -51,12 +51,25 @@ Redeploy a prior immutable tag through Coolify — point the service image at `g
 ## Secrets (§8.1/§15)
 | Stored in | What | Why |
 |---|---|---|
-| GitHub Secrets | `COOLIFY_TOKEN` (Coolify API token) | deploy trigger |
+| GitHub Secrets | `COOLIFY_TOKEN` (Coolify API token) | deploy trigger — loaded **only** after the no-secret transport preflight |
 | GitHub Secrets | `VITE_SUPABASE_ANON_KEY` (publishable Supabase anon key) | static SPA build |
 | GitHub Variables | `VITE_SUPABASE_URL` (`https://qsllyeztdwjgirsysgai.supabase.co`) | static SPA build |
+| GitHub Variables | `COOLIFY_CONTROL_PLANE_URL` | certificate-valid HTTPS Coolify control-plane hostname (set by infrastructure handback; empty keeps deploy fail-closed) |
 | GitHub (automatic) | `GITHUB_TOKEN` w/ `packages: write` | push to GHCR — **no PAT needed** |
 | Coolify | runtime env (none secret here; `VITE_*` is build-time) | runtime config |
 No production SSH keys are stored in GitHub (none are used by the deploy path — §10).
+
+## §QUIRK-4 — Coolify control-plane transport is fail-closed (Phase 0)
+
+The Coolify API token must never travel over plaintext HTTP or to a bare IP. The historical plaintext-IP control-plane endpoint is **deleted**, not retained as a fallback.
+
+Deploy flow now has a hard gate:
+
+1. `verify` and `publish` may run as usual.
+2. `deploy-transport-preflight` runs with **no secrets**. It requires a non-empty `COOLIFY_CONTROL_PLANE_HOST_PIN` in the workflow (not a mutable repository variable), requires `vars.COOLIFY_CONTROL_PLANE_URL` to use the `https` scheme with a certificate-valid hostname (rejects plaintext HTTP, userinfo, and IPv4/IPv6 literals), requires that hostname to **exactly match the pin**, then probes TLS with `curl --proto '=https' --tlsv1.2`.
+3. Only after that job succeeds does `deploy` load `secrets.COOLIFY_TOKEN` and call the control-plane API. Token-bearing `curl` commands force `--proto '=https' --tlsv1.2`.
+
+Until the authorized infrastructure/Ansible handback names the host **and** a follow-up transport-pin change writes that exact hostname into `COOLIFY_CONTROL_PLANE_HOST_PIN` (empty pin keeps deploy blocked), the deploy job is **visibly blocked** and `COOLIFY_TOKEN` is never loaded. Local proof lives in `scripts/test-deploy-transport.sh` (static assertions + negative fixtures). After handback, the transport-pin change also proves MITM/wrong-host/wrong-certificate failures occur before the token-bearing step.
 
 ## Build vs runtime (§19)
 `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are **build-time** (baked into the static bundle by the `publish` job). There is no runtime app env. Domain/restart/health are Coolify-owned.
@@ -101,7 +114,7 @@ Coolify's Caddy reverse-proxy layer applies `try_files={path} /index.html /index
 Do **not** attempt to fix this by reconfiguring Caddy labels — the Caddy config is Coolify-managed and must not be edited directly (§20).
 
 ## Coolify topology to recreate (§17)
-- Platform: **Coolify** at `http://178.156.180.212:8000`, server `onwp0kd7w1w74w9yeotnoihp`, project **POP PIM** (`jdq36h5dq74o6ddhich9l796`).
+- Platform: **Coolify** control plane — set `vars.COOLIFY_CONTROL_PLANE_URL` to the authorized certificate-valid HTTPS hostname (see §QUIRK-4; never reintroduce plaintext HTTP or a bare IP). Server `onwp0kd7w1w74w9yeotnoihp`, project **POP PIM** (`jdq36h5dq74o6ddhich9l796`).
 - Service: **`poppim-web`** uuid **`ysvdyj3t7d5tyh5ogrvlka4y`** — a compose service running `image: ghcr.io/u2giants/poppim-web:main`, port 80.
 - Domain: `pm.designflow.app`. Bound via the Coolify sub-app `fqdn` (`service_applications.fqdn = https://<host>:80`).
 - Deploy trigger (in the workflow): `PATCH` docker_compose_raw to `:sha-<commit>`, then `POST /restart` (see §QUIRK-1, §QUIRK-3).
