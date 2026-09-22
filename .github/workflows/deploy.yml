@@ -1,8 +1,15 @@
 # Production release pipeline for poppim-web.
 # Path (the ONLY normal release path — see docs/cicd.md):
-#   push to main  ->  verify  ->  build+publish image to GHCR  ->  trigger Coolify
-#   ->  Coolify pulls the published image and runs it.
+#   push to main  ->  verify  ->  build+publish image to GHCR
+#   ->  transport preflight (no secrets)  ->  trigger Coolify  ->  Coolify runs the image
 # GitHub Actions never SSHes into the server or runs docker on it.
+#
+# Phase 0 transport gate (Jev activity-triage):
+#   COOLIFY_TOKEN is loaded only after deploy-transport-preflight proves a
+#   certificate-valid HTTPS hostname (or the later authorized private-tunnel
+#   identity). Until that infrastructure handback sets
+#   vars.COOLIFY_CONTROL_PLANE_URL, the deploy job is unreachable and the
+#   former plaintext IP control-plane path stays deleted — never reintroduce it.
 name: deploy
 
 on:
@@ -26,7 +33,13 @@ concurrency:
 env:
   IMAGE: ghcr.io/u2giants/poppim-web
   # Coolify deployment platform (runtime owner). uuid is not a secret; token is.
-  COOLIFY_URL: http://178.156.180.212:8000
+  # COOLIFY_CONTROL_PLANE_URL must be an https:// hostname set by the authorized
+  # infrastructure handback (repository variable). Empty/missing stays fail-closed.
+  COOLIFY_CONTROL_PLANE_URL: ${{ vars.COOLIFY_CONTROL_PLANE_URL }}
+  # Exact authorized control-plane hostname pin. Empty keeps deploy blocked so a
+  # substituted repository variable cannot redirect the bearer token. Filled only
+  # by the post-handback transport-pin change after infrastructure names the host.
+  COOLIFY_CONTROL_PLANE_HOST_PIN: ''
   COOLIFY_APP_UUID: ysvdyj3t7d5tyh5ogrvlka4y
 
 jobs:
@@ -35,6 +48,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Enforce Coolify transport gate fixture
+        run: bash scripts/test-deploy-transport.sh
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -83,20 +98,130 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # 3) Deploy — trigger Coolify by API (§7). Coolify pulls the just-published image and runs it.
+  # 3) Transport preflight — NO secrets. Proves encrypted, server-authenticated
+  #    control-plane transport before any job may load COOLIFY_TOKEN. Fails closed
+  #    when vars.COOLIFY_CONTROL_PLANE_URL is unset (pre-handback) or insecure.
+  deploy-transport-preflight:
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce Coolify transport gate fixture
+        run: bash scripts/test-deploy-transport.sh
+      - name: Validate secure Coolify control-plane transport (no secrets)
+        env:
+          CONTROL_PLANE_URL: ${{ vars.COOLIFY_CONTROL_PLANE_URL }}
+          CONTROL_PLANE_HOST_PIN: ${{ env.COOLIFY_CONTROL_PLANE_HOST_PIN }}
+        run: |
+          set -euo pipefail
+          url="${CONTROL_PLANE_URL:-}"
+          host_pin="${CONTROL_PLANE_HOST_PIN:-}"
+          if [ -z "$host_pin" ]; then
+            echo "::error::Deploy blocked: COOLIFY_CONTROL_PLANE_HOST_PIN is empty. The authorized control-plane hostname is not pinned yet, so COOLIFY_TOKEN cannot be loaded or sent."
+            exit 1
+          fi
+          if [ -z "$url" ]; then
+            echo "::error::Deploy blocked: vars.COOLIFY_CONTROL_PLANE_URL is not configured. Deployment stays fail-closed until the authorized infrastructure handback provides a certificate-valid HTTPS hostname or authenticated encrypted private-tunnel identity."
+            exit 1
+          fi
+          case "$url" in
+            https://*) ;;
+            *)
+              echo "::error::Deploy blocked: control-plane URL must use the https scheme. Plaintext transport is forbidden."
+              exit 1
+              ;;
+          esac
+          rest="${url#https://}"
+          authority="${rest%%/*}"
+          host="${authority%%:*}"
+          host="${host#[}"
+          host="${host%]}"
+          if [ -z "$host" ]; then
+            echo "::error::Deploy blocked: control-plane URL has no hostname."
+            exit 1
+          fi
+          if printf '%s' "$authority" | grep -q '@'; then
+            echo "::error::Deploy blocked: control-plane URL must not embed userinfo credentials."
+            exit 1
+          fi
+          if printf '%s' "$host" | grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}$'; then
+            echo "::error::Deploy blocked: control-plane URL must use a certificate-valid hostname, not a bare IPv4 address."
+            exit 1
+          fi
+          if printf '%s' "$host" | grep -Eq '^[0-9a-fA-F:]+$' && printf '%s' "$host" | grep -q ':'; then
+            echo "::error::Deploy blocked: control-plane URL must use a certificate-valid hostname, not a bare IPv6 address."
+            exit 1
+          fi
+          if [ "$host" != "$host_pin" ]; then
+            echo "::error::Deploy blocked: control-plane hostname does not match the authorized pin. COOLIFY_TOKEN was not loaded."
+            exit 1
+          fi
+          if ! curl --silent --show-error --head \
+            --connect-timeout 10 --max-time 20 \
+            --proto '=https' --tlsv1.2 \
+            --output /dev/null \
+            "$url"; then
+            echo "::error::Deploy blocked: secure transport preflight failed TLS/hostname/certificate validation. COOLIFY_TOKEN was not loaded."
+            exit 1
+          fi
+          echo "Secure control-plane transport preflight passed. COOLIFY_TOKEN may load in the deploy job only."
+
+  # 4) Deploy — trigger Coolify by API only after the no-secret transport preflight.
   #    poppim-web is a Coolify *service* (docker-compose), not an application, so we must
   #    update the service's docker_compose_raw to reference the immutable :sha-<commit> tag
   #    before restarting. The :main tag is cached locally by Docker and /restart would just
   #    restart the old container; a unique SHA tag is never cached, so Coolify's start
   #    (docker compose up -d) is forced to pull from GHCR.
   deploy:
-    needs: publish
+    needs: [publish, deploy-transport-preflight]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Point Coolify service at the new SHA-tagged image and redeploy
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          CONTROL_PLANE_URL: ${{ vars.COOLIFY_CONTROL_PLANE_URL }}
+          CONTROL_PLANE_HOST_PIN: ${{ env.COOLIFY_CONTROL_PLANE_HOST_PIN }}
+          COOLIFY_APP_UUID: ${{ env.COOLIFY_APP_UUID }}
+          IMAGE_TAG: ghcr.io/u2giants/poppim-web:sha-${{ github.sha }}
         run: |
-          SHA="${{ github.sha }}"
-          IMAGE_TAG="ghcr.io/u2giants/poppim-web:sha-${SHA}"
+          set -euo pipefail
+          url="${CONTROL_PLANE_URL:-}"
+          host_pin="${CONTROL_PLANE_HOST_PIN:-}"
+          if [ -z "$host_pin" ]; then
+            echo "::error::Deploy blocked: COOLIFY_CONTROL_PLANE_HOST_PIN is empty."
+            exit 1
+          fi
+          case "$url" in
+            https://*) ;;
+            *)
+              echo "::error::Deploy blocked: control-plane URL must use the https scheme."
+              exit 1
+              ;;
+          esac
+          rest="${url#https://}"
+          authority="${rest%%/*}"
+          host="${authority%%:*}"
+          host="${host#[}"
+          host="${host%]}"
+          if [ -z "$host" ] || printf '%s' "$authority" | grep -q '@'; then
+            echo "::error::Deploy blocked: control-plane URL failed hostname/userinfo checks."
+            exit 1
+          fi
+          if printf '%s' "$host" | grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}$'; then
+            echo "::error::Deploy blocked: control-plane URL must use a certificate-valid hostname, not a bare IPv4 address."
+            exit 1
+          fi
+          if printf '%s' "$host" | grep -Eq '^[0-9a-fA-F:]+$' && printf '%s' "$host" | grep -q ':'; then
+            echo "::error::Deploy blocked: control-plane URL must use a certificate-valid hostname, not a bare IPv6 address."
+            exit 1
+          fi
+          if [ "$host" != "$host_pin" ]; then
+            echo "::error::Deploy blocked: control-plane hostname does not match the authorized pin."
+            exit 1
+          fi
+          base="${url%/}"
 
           # Build the minimal docker-compose for the service (same shape as docker_compose_raw).
           DC_RAW=$(printf 'services:\n  poppim-web:\n    image: '"'"'%s'"'"'\n    environment:\n      SERVICE_FQDN_POPPIMWEB_80: pm-ci.designflow.app\n    expose:\n      - '"'"'80'"'"'\n    restart: unless-stopped\n' "$IMAGE_TAG")
@@ -107,26 +232,27 @@ jobs:
           # which fetches the SHA tag (never cached) from GHCR. This is simpler and more
           # reliable than stop+start, which has async-stop race conditions.
           DC_B64="$(printf '%s' "$DC_RAW" | base64 -w0)"
-          curl -fsS -X PATCH \
-            "${COOLIFY_URL}/api/v1/services/${COOLIFY_APP_UUID}" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+          curl --proto '=https' --tlsv1.2 --fail --silent --show-error -X PATCH \
+            "${base}/api/v1/services/${COOLIFY_APP_UUID}" \
+            -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
             -H "Content-Type: application/json" \
             -d "{\"docker_compose_raw\": \"${DC_B64}\"}"
 
-          curl -fsS -X POST \
-            "${COOLIFY_URL}/api/v1/services/${COOLIFY_APP_UUID}/restart" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"
+          curl --proto '=https' --tlsv1.2 --fail --silent --show-error -X POST \
+            "${base}/api/v1/services/${COOLIFY_APP_UUID}/restart" \
+            -H "Authorization: Bearer ${COOLIFY_TOKEN}"
 
       - name: Verify production is serving this commit
         env:
           EXPECTED_SHA: ${{ github.sha }}
           BASE_URL: https://pm.designflow.app
         run: |
+          set -euo pipefail
           # index.html contains <meta name="build-sha" content="<sha>"> (baked by Vite).
           # Caddy always serves index.html for all routes, so we grep it directly.
           # Cache-busting query string prevents stale CDN/proxy responses.
           for attempt in {1..30}; do
-            html="$(curl -fsS --max-time 10 "${BASE_URL}/?_v=${EXPECTED_SHA}-${attempt}" 2>/dev/null || true)"
+            html="$(curl --proto '=https' --tlsv1.2 --fail --silent --show-error --max-time 10 "${BASE_URL}/?_v=${EXPECTED_SHA}-${attempt}" 2>/dev/null || true)"
             if printf '%s' "$html" | grep -Fq "${EXPECTED_SHA}"; then
               echo "Production is serving ${EXPECTED_SHA}."
               exit 0
