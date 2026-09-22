@@ -10,7 +10,8 @@ Execution handoff: [`HANDOFF.d/2026-09-20T1405Z-hetz-codex-jev-activity-triage.m
 
 | Step | Status | Updated | Exit gate |
 |---|---|---|---|
-| 1. Reconcile current truth and owner/privacy gates | 🟨 in progress | 2026-09-20 | Plan/issues/handoff/baseline evidence and approving independent plan review exist; owner gates are recorded. |
+| 0. Close plaintext Coolify deploy path | 🟨 in progress | 2026-09-22 | Fail-closed workflow landed (PR #11, `38caa74e`); live main proof shows token blocked while pin empty. Secure hostname pin + MITM proof still need infrastructure handback. |
+| 1. Reconcile current truth and owner/privacy gates | 🟨 in progress | 2026-09-22 | Authority proven (`u2giants/shared-db`; redirect to `popcre/shared-db` recorded). Auth mode `asymmetric_jwks` ES256 with secret-free JWKS/user path recorded in #9. Owner decisions 1–7, TypeSafe deletion commitment, role matrix, and corpus feasibility still required. |
 | 2. Build blinded evaluation harness | ⬜ open | 2026-09-20 | Synthetic, redaction, sealing, validation, and cleanup tests pass. |
 | 3. Freeze real-evaluation protocol (synthetic only) | ⬜ open | 2026-09-20 | Sampling, rubric, access, replacement, metrics, and privacy protocol are frozen without reading real comments. |
 | 4. Land additive shared-db contract, then execute real evaluation | ⬜ open | 2026-09-20 | #3298 adds RPCs/tables without revoking current access; audited double-label/adjudication and frozen quality/privacy gates then pass. |
