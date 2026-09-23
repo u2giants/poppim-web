@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2016 # fixture strings intentionally contain literal ${...}
 # Phase 0 workflow-validation fixture for the Coolify transport gate.
 # Proves deploy.yml cannot load/send COOLIFY_TOKEN over plaintext transport
 # and cannot send it to an unpinned host. Negative fixtures must fail the
@@ -20,7 +21,7 @@ check_workflow(){
   grep -Eq -- 'http://' "$wf" && return 1
   grep -Eq -- '178\.156\.180\.212' "$wf" && return 1
   grep -Eq -- 'COOLIFY_CONTROL_PLANE_HOST_PIN: \$\{\{ vars\.' "$wf" && return 1
-  grep -Eq -- "COOLIFY_CONTROL_PLANE_HOST_PIN: ''" "$wf" || return 1
+  grep -Eq -- "COOLIFY_CONTROL_PLANE_HOST_PIN: 'coolify\\.designflow\\.app'" "$wf" || return 1
   grep -Eq -- 'does not match the authorized pin' "$wf" || return 1
   grep -Eq -- 'needs:[[:space:]]*\[[^]]*deploy-transport-preflight[^]]*\]' "$wf" || return 1
 
@@ -82,7 +83,7 @@ assert_present(){ local label="$1" pattern="$2"; if grep -Eq -- "$pattern" "$WOR
 assert_absent 'no plaintext http:// URL assignment' 'http://'
 assert_absent 'no bare IPv4 control-plane host' '178\.156\.180\.212'
 assert_absent 'hostname pin is not a mutable repository variable' 'COOLIFY_CONTROL_PLANE_HOST_PIN: \$\{\{ vars\.'
-assert_present 'authorized hostname pin is required' "COOLIFY_CONTROL_PLANE_HOST_PIN: ''"
+assert_present 'authorized hostname pin is required' "COOLIFY_CONTROL_PLANE_HOST_PIN: 'coolify\\.designflow\\.app'"
 assert_present 'fixture is enforced in verify' 'test-deploy-transport'
 assert_present 'fixture is enforced in preflight' 'test-deploy-transport'
 
@@ -107,6 +108,8 @@ expect_unsafe 'fixture: token curl without https proto is rejected' \
 $'name: bad\non: push\njobs:\n  deploy-transport-preflight:\n    steps:\n      - run: echo ok\n  deploy:\n    needs: [deploy-transport-preflight]\n    steps:\n      - run: |\n          curl -H "Authorization: Bearer ${COOLIFY_TOKEN}" https://example.invalid\n'
 expect_unsafe 'fixture: empty hostname pin is rejected' \
 $'name: bad\non: push\njobs:\n  deploy-transport-preflight:\n    steps:\n      - run: echo ok\n  deploy:\n    needs: [deploy-transport-preflight]\n    steps:\n      - run: |\n          curl --proto "=https" --tlsv1.2 -H "Authorization: Bearer ${COOLIFY_TOKEN}" https://example.invalid\n'
+expect_unsafe 'fixture: wrong hostname pin is rejected' \
+$'name: bad\non: push\nenv:\n  COOLIFY_CONTROL_PLANE_HOST_PIN: '"'"'evil.example'"'"'\njobs:\n  deploy-transport-preflight:\n    steps:\n      - run: echo ok\n  deploy:\n    needs: [deploy-transport-preflight]\n    steps:\n      - run: |\n          curl --proto "=https" --tlsv1.2 -H "Authorization: Bearer ${COOLIFY_TOKEN}" https://example.invalid\n'
 expect_unsafe 'fixture: token referenced in preflight is rejected' \
 $'name: bad\non: push\njobs:\n  deploy-transport-preflight:\n    steps:\n      - run: echo "${{ secrets.COOLIFY_TOKEN }}"\n  deploy:\n    needs: [deploy-transport-preflight]\n    steps:\n      - run: |\n          curl --proto "=https" --tlsv1.2 -H "Authorization: Bearer ${COOLIFY_TOKEN}" https://example.invalid\n'
 
