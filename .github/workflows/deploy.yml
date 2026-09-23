@@ -36,10 +36,10 @@ env:
   # COOLIFY_CONTROL_PLANE_URL must be an https:// hostname set by the authorized
   # infrastructure handback (repository variable). Empty/missing stays fail-closed.
   COOLIFY_CONTROL_PLANE_URL: ${{ vars.COOLIFY_CONTROL_PLANE_URL }}
-  # Exact authorized control-plane hostname pin. Empty keeps deploy blocked so a
-  # substituted repository variable cannot redirect the bearer token. Filled only
-  # by the post-handback transport-pin change after infrastructure names the host.
-  COOLIFY_CONTROL_PLANE_HOST_PIN: ''
+  # Exact authorized control-plane hostname pin (post-handback transport pin).
+  # A substituted repository variable cannot redirect the bearer token unless it
+  # matches this reviewed constant. Never move this pin to a mutable variable.
+  COOLIFY_CONTROL_PLANE_HOST_PIN: 'coolify.designflow.app'
   COOLIFY_APP_UUID: ysvdyj3t7d5tyh5ogrvlka4y
 
 jobs:
@@ -118,7 +118,7 @@ jobs:
           url="${CONTROL_PLANE_URL:-}"
           host_pin="${CONTROL_PLANE_HOST_PIN:-}"
           if [ -z "$host_pin" ]; then
-            echo "::error::Deploy blocked: COOLIFY_CONTROL_PLANE_HOST_PIN is empty. The authorized control-plane hostname is not pinned yet, so COOLIFY_TOKEN cannot be loaded or sent."
+            echo "::error::Deploy blocked: COOLIFY_CONTROL_PLANE_HOST_PIN is empty. The authorized control-plane hostname is not pinned, so COOLIFY_TOKEN cannot be loaded or sent."
             exit 1
           fi
           if [ -z "$url" ]; then
