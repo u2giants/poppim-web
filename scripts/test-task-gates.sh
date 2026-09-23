@@ -16,6 +16,10 @@ expect_class shared-db/supabase/migrations/fixture.sql shared-db 'vendored datab
 expect_class supabase/migrations/fixture.sql shared-db 'app-side migration retains the governed route'
 expect_class src/lib/database.types.ts shared-db 'generated database contract retains the governed route'
 expect_class src/lib/types.ts ui-live-workflow 'application model types retain the UI workflow route'
+expect_class jev-gateway/main.ts deployment 'Jev gateway runtime is protected deployment work'
+expect_class shared/jev-activity-triage/contract.mjs deployment 'shared Jev contract is protected deployment work'
+expect_class scripts/jev-activity-triage/evaluate.mjs deployment 'Jev evaluation harness is protected deployment work'
+expect_class fixtures/jev-activity-triage/synthetic.jsonl deployment 'Jev fixtures are protected deployment work'
 fixture="$TMP/poppim-web"; git -C "$TMP" init --quiet poppim-web; git -C "$fixture" config user.name 'Task Gate Test'; git -C "$fixture" config user.email 'task-gate-test@example.invalid'; git -C "$fixture" remote add origin https://github.com/example/poppim-task-gate-fixture.git
 mkdir -p "$fixture/.ai-devops"; cp "$ROOT/.ai-devops/task-gates.json" "$fixture/.ai-devops/task-gates.json"; git -C "$fixture" add .ai-devops/task-gates.json; git -C "$fixture" commit --quiet -m baseline
 ( cd "$fixture"; ai-task-gates start --class code --base HEAD >/dev/null; mkdir -p supabase/migrations; printf '%s\n' '-- fixture' > supabase/migrations/fixture.sql )
