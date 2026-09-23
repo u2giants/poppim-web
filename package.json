@@ -9,8 +9,9 @@
     "bundle:check": "node scripts/check-bundle.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run && node --test scripts/jev-activity-triage/*.test.mjs",
+    "test": "vitest run && node --test scripts/jev-activity-triage/*.test.mjs && npm run test:jev-gateway",
     "test:jev-contract": "node --test scripts/jev-activity-triage/*.test.mjs",
+    "test:jev-gateway": "node --test jev-gateway/test/*.test.mjs",
     "test:watch": "vitest",
     "types:preview": "supabase gen types typescript --project-id rjyboqwcdzcocqgmsyel --schema public,api,pim,core,app,crm > src/lib/database.types.ts",
     "types:production": "supabase gen types typescript --project-id qsllyeztdwjgirsysgai --schema public,api,pim,core,app,crm > src/lib/database.types.ts"
