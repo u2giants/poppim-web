@@ -11,9 +11,9 @@ Execution handoff: [`HANDOFF.d/2026-09-20T1405Z-hetz-codex-jev-activity-triage.m
 | Step | Status | Updated | Exit gate |
 |---|---|---|---|
 | 0. Close plaintext Coolify deploy path | ✅ done | 2026-09-23 | Fail-closed PR #11 (`38caa74e`) + hostname pin PR #13 (`ccfeb36`). Live run `35804628969`: preflight + HTTPS Coolify deploy + production SHA `ccfeb36`. Token never sent before preflight; plaintext IP path deleted. |
-| 1. Reconcile current truth and owner/privacy gates | 🟨 in progress | 2026-09-23 | Authority, Auth `asymmetric_jwks` ES256, and TypeSafe MCA 2026-09-19 facts recorded in #9 (perpetual Telemetry license; no training without consent; no post-term retention). Owner decisions 1–7, TypeSafe written deletion commitment, role matrix, and corpus feasibility still required. |
-| 2. Build blinded evaluation harness | ⬜ open | 2026-09-20 | Synthetic, redaction, sealing, validation, and cleanup tests pass. |
-| 3. Freeze real-evaluation protocol (synthetic only) | ⬜ open | 2026-09-20 | Sampling, rubric, access, replacement, metrics, and privacy protocol are frozen without reading real comments. |
+| 1. Reconcile current truth and owner/privacy gates | 🟨 partial | 2026-09-23 | Real evaluation after #3298. Authority, Auth `asymmetric_jwks` ES256, and TypeSafe MCA 2026-09-19 facts recorded in #9. Owner decisions 1–7, TypeSafe written deletion commitment, role matrix (admin-only matrix v1 frozen), and corpus feasibility still required. |
+| 2. Build blinded evaluation harness | ✅ done | 2026-09-23 | PR #16. Synthetic, redaction, sealing, validation, and cleanup tests pass. |
+| 3. Freeze real-evaluation protocol (synthetic only) | ✅ done | 2026-09-23 | PR #17. Sampling, rubric, access, replacement, metrics, and privacy protocol frozen without reading real comments. |
 | 4. Land additive shared-db contract, then execute real evaluation | ⬜ open | 2026-09-20 | #3298 adds RPCs/tables without revoking current access; audited double-label/adjudication and frozen quality/privacy gates then pass. |
 | 5. Build authenticated gateway | ⬜ open | 2026-09-20 | Deno/auth/redaction/HMAC/lease/recovery/failure tests pass. |
 | 6. Add guarded CI/deployment | ⬜ open | 2026-09-20 | PR tests and Jev-off/on/off preview rehearsal pass. |
