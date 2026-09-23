@@ -1,0 +1,51 @@
+{
+  "contract_version": "poppim-jev-activity-triage-v1",
+  "disclosure_version": "poppim-jev-disclosure-v1",
+  "enabled_action_classes": [
+    "blocker_dependency",
+    "decision",
+    "follow_up_reminder"
+  ],
+  "kind_labels": [
+    "routine_update",
+    "blocker_dependency",
+    "decision",
+    "follow_up_reminder",
+    "unclear"
+  ],
+  "language_allowlist": [
+    "en"
+  ],
+  "min_input_chars": 1,
+  "max_input_chars": 4000,
+  "max_input_tokens": 2048,
+  "max_response_bytes": 16384,
+  "probability_sum_tolerance": 0.000001,
+  "confidence_display_threshold": 0.7,
+  "action_display_threshold": 0.7,
+  "provider_model": "jev-1",
+  "provider_timeout_ms": 10000,
+  "provider_retry": "none_confirmatory",
+  "worker_concurrency": 2,
+  "rate_limit_profile_per_24h": {
+    "requests": 50,
+    "tokens": 50000
+  },
+  "rate_limit_env_per_24h": {
+    "requests": 250,
+    "tokens": 250000
+  },
+  "eligible_comment_limit": 1000,
+  "eligible_window_days": 30,
+  "dictionary_mode": "synthetic_preview",
+  "dictionary_version_uuid": "00000000-0000-4000-8000-000000000000",
+  "file_hashes": {
+    "canonicalize.mjs": "a796ff1464a64aada257cf3e7f371a420772fa51c159391f22283bb976f013ed",
+    "contract.mjs": "bab214f6987804b7eacb7f1874386149ff4d691f6711deef7967fa4b8918cb09",
+    "golden-vectors.json": "7ca8cb57f34677e9faf80347b7aac2bfd6e3f9357598cb5b0943e3f59fa5e385",
+    "protocol.mjs": "91a76727450a00a269e5b6ea3168e8007f50e9042a4df5bb11e21beb78c5996b",
+    "redact.mjs": "2ae01c02671942954dfd5160410eed3727560efb9eef660f2c4bb16059d46d64",
+    "safeResponse.mjs": "f8d65bbe3085efb9652ad3f5c69f518b3a47f6aa4d949a166f52c66b3eb097ec"
+  },
+  "quality_release_digest": "bc7b213a9795b2675d36bb8caca3ce9985e59c85e51cd3ed5588c3ec4a5030b3"
+}
