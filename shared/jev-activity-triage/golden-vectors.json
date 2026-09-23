@@ -1,0 +1,576 @@
+{
+  "note": "Invented synthetic vectors only. No real corpus text, IDs, or secrets.",
+  "hmac_key_hint": "string key with >=16 chars; tests use the literal below",
+  "test_hmac_key": "golden-vector-hmac-key-0000000000",
+  "test_case_key": "golden-vector-case-key-00000000",
+  "contract_version": "poppim-jev-activity-triage-v1",
+  "disclosure_version": "poppim-jev-disclosure-v1",
+  "pinned_model": "jev-1",
+  "redact": [
+    {
+      "name": "plain_email",
+      "input": "Please send the quote to alex@example.test before Friday.",
+      "dictionary": [],
+      "expect": {
+        "ok": true,
+        "text": "Please send the quote to {{email}} before Friday."
+      }
+    },
+    {
+      "name": "adversarial_email_plus_tag",
+      "input": "Contact a.smith+licensing@sub.domain.example.test and keep the order moving.",
+      "dictionary": [],
+      "expect": {
+        "ok": true,
+        "text": "Contact {{email}} and keep the order moving."
+      }
+    },
+    {
+      "name": "query_string_url",
+      "input": "See https://portal.example.test/path?token=abc123&ref=99 for the files.",
+      "dictionary": [],
+      "expect": {
+        "ok": true,
+        "text": "See {{url}} for the files."
+      }
+    },
+    {
+      "name": "uuid_and_account",
+      "input": "Ref 123e4567-e89b-12d3-a456-426614174000 on ORD-4412 needs a decision today.",
+      "dictionary": [],
+      "expect": {
+        "ok": true,
+        "text": "Ref {{uuid}} on {{account_id}} needs a decision today."
+      }
+    },
+    {
+      "name": "phone_na",
+      "input": "Call the vendor at 415-555-0198 to clear the sample delay.",
+      "dictionary": [],
+      "expect": {
+        "ok": true,
+        "text": "Call the vendor at {{phone}} to clear the sample delay."
+      }
+    },
+    {
+      "name": "phone_intl",
+      "input": "Reach me on +44 20 7946 0958 if the license form blocks us.",
+      "dictionary": [],
+      "expect": {
+        "ok": true,
+        "text": "Reach me on {{phone}} if the license form blocks us."
+      }
+    },
+    {
+      "name": "unc_path",
+      "input": "Art lives on \\\\fileserver\\shared\\art\\drop and needs review.",
+      "dictionary": [],
+      "expect": {
+        "ok": true,
+        "text": "Art lives on {{path}} and needs review."
+      }
+    },
+    {
+      "name": "unix_home_path",
+      "input": "Draft is at /home/qa/reports/week12.pdf for the weekly update.",
+      "dictionary": [],
+      "expect": {
+        "ok": true,
+        "text": "Draft is at {{path}} for the weekly update."
+      }
+    },
+    {
+      "name": "windows_drive_path",
+      "input": "Source file C:\\projects\\pack\\dieline.ai is ready for comments.",
+      "dictionary": [],
+      "expect": {
+        "ok": true,
+        "text": "Source file {{path}} is ready for comments."
+      }
+    },
+    {
+      "name": "cloud_asset_url",
+      "input": "Master is s3://assets-bucket/covers/kit-hero.png already uploaded.",
+      "dictionary": [],
+      "expect": {
+        "ok": true,
+        "text": "Master is {{path}} already uploaded."
+      }
+    },
+    {
+      "name": "business_name_dictionary",
+      "input": "Northwind Traders approved the concept and Acme Labs is still reviewing.",
+      "dictionary": [
+        "Northwind Traders",
+        "Acme Labs"
+      ],
+      "expect": {
+        "ok": true,
+        "text": "{{business_name}} approved the concept and {{business_name}} is still reviewing."
+      }
+    },
+    {
+      "name": "low_entropy_long_token_placeholder",
+      "input": "Trace id zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz shows the upload finished.",
+      "dictionary": [],
+      "expect": {
+        "ok": true,
+        "text": "Trace id {{token}} shows the upload finished."
+      }
+    },
+    {
+      "name": "high_entropy_token_blocks",
+      "input": "Session aB3xY9zQ2mN4pR7sT8uV1wW5xX0yY6zZ7aA8bB9cC0dD1e is expired for the review.",
+      "dictionary": [],
+      "expect": {
+        "ok": false,
+        "code": "blocked_sensitive_input"
+      }
+    },
+    {
+      "name": "unicode_mixed",
+      "input": "Café update: résumé sent to team@example.test — status is green for now.",
+      "dictionary": [],
+      "expect": {
+        "ok": true,
+        "text": "Café update: résumé sent to {{email}} — status is green for now."
+      }
+    },
+    {
+      "name": "whitespace_normalize",
+      "input": "   Please\tconfirm   the\n\n\nsample date for the team.   ",
+      "dictionary": [],
+      "expect": {
+        "ok": true,
+        "text": "Please confirm the\n\nsample date for the team."
+      }
+    },
+    {
+      "name": "encoded_lookalike_email",
+      "input": "Mail alex.smith%40example.test if the art is late this week.",
+      "dictionary": [],
+      "expect": {
+        "ok": true,
+        "text": "Mail {{email}} if the art is late this week."
+      }
+    }
+  ],
+  "detect_blocked_secret": [
+    {
+      "name": "api_key_assignment",
+      "input": "api_key= sk-live-EXAMPLEEXAMPLEEXAMPLE",
+      "expect": "blocked_sensitive_input"
+    },
+    {
+      "name": "bearer_token",
+      "input": "Authorization: Bearer eyJhbGciOiEXAMPLEEXAMPLE",
+      "expect": "blocked_sensitive_input"
+    },
+    {
+      "name": "password_assignment",
+      "input": "password= hunter2-example-only-not-real",
+      "expect": "blocked_sensitive_input"
+    },
+    {
+      "name": "pem_block",
+      "input": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0B\n-----END PRIVATE KEY-----",
+      "expect": "blocked_sensitive_input"
+    },
+    {
+      "name": "connection_string",
+      "input": "Connect with postgres://demo_user:not-a-real-pass@db.internal.example.test:5432/app",
+      "expect": "blocked_sensitive_input"
+    },
+    {
+      "name": "long_high_entropy_token",
+      "input": "aB3xY9zQ2mN4pR7sT8uV1wW5xX0yY6zZ7aA8bB9cC0dD1e failed the handshake",
+      "expect": "blocked_sensitive_input"
+    },
+    {
+      "name": "hex_api_token",
+      "input": "token aabbccddeeff00112233445566778899aabbccdd is live",
+      "expect": "blocked_sensitive_input"
+    }
+  ],
+  "language": [
+    {
+      "name": "english_common",
+      "input": "We need to confirm the sample date for the next review.",
+      "expect": "english_eligible"
+    },
+    {
+      "name": "english_update_words",
+      "input": "Routine packaging update: dielines are with the printer now.",
+      "expect": "english_eligible"
+    },
+    {
+      "name": "japanese",
+      "input": "これは日本語のテキストです。サンプルの確認をお願いします。",
+      "expect": "blocked_unsupported_language"
+    },
+    {
+      "name": "spanish_no_english_markers",
+      "input": "El paquete llegó ayer y el equipo revisará las pruebas mañana.",
+      "expect": "blocked_unsupported_language"
+    },
+    {
+      "name": "too_short",
+      "input": "Ok.",
+      "expect": "blocked_unsupported_language"
+    },
+    {
+      "name": "mixed_cjk_latin",
+      "input": "サンプル sample サンプル sample サンプル sample 混在テキスト",
+      "expect": "english_eligible"
+    }
+  ],
+  "normalize_whitespace": [
+    {
+      "name": "crlf_and_tabs",
+      "input": "line1\r\nline2\t\tend   ",
+      "expect": "line1\nline2 end"
+    },
+    {
+      "name": "collapse_blank",
+      "input": "a\n\n\n\nb",
+      "expect": "a\n\nb"
+    }
+  ],
+  "validate": [
+    {
+      "name": "valid_routine",
+      "pinnedModel": "jev-1",
+      "payload": {
+        "kind": "routine_update",
+        "probabilities": {
+          "routine_update": 0.88,
+          "blocker_dependency": 0.03,
+          "decision": 0.03,
+          "follow_up_reminder": 0.03,
+          "unclear": 0.03
+        },
+        "confidence": 0.91,
+        "model": "jev-1",
+        "usage": {
+          "input_tokens": 40,
+          "output_tokens": 4,
+          "total_tokens": 44
+        },
+        "latency_ms": 12
+      },
+      "expect": {
+        "ok": true,
+        "kind": "routine_update",
+        "actionable": false
+      }
+    },
+    {
+      "name": "valid_actionable_blocker",
+      "pinnedModel": "jev-1",
+      "payload": {
+        "kind": "blocker_dependency",
+        "probabilities": {
+          "routine_update": 0.05,
+          "blocker_dependency": 0.8,
+          "decision": 0.05,
+          "follow_up_reminder": 0.05,
+          "unclear": 0.05
+        },
+        "confidence": 0.8,
+        "model": "jev-1"
+      },
+      "expect": {
+        "ok": true,
+        "kind": "blocker_dependency",
+        "actionable": true
+      }
+    },
+    {
+      "name": "unknown_key_rejected",
+      "pinnedModel": "jev-1",
+      "payload": {
+        "kind": "decision",
+        "probabilities": {
+          "routine_update": 0.05,
+          "blocker_dependency": 0.05,
+          "decision": 0.8,
+          "follow_up_reminder": 0.05,
+          "unclear": 0.05
+        },
+        "confidence": 0.8,
+        "model": "jev-1",
+        "raw_text": "should not be here"
+      },
+      "expect": {
+        "ok": false,
+        "error": "schema"
+      }
+    },
+    {
+      "name": "unknown_label_rejected",
+      "pinnedModel": "jev-1",
+      "payload": {
+        "kind": "escalation",
+        "probabilities": {
+          "routine_update": 0.05,
+          "blocker_dependency": 0.05,
+          "decision": 0.8,
+          "follow_up_reminder": 0.05,
+          "unclear": 0.05
+        },
+        "confidence": 0.8,
+        "model": "jev-1"
+      },
+      "expect": {
+        "ok": false,
+        "error": "schema"
+      }
+    },
+    {
+      "name": "prob_sum_rejected",
+      "pinnedModel": "jev-1",
+      "payload": {
+        "kind": "decision",
+        "probabilities": {
+          "routine_update": 0.5,
+          "blocker_dependency": 0.5,
+          "decision": 0.5,
+          "follow_up_reminder": 0.5,
+          "unclear": 0.5
+        },
+        "confidence": 0.8,
+        "model": "jev-1"
+      },
+      "expect": {
+        "ok": false,
+        "error": "schema"
+      }
+    },
+    {
+      "name": "model_mismatch",
+      "pinnedModel": "jev-1",
+      "payload": {
+        "kind": "decision",
+        "probabilities": {
+          "routine_update": 0.05,
+          "blocker_dependency": 0.05,
+          "decision": 0.8,
+          "follow_up_reminder": 0.05,
+          "unclear": 0.05
+        },
+        "confidence": 0.8,
+        "model": "jev-2"
+      },
+      "expect": {
+        "ok": false,
+        "error": "model_mismatch"
+      }
+    },
+    {
+      "name": "usage_inconsistent",
+      "pinnedModel": "jev-1",
+      "payload": {
+        "kind": "decision",
+        "probabilities": {
+          "routine_update": 0.05,
+          "blocker_dependency": 0.05,
+          "decision": 0.8,
+          "follow_up_reminder": 0.05,
+          "unclear": 0.05
+        },
+        "confidence": 0.8,
+        "model": "jev-1",
+        "usage": {
+          "input_tokens": 10,
+          "output_tokens": 5,
+          "total_tokens": 99
+        }
+      },
+      "expect": {
+        "ok": false,
+        "error": "usage_invalid"
+      }
+    },
+    {
+      "name": "confidence_out_of_range",
+      "pinnedModel": "jev-1",
+      "payload": {
+        "kind": "decision",
+        "probabilities": {
+          "routine_update": 0.05,
+          "blocker_dependency": 0.05,
+          "decision": 0.8,
+          "follow_up_reminder": 0.05,
+          "unclear": 0.05
+        },
+        "confidence": 1.2,
+        "model": "jev-1"
+      },
+      "expect": {
+        "ok": false,
+        "error": "schema"
+      }
+    }
+  ],
+  "canonicalize": [
+    {
+      "name": "sorted_keys",
+      "input": {
+        "b": 1,
+        "a": 2,
+        "c": {
+          "z": 1,
+          "y": 2
+        }
+      },
+      "expectCanonical": "{\"a\":2,\"b\":1,\"c\":{\"y\":2,\"z\":1}}",
+      "expectSha256": "c0f8bd0ab5119fda84f6a24ed2eff88949e145d20f0a1eddbb51e14ef1eae3cb"
+    },
+    {
+      "name": "nested_array",
+      "input": {
+        "list": [
+          3,
+          1,
+          2
+        ],
+        "meta": {
+          "ok": true,
+          "n": null
+        }
+      },
+      "expectCanonical": "{\"list\":[3,1,2],\"meta\":{\"n\":null,\"ok\":true}}",
+      "expectSha256": "12979c08f43c0138b928b0b661e6943268246ffaf859fc0567900f1f14d1fdbc"
+    },
+    {
+      "name": "scalar_string",
+      "input": "hello",
+      "expectCanonical": "\"hello\"",
+      "expectSha256": "5aa762ae383fbb727af3c7a36d4940a5b8c40a989452d2304fc958ff3f354e7a"
+    },
+    {
+      "name": "empty_object",
+      "input": {},
+      "expectCanonical": "{}",
+      "expectSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    }
+  ],
+  "input_digest": [
+    {
+      "name": "k1:Please confirm the sampl",
+      "key": "golden-vector-hmac-key-0000000000",
+      "keyVersion": "k1",
+      "contractVersion": "poppim-jev-activity-triage-v1",
+      "text": "Please confirm the sample date for the team.",
+      "expectHex": "221b5342d329011c2d7cc5cbe08e70f9c59505482d8321e46284f3421210aa4c"
+    },
+    {
+      "name": "k1:",
+      "key": "golden-vector-hmac-key-0000000000",
+      "keyVersion": "k1",
+      "contractVersion": "poppim-jev-activity-triage-v1",
+      "text": "",
+      "expectHex": "1f1f7fea9f87e840dfc48c5ff9d8a73b47de4046bec345e8bb845887a7a0bc26"
+    },
+    {
+      "name": "k2:Please confirm the sampl",
+      "key": "golden-vector-hmac-key-0000000000",
+      "keyVersion": "k2",
+      "contractVersion": "poppim-jev-activity-triage-v1",
+      "text": "Please confirm the sample date for the team.",
+      "expectHex": "bd4d09627e08b1fdd6d3f1ebee6efba592388f1b93cfd1eb27269d950e491710"
+    }
+  ],
+  "evaluation_case_id": [
+    {
+      "name": "ds-2026-01/comment-alpha",
+      "key": "golden-vector-case-key-00000000",
+      "datasetVersion": "ds-2026-01",
+      "commentId": "comment-alpha",
+      "expectId": "gy21grH3Sx9N61XK8Z6Laz2N-2kBNwM9KvVHxk2toA0"
+    },
+    {
+      "name": "ds-2026-01/comment-beta",
+      "key": "golden-vector-case-key-00000000",
+      "datasetVersion": "ds-2026-01",
+      "commentId": "comment-beta",
+      "expectId": "-MHgMXo5vujJLSvWq0PzEFlKpGbqPQKE6NBSULdF9Ns"
+    },
+    {
+      "name": "ds-2026-02/comment-alpha",
+      "key": "golden-vector-case-key-00000000",
+      "datasetVersion": "ds-2026-02",
+      "commentId": "comment-alpha",
+      "expectId": "25q_RoxU_K0TPCayAUieep_BYg2hfK7L0OQD8b53DEQ"
+    }
+  ],
+  "quality_manifest": {
+    "contract_version": "poppim-jev-activity-triage-v1",
+    "disclosure_version": "poppim-jev-disclosure-v1",
+    "enabled_action_classes": [
+      "blocker_dependency",
+      "decision",
+      "follow_up_reminder"
+    ],
+    "kind_labels": [
+      "routine_update",
+      "blocker_dependency",
+      "decision",
+      "follow_up_reminder",
+      "unclear"
+    ],
+    "language_allowlist": [
+      "en"
+    ],
+    "min_input_chars": 1,
+    "max_input_chars": 4000,
+    "max_input_tokens": 2048,
+    "max_response_bytes": 16384,
+    "probability_sum_tolerance": 0.000001,
+    "confidence_display_threshold": 0.7,
+    "action_display_threshold": 0.7,
+    "provider_model": "jev-1",
+    "provider_timeout_ms": 10000,
+    "provider_retry": "none_confirmatory",
+    "worker_concurrency": 2,
+    "rate_limit_profile_per_24h": {
+      "requests": 50,
+      "tokens": 50000
+    },
+    "rate_limit_env_per_24h": {
+      "requests": 250,
+      "tokens": 250000
+    },
+    "eligible_comment_limit": 1000,
+    "eligible_window_days": 30,
+    "dictionary_mode": "synthetic_preview",
+    "dictionary_version_uuid": "00000000-0000-4000-8000-000000000000"
+  },
+  "quality_release_digest": "3b55ad2cedf930ef9b2da87d50f11450d581160fede8d877eccf2950d9384ab2",
+  "is_actionable": [
+    {
+      "kind": "blocker_dependency",
+      "expect": true
+    },
+    {
+      "kind": "decision",
+      "expect": true
+    },
+    {
+      "kind": "follow_up_reminder",
+      "expect": true
+    },
+    {
+      "kind": "routine_update",
+      "expect": false
+    },
+    {
+      "kind": "unclear",
+      "expect": false
+    },
+    {
+      "kind": "not_a_kind",
+      "expect": false
+    }
+  ]
+}
