@@ -1,22 +1,14 @@
 # CLAUDE.md — poppim-web (Claude Code notes only)
 
-**Read `AGENTS.md` first** — it's the canonical guide (architecture, identifiers, deployment, quirks, pending work). This file only adds Claude-specific notes; it does not duplicate AGENTS.md.
+**Read `AGENTS.md` first** — it's the canonical guide (architecture, identifiers,
+deployment, quirks, pending work). This file only adds Claude-specific notes.
 
-## Shared DB Gatekeeper
-This repo shares the Supabase backend project `qsllyeztdwjgirsysgai` with the other POP apps. **All** database/schema changes for that shared backend must be authored in the canonical repo `u2giants/shared-db`: branch + PR + timestamped migration, preview-first, and the AI merges it before any dependent app code lands here.
-
-Never make app-side DDL in this repo: no inline/startup migrations, no dashboard SQL, no one-off `execute_sql`, no local `supabase/migrations/` folder, and no schema-changing SQL outside the vendored `shared-db/` mirror. The CI workflow `.github/workflows/shared-db-guard.yml` enforces this on `push` and `pull_request`. Legitimate emergency override is explicit only: PR label `db-change-approved`, or `[db-change-approved]` in a commit message.
-
-## Ignore
-`.claudeignore` is honored by Claude Code. For other AI tools, paste `AGENTS.md` first and follow its "What to ignore" (§10). Don't load `node_modules/`, `dist/`, `.env`, or the leftover Vite-template assets (`src/assets/*`, `public/icons.svg`).
-
-## Build before claiming done
-`npm run build` (`tsc -b && vite build`) must pass — strict TS with `noUnusedLocals`/`noUnusedParameters`. shadcn UI primitives in `src/components/ui/` are generated; change them via `npx shadcn@latest add` (style `new-york`), not by hand.
-
-## Deploy
-Deploy = **`git push` to `main`**. The pipeline (`.github/workflows/deploy.yml`, `docs/cicd.md`) runs Actions → GHCR → Coolify (service `ysvdyj3t7d5tyh5ogrvlka4y`) which pulls + runs the image at `pm.designflow.app`. Do **not** SSH into the server or `docker run` on it as a deploy — the legacy raw-docker path was removed. Runtime config (domain, env, restart) belongs in Coolify, not shell.
-
-Infrastructure/server standards live in `u2giants/albert-standards` (`.ai/AI_INFRASTRUCTURE_GUIDE.md`, `infrastructure/README.md`, `infrastructure/CLAUDE.md`). When deploy/runtime/hosting decisions change here, update those shared docs too.
-
-## Commit style
-Short imperative subject (`add`/`fix`/`update`/`remove`), no trailing period; body only for non-obvious rationale. Commit + push on `main` (no force push). Git author must be `Albert Hazan <u2giants@users.noreply.github.com>` — GitHub blocks the gmail address.
+- `.claudeignore` is honored by Claude Code. Other tools follow `AGENTS.md` →
+  AI tool notes / What to ignore.
+- **Shared DB, host, secrets, quirks, and incidents** live behind the pointers
+  in `AGENTS.md` (`docs/quirks.md`, `docs/critical-incidents.md`). Do not
+  restate them here.
+- **Build before claiming done:** `npm run build` must pass.
+- **Deploy:** push to `main` → Actions → GHCR → Coolify. No SSH deploy path.
+- **Commit style:** short imperative subject; author
+  `Albert Hazan <u2giants@users.noreply.github.com>`. Push to `main` (no force).
