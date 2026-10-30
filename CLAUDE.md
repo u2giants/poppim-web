@@ -11,4 +11,8 @@ deployment, quirks, pending work). This file only adds Claude-specific notes.
 - **Build before claiming done:** `npm run build` must pass.
 - **Deploy:** push to `main` → Actions → GHCR → Coolify. No SSH deploy path.
 - **Commit style:** short imperative subject; author
-  `Albert Hazan <u2giants@users.noreply.github.com>`. Push to `main` (no force).
+  `Albert Hazan <u2giants@users.noreply.github.com>`. Changes reach `main` only through a PR (protected since 2026-10-30).
+- **Jessica Cortazar (project manager, non-programmer)** also works here via
+  Claude Code. Her changes go on a branch + PR; Albert (`u2giants`, code
+  owner) must approve before merge. Her sessions end with `wrap-up`, which
+  writes a `HANDOFF.d/` note — read those before starting work.
