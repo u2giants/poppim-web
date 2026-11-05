@@ -18,6 +18,7 @@ const SchedulePage = lazy(() => import('@/features/schedule/SchedulePage').then(
 const NotesPage = lazy(() => import('@/features/notes/NotesPage').then((module) => ({ default: module.NotesPage })))
 const PeoplePage = lazy(() => import('@/features/people/PeoplePage').then((module) => ({ default: module.PeoplePage })))
 const MyWorkPage = lazy(() => import('@/features/mywork/MyWorkPage').then((module) => ({ default: module.MyWorkPage })))
+const ItemLinkQueuePage = lazy(() => import('@/features/product-detail/ItemLinkQueuePage').then((module) => ({ default: module.ItemLinkQueuePage })))
 const SettingsPage = lazy(() => import('@/features/settings/SettingsPage').then((module) => ({ default: module.SettingsPage })))
 
 function ScreenFallback() {
@@ -43,6 +44,7 @@ function ActiveScreen() {
     case 'notes':    return <NotesPage />
     case 'people':   return <PeoplePage />
     case 'mywork':   return <MyWorkPage />
+    case 'itemlinks': return <ItemLinkQueuePage />
     case 'settings': return <SettingsPage />
   }
 }

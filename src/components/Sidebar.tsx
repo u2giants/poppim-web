@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAppState, type BusinessUnitFilter, type Screen } from '@/lib/appState'
-import { BarChart3, Briefcase, Building2, CalendarDays, CheckSquare, ChevronDown, ChevronRight, Factory, FilePenLine, Gauge, Home, Images, Layers3, List, NotebookPen, ReceiptText, Search, Send, Settings, Trash2, UserCheck, Users } from 'lucide-react'
+import { BarChart3, Briefcase, Building2, CalendarDays, CheckSquare, ChevronDown, ChevronRight, Factory, Link2, FilePenLine, Gauge, Home, Images, Layers3, List, NotebookPen, ReceiptText, Search, Send, Settings, Trash2, UserCheck, Users } from 'lucide-react'
 import popLogo from '@/assets/pop-logo.png'
 import { useAuth } from '@/auth/auth'
 import { fetchViews, fetchViewPrefs, upsertViewPref, deleteView } from '@/features/views/api'
@@ -24,6 +24,7 @@ const NAV_ITEMS: { screen: Screen; icon: typeof CheckSquare; label: string }[] =
   { screen: 'schedule', icon: CalendarDays, label: 'Schedule' },
   { screen: 'notes', icon: NotebookPen, label: 'Notes' },
   { screen: 'people', icon: Users, label: 'People' },
+  { screen: 'itemlinks', icon: Link2, label: 'Link items' },
 ]
 
 export function Sidebar() {

@@ -25,6 +25,7 @@ export function queryDouble<T>(
     'gte',
     'gt',
     'is',
+    'filter',
     'maybeSingle',
     'single',
     'insert',

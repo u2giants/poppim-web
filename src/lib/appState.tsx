@@ -17,6 +17,7 @@ export type Screen =
   | 'notes'
   | 'people'
   | 'mywork'
+  | 'itemlinks'
   | 'settings'
 export type PipelineView = 'kanban' | 'table'
 export type ColorBy = 'category' | 'licensor' | 'stage' | 'priority' | 'none'
