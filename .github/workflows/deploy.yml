@@ -50,6 +50,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Enforce Coolify transport gate fixture
         run: bash scripts/test-deploy-transport.sh
+      - name: Prove the live-version check (matching passes, deliberately stale fails)
+        run: bash scripts/test-verify-live-version.sh
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -242,24 +244,11 @@ jobs:
             "${base}/api/v1/services/${COOLIFY_APP_UUID}/restart" \
             -H "Authorization: Bearer ${COOLIFY_TOKEN}"
 
-      - name: Verify production is serving this commit
+      - name: Verify production serves this commit
         env:
           EXPECTED_SHA: ${{ github.sha }}
-          BASE_URL: https://pm.designflow.app
         run: |
-          set -euo pipefail
-          # index.html contains <meta name="build-sha" content="<sha>"> (baked by Vite).
-          # Caddy always serves index.html for all routes, so we grep it directly.
-          # Cache-busting query string prevents stale CDN/proxy responses.
-          for attempt in {1..30}; do
-            html="$(curl --proto '=https' --tlsv1.2 --fail --silent --show-error --max-time 10 "${BASE_URL}/?_v=${EXPECTED_SHA}-${attempt}" 2>/dev/null || true)"
-            if printf '%s' "$html" | grep -Fq "${EXPECTED_SHA}"; then
-              echo "Production is serving ${EXPECTED_SHA}."
-              exit 0
-            fi
-            echo "Attempt ${attempt}/30: production has not updated to ${EXPECTED_SHA} yet."
-            sleep 10
-          done
-
-          echo "::error::Coolify restart completed, but production did not serve ${EXPECTED_SHA} within 5 min."
-          exit 1
+          bash scripts/verify-live-version.sh \
+            --url "https://pm.designflow.app/version.json" \
+            --expected "${EXPECTED_SHA}" \
+            --attempts 60 --interval 10
