@@ -288,7 +288,7 @@ function ProductDetailContent({ task, onClose }: { task: ProductSummary; onClose
             </ModalField>
 
             <ModalField label="Canonical item">
-              <ItemLinkField productId={task.id} />
+              <ItemLinkField productId={task.id} productName={task.title} />
             </ModalField>
 
             <ModalField label="Licensor">

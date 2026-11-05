@@ -21,7 +21,12 @@ export async function searchCanonicalItems(search: string, after?: string) {
   const term = search.trim()
   // PostgREST rewrites '*' to '%' before SQL sees it, so '\*' would mean a literal '%'.
   // A '*' in the term becomes the single-character wildcard '_', which still finds 'A*B'.
-  if (term) query = query.ilike('item_number', `%${term.replace(/[\\%_]/g, '\\$&').replace(/\*/g, '_')}%`)
+  if (term) {
+    const pattern = `%${term.replace(/[\\%_]/g, '\\$&').replace(/\*/g, '_')}%`
+    // Quoted so commas and brackets in a typed description cannot break the OR filter.
+    const quoted = `"${pattern.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+    query = query.or(`item_number.ilike.${quoted},description.ilike.${quoted}`)
+  }
   if (after) query = query.gt('item_id', after)
   const rows = unwrap<CanonicalItem[]>(await query)
   const items = rows.slice(0, PAGE_SIZE)
@@ -52,4 +57,45 @@ export async function saveProductItemLink(productId: string, itemId: string | nu
 
 export function itemLabel(item: CanonicalItem) {
   return `${item.item_number ?? 'No item number'} · ${item.company_code ?? 'Unknown company'} / ${item.division_code ?? 'Unknown division'}`
+}
+
+/** Many product names start with their item number, e.g. "VSE62DCJG01 DC Comics canvas". */
+export function itemNumberFromName(name: string | null | undefined) {
+  const first = name?.trim().split(/\s+/)[0] ?? ''
+  return /^[A-Za-z0-9-]{4,}$/.test(first) && /\d/.test(first) ? first : null
+}
+
+/** Suggestions only: a person must confirm one. An item number can belong to several items. */
+export async function suggestItemsForName(name: string | null | undefined): Promise<CanonicalItem[]> {
+  const itemNumber = itemNumberFromName(name)
+  if (!itemNumber) return []
+  return unwrap<CanonicalItem[]>(await dynamicApi().from('pim_item_picker').select(FIELDS)
+    .eq('item_number', itemNumber).order('item_id', { ascending: true }).limit(PAGE_SIZE))
+}
+
+export interface LinkQueueRow {
+  id: string
+  name: string
+  suggestions: CanonicalItem[]
+}
+
+const QUEUE_PAGE_SIZE = 50
+
+/** Unlinked products whose name starts with an existing item number. */
+export async function fetchLinkQueue(after?: string) {
+  let query = pim().from('product').select('id,name')
+    .is('plm_item_id', null)
+    .filter('name', 'match', '^[A-Za-z0-9-]*[0-9][A-Za-z0-9-]*[[:space:]]')
+    .order('id', { ascending: true }).limit(QUEUE_PAGE_SIZE + 1)
+  if (after) query = query.gt('id', after)
+  const rows = unwrap<{ id: string; name: string }[]>(await query)
+  const page = rows.slice(0, QUEUE_PAGE_SIZE)
+  const numbers = [...new Set(page.map((row) => itemNumberFromName(row.name)).filter((n): n is string => !!n))]
+  const items = numbers.length ? unwrap<CanonicalItem[]>(await dynamicApi().from('pim_item_picker')
+    .select(FIELDS).in('item_number', numbers)) : []
+  return {
+    rows: page.map((row) => ({ ...row, suggestions: items.filter((item) => item.item_number === itemNumberFromName(row.name)) }))
+      .filter((row) => row.suggestions.length > 0),
+    next: rows.length > QUEUE_PAGE_SIZE ? page.at(-1)!.id : null,
+  }
 }
