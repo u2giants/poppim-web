@@ -42,6 +42,8 @@ jobs:
             exit 1
           fi
 
+          # Capture-then-assert: `|| true` only keeps the capture alive when nothing
+          # matches; the grep below still fails the guard on any hit.
           scan_files="$(printf '%s\n' "$changed" | grep -E '^(\.github/workflows/|scripts/|package\.json|package-lock\.json)' | grep -v '^\.github/workflows/forbid-shared-db-bypass\.yml$' || true)"
           if [ -n "$scan_files" ]; then
             pattern='supabase[[:space:]]+db[[:space:]]+(push|reset)|supabase[[:space:]]+migration[[:space:]]+repair|schema_migrations|SUPABASE_DB_PASSWORD|SUPABASE_DB_URL|POSTGRES_URL_NON_POOLING'
