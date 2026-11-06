@@ -244,6 +244,15 @@ jobs:
             "${base}/api/v1/services/${COOLIFY_APP_UUID}/restart" \
             -H "Authorization: Bearer ${COOLIFY_TOKEN}"
 
+      - name: Check out the commit being deployed
+        # PR #24 added the live-version proof to this job, which has no
+        # checkout of its own (it is a pure Coolify-API job) -- the verify
+        # step then failed with exit 127 on every main deploy. The proof needs
+        # the repo's script at the exact deployed SHA.
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
       - name: Verify production serves this commit
         env:
           EXPECTED_SHA: ${{ github.sha }}
