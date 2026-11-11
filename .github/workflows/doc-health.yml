@@ -18,7 +18,7 @@ on:
       - '.doc-reachability.json'
       - '.github/workflows/doc-health.yml'
   schedule:
-    - cron: '0 11 * * * 1' # Mondays 6:00 AM EST
+    - cron: '0 11 * * 1' # Mondays 6:00 AM EST
   workflow_dispatch:
 
 concurrency:
