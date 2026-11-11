@@ -1,3 +1,10 @@
+---
+summary: Intentional quirks and do-not-fix decisions: Supabase role, shadcn style, shrink-0 cards, thumbnails, hard departments, saved views, orderindex, customers.
+kind: living
+status: current
+read-when: behavior looks wrong, duplicated or surprising before changing it
+---
+
 # Intentional quirks and non-obvious decisions
 
 Moved out of AGENTS.md so the always-load guide stays a router. Load this file when behavior looks wrong or surprising.
@@ -26,7 +33,7 @@ Do not reintroduce an app-owned token store or a legacy backend SSO URL. Supabas
 ### `PimTaskCard` needs `shrink-0`
 Looks like: a stray `shrink-0` on the card.
 Actually: cards are flex children in a fixed-height column; without `shrink-0` they get squeezed by flex-shrink to ~2px and the column won't scroll.
-Why/Do not change: removing it collapses every card (this exact bug shipped once — see §14).
+Why/Do not change: removing it collapses every card (this exact bug shipped once — see `docs/critical-incidents.md`).
 
 ### `cover_url` points at Spaces originals; thumbnails are derived
 Looks like: the frontend only reads `product.cover_url`, but cards show a smaller thumbnail.

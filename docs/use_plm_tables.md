@@ -1,3 +1,10 @@
+---
+summary: Retired PM/PIM rulebook pointer: business rules live in the companywide topic map (customer identity, Licensing Master Data, taxonomy, workflow).
+kind: archive
+status: done
+read-when: looking for the old PM/PIM business-rule list
+---
+
 # Shared business rules pointer
 
 This former PM/PIM-specific rulebook is retired. Business rules are organized by business topic and shared across applications.

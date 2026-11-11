@@ -1,3 +1,10 @@
+---
+summary: Snapshot of the phase-0 Jev-off gateway scaffold: quality-manifest tooling, env allowlist, 503 jev_disabled server, and its tests.
+kind: proof
+status: done
+read-when: extending jev-gateway or the quality manifest
+---
+
 # Jev gateway scaffold
 
 Status date: 2026-06 (phase 0 deploy-transport worktree).

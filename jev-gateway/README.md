@@ -1,3 +1,10 @@
+---
+summary: jev-gateway rules: Jev off by default, single replica, fail-closed env allowlist, TypeSafe key server-side only; /v1/triage 503 while disabled.
+kind: living
+status: current
+read-when: running or changing the jev-gateway service
+---
+
 # jev-gateway
 
 Minimal Jev-OFF Node ESM scaffold for the activity-triage provider boundary.

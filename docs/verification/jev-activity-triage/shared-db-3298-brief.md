@@ -1,3 +1,10 @@
+---
+summary: Execution brief routing shared-db #3298 (additive triage RPCs/tables) to a shared-db orchestrator session; app sessions never author the migration.
+kind: ops
+status: open
+read-when: starting the shared-db structural work for the pilot
+---
+
 # shared-db #3298 execution brief
 
 Audience: a **separate shared-db orchestrator session** in

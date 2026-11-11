@@ -1,3 +1,10 @@
+---
+summary: How to run the synthetic activity-triage evaluation harness (node --test scripts/jev-activity-triage) and what its fixtures and checks cover.
+kind: living
+status: current
+read-when: running or extending the triage test harness
+---
+
 # Jev activity-triage synthetic evaluation harness
 
 Invented synthetic fixtures and pure Node ESM checks only.

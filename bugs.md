@@ -1,3 +1,10 @@
+---
+summary: Jev opportunity audit (2026-09-20): why broad AI-model use is wrong for this deterministic app, and the one bounded comment-triage pilot worth running (#9).
+kind: living
+status: current
+read-when: deciding where AI/model calls belong in Poppim or rescoping the activity-triage pilot
+---
+
 # Jev opportunity audit
 
 **Implementation plan:** [`plan_jev_activity_triage.md`](plan_jev_activity_triage.md) — read its STATUS table first; GitHub issue #9 owns the open pilot.

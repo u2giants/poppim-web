@@ -1,3 +1,10 @@
+---
+summary: Per-screen accuracy contracts: mandatory department, stable ordering, bounded reads, honest truncation for Reports, Control Room, Schedule, People, lists.
+kind: spec
+status: current
+read-when: changing list screens, counts or pagination semantics
+---
+
 # Secondary-screen accuracy contracts
 
 Date: 2026-07-27

@@ -1,3 +1,10 @@
+---
+summary: Bounded, scrubbed command results for the 2026-09-20 planning baseline; SHA-256 values bind the omitted full outputs.
+kind: proof
+status: done
+read-when: checking the exact baseline numbers
+---
+
 # Poppim pre-Jev baseline result
 
 Recorded: `2026-09-20T19:43:42Z`

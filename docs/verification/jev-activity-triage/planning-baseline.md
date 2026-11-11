@@ -1,3 +1,10 @@
+---
+summary: Pre-pilot repository baseline (2026-09-20, commit 09c870bb): test/lint/build results and SHA-256 bindings recorded before any triage code existed.
+kind: proof
+status: done
+read-when: comparing against the pre-pilot baseline
+---
+
 # Jev activity-triage planning baseline
 
 Recorded: 2026-09-20

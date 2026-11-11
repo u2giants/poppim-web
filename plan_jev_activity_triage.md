@@ -1,3 +1,10 @@
+---
+summary: 12-step plan for the human-confirmed activity-triage pilot on product comments; the STATUS table is the phase ledger and issue #9 owns open steps 4-12.
+kind: plan
+status: open
+read-when: continuing the activity-triage pilot (issue #9)
+---
+
 # Jev activity-triage pilot implementation plan
 
 Issue: [poppim-web#9](https://github.com/u2giants/poppim-web/issues/9)

@@ -1,3 +1,10 @@
+---
+summary: Local setup: Node 20+, npm scripts (dev/build/lint/test), .env, regenerating the checked-in Supabase database types, shadcn new-york style, debugging.
+kind: living
+status: current
+read-when: setting up, running or testing the app locally
+---
+
 # Development — poppim-web
 
 See `AGENTS.md` first.
@@ -52,7 +59,7 @@ UI primitives in `src/components/ui/` are **generated**. Add/update them with th
 npx shadcn@latest add <component>            # e.g. dialog, popover, calendar
 npx shadcn@latest add <component> --overwrite
 ```
-`components.json` pins `style: "new-york"` (Radix). Do not switch to `base-nova` (see AGENTS.md §11). Theme tokens live in `src/index.css`.
+`components.json` pins `style: "new-york"` (Radix). Do not switch to `base-nova` (see `docs/quirks.md`). Theme tokens live in `src/index.css`.
 
 ## Conventions
 - App code under `src/features/`, `src/auth/`, `src/pages/`, `src/lib/`, `src/components/AppShell.tsx`.

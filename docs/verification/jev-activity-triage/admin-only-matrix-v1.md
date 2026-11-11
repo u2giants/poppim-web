@@ -1,3 +1,10 @@
+---
+summary: Frozen pilot-v1 authorization matrix: administrator-only writes for every governed triage table/RPC, citing the 2026-09-23 locked reviewer decision.
+kind: spec
+status: current
+read-when: changing pilot RLS/RPC authorization
+---
+
 # Admin-only authorization matrix v1 (frozen)
 
 Status: **frozen for pilot v1**.
