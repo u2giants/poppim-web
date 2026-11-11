@@ -29,7 +29,7 @@ permissions:
   contents: read
 
 env:
-  DOC_HEALTH_TOOLKIT_REF: e5175ed7f96551a51f894f13f6b56b2f5b189a6f
+  DOC_HEALTH_TOOLKIT_REF: a93376dedad84f339d0634fee68e9a0577b4702f
 
 jobs:
   pull-request:
