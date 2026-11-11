@@ -1,7 +1,14 @@
+---
+summary: Original aspirational roadmap/spec (~52KB), historical only; current build status lives in gaps.md and workflow rules in shared-db business rules.
+kind: plan
+status: done
+read-when: researching the original product intent behind a screen
+---
+
 # Architecture Update and Implementation Plan
 
 > **Status (2026-06-21): original roadmap/spec — kept for historical reference. Do not bulk-load (~52KB).**
-> This is the original aspirational roadmap. **For the current build status (what's actually done vs. missing, line-by-line with file evidence), see [`../gaps.md`](../gaps.md) — reconciled 2026-06-21, the authoritative current-state doc.** This plan predates the completed business screens (`AGENTS.md` §15) and the shared **Supabase.com** cutover (`shared-db/AGENTS.md`); use it only for original intent/spec context, not as a current to-do list.
+> This is the original aspirational roadmap. **For the current build status (what's actually done vs. missing, line-by-line with file evidence), see [`../gaps.md`](../gaps.md) — reconciled 2026-06-21, the authoritative current-state doc.** This plan predates the completed business screens (`docs/agents-reference.md`) and the shared **Supabase.com** cutover (`shared-db/AGENTS.md`); use it only for original intent/spec context, not as a current to-do list.
 >
 > **Business-rule correction (2026-08-18):** workflow descriptions in this plan are
 > evidence of intended process, not current companywide authority. The official collection

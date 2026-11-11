@@ -1,3 +1,10 @@
+---
+summary: How to read secrets here: 1Password MCP server or op CLI with a service-account token; references op://vibe_coding/<item>/<field>; vault vibe_coding only.
+kind: ops
+status: current
+read-when: pulling a secret or setting up secret access
+---
+
 # Using 1Password in this repo
 
 Two ways to pull secrets from 1Password instead of hardcoding them:

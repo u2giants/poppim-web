@@ -1,3 +1,10 @@
+---
+summary: Frozen real-evaluation protocol poppim-jev-eval-protocol-v1: sampling, rubric, splits, access, privacy rules; frozen on synthetic proof only.
+kind: spec
+status: current
+read-when: executing or changing Step 4 real evaluation
+---
+
 # Jev real-evaluation protocol (frozen)
 
 Protocol version: `poppim-jev-eval-protocol-v1`

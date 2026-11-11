@@ -1,3 +1,10 @@
+---
+summary: DRAFT (unsent) TypeSafe request for account-scoped input deletion commitments before real comment text is submitted; receipt goes to issue #9.
+kind: ops
+status: open
+read-when: resuming the TypeSafe data-commitment thread for the pilot
+---
+
 # TypeSafe Input deletion request (draft)
 
 Status: **DRAFT — not sent.** Albert (or a named sender) must send this to TypeSafe and paste the written receipt into [issue #9](https://github.com/u2giants/poppim-web/issues/9). Real product-comment text stays blocked until that receipt is recorded.

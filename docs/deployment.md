@@ -1,3 +1,10 @@
+---
+summary: Historical record of the retired 2026-06-11 raw-docker deploy and pre-Coolify operations; the live path is docs/cicd.md - do not reintroduce raw docker.
+kind: archive
+status: done
+read-when: researching the retired deploy path or old Traefik labels
+---
+
 # Deployment — poppim-web
 
 > **The live deploy path is the CI pipeline — see [`docs/cicd.md`](./cicd.md).** A `git push` to `main` builds the image (GHCR) and Coolify pulls + runs it at `pm.designflow.app`. This file is kept for **history**: it documents the temporary raw-docker path that was used before the pipeline, and which was **removed at cutover (2026-06-11)**. Do not reintroduce it.

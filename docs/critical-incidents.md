@@ -1,3 +1,10 @@
+---
+summary: Incident history: 2026-06-11 cards collapsed to 2px (shrink-0 rule) and the image-importer token crash; none since the pm.designflow.app cutover.
+kind: living
+status: current
+read-when: investigating a regression or deploy failure
+---
+
 # Critical incidents
 
 Moved out of AGENTS.md. Load when investigating a regression or deploy failure.
@@ -8,7 +15,7 @@ What happened: after the Prompt-B board rework, all task cards rendered ~2px tal
 Impact: board unusable (caught in preview before anyone relied on it).
 Root cause: cards are flex children in a fixed-height, scrollable column; default `flex-shrink:1` compressed them to fit instead of overflowing.
 Recovery: added `shrink-0` to the product card so cards keep natural height and the column scrolls.
-Rule added: see §11 "`PimTaskCard` needs `shrink-0`" — don't remove it.
+Rule added: see `docs/quirks.md` "`PimTaskCard` needs `shrink-0`" — don't remove it.
 
 ### 2026-06-11 — Image importer crashed (backend, but affected this app's images)
 What happened: the historical ClickUp image importer died at ~800 products; image counts stalled.

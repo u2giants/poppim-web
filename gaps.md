@@ -1,3 +1,10 @@
+---
+summary: Reconciled current-state gap analysis (2026-06-21): every gap re-checked against the live code, tagged DONE/PARTIAL/OPEN/OBSOLETE with file evidence.
+kind: living
+status: current
+read-when: checking what is built vs missing before planning work
+---
+
 # Poppim Web Gaps — Reconciled Current State (2026-06-21)
 
 > **This is the reconciled, current-state version of the gap analysis.** It began as an aspirational gap analysis of the app vs. the business's needs. On **2026-06-21** every item was re-checked **line-by-line against the live codebase** and tagged `DONE` / `PARTIAL` / `OPEN` / `OBSOLETE` with file-path evidence. Treat this as the authoritative "what's built vs. what's still missing" reference.
@@ -21,7 +28,7 @@ The fit summary is mostly historical narrative. Reconciling the few falsifiable 
 
 Original: lists existing strengths (session auth, real pipeline/projects data, evidence-preserving modal, UI shell, builds).
 **Status (2026-06-21):** DONE
-**Evidence:** Supabase Auth/client setup in `src/lib/supabase.ts`; real data in `src/features/pipeline/api.ts`, `src/features/projects/api.ts`; modal at `src/components/TaskDetailModal.tsx`. AGENTS.md §15 confirms build/deploy live at `pm.designflow.app`. Note: the lint "no errors" claim is stale — `npm run build` is the gate (`tsc -b && vite build`).
+**Evidence:** Supabase Auth/client setup in `src/lib/supabase.ts`; real data in `src/features/pipeline/api.ts`, `src/features/projects/api.ts`; modal at `src/components/TaskDetailModal.tsx`. `docs/agents-reference.md` confirms build/deploy live at `pm.designflow.app`. Note: the lint "no errors" claim is stale — `npm run build` is the gate (`tsc -b && vite build`).
 
 ### 1.2 What the current app is primarily optimized for
 
@@ -44,13 +51,13 @@ Original: enumerates the questions the system must answer (object type, business
 
 Original gap: real Supabase rows were flattened into a generic `MockTask` via `pipeline/adapter.ts`, losing business-object shape.
 **Status (2026-06-21):** DONE
-**Evidence:** `MockTask` and `src/features/pipeline/adapter.ts` are gone (grep for `MockTask` across `src/` returns nothing). The board/detail view model is now `ProductSummary` in `src/domain/products/types.ts`, adapted from raw Supabase in `src/domain/products/adapters.ts`. Distinct object models exist across feature areas. AGENTS.md §11 documents the removal.
+**Evidence:** `MockTask` and `src/features/pipeline/adapter.ts` are gone (grep for `MockTask` across `src/` returns nothing). The board/detail view model is now `ProductSummary` in `src/domain/products/types.ts`, adapted from raw Supabase in `src/domain/products/adapters.ts`. Distinct object models exist across feature areas. `docs/quirks.md` documents the removal.
 
 ## 2.2 POP and Spruce are not separated enough
 
 Original gap: pipeline only filtered `stage _nnull` with no business-unit split; one mixed board.
 **Status (2026-06-21):** DONE
-**Evidence:** `BusinessUnit = 'Licensed' | 'Generic' | 'Software'` in `src/domain/products/types.ts`; hard-separated departments (no `All`) enforced via alias logic in `src/domain/products/adapters.ts` and each feature `api.ts`. Topbar tabs switch department and clear list filters (`src/components/Topbar.tsx`). AGENTS.md §11 ("Departments are hard-separated").
+**Evidence:** `BusinessUnit = 'Licensed' | 'Generic' | 'Software'` in `src/domain/products/types.ts`; hard-separated departments (no `All`) enforced via alias logic in `src/domain/products/adapters.ts` and each feature `api.ts`. Topbar tabs switch department and clear list filters (`src/components/Topbar.tsx`). `docs/quirks.md` ("Departments are hard-separated").
 
 ## 2.3 The design library is absent from the frontend
 
@@ -185,7 +192,7 @@ Original gap: adapter set checklist/comment/file indicators to 0.
 
 Original gap: modal prominently showed ClickUp list/dates/original-task link.
 **Status (2026-06-21):** DONE
-**Evidence:** `src/components/TaskDetailModal.tsx` wraps ClickUp fields in a collapsed `<details>` "Legacy source" section; main surface uses business language. Internal `product.code` removed from labels (AGENTS.md §11).
+**Evidence:** `src/components/TaskDetailModal.tsx` wraps ClickUp fields in a collapsed `<details>` "Legacy source" section; main surface uses business language. Internal `product.code` removed from labels (`docs/quirks.md`).
 
 ## 2.23 Notifications are fake
 
@@ -204,7 +211,7 @@ Original gap: sidebar had hardcoded brand items; only one clickable.
 
 Original gap: pipeline/projects queries didn't fetch buyer/retailer/account context.
 **Status (2026-06-21):** PARTIAL
-**Evidence:** `src/features/pipeline/api.ts` `PRODUCT_SUMMARY_FIELDS` pulls `retailer`, `buyer`, and `project.retailer`/`project.buyer`; adapter maps them. Account screen at `src/features/accounts/`. `Retailer.resale_restriction`/`Buyer.samples_required` exist. `retailer`/`buyer` are curated tables (AGENTS.md §11).
+**Evidence:** `src/features/pipeline/api.ts` `PRODUCT_SUMMARY_FIELDS` pulls `retailer`, `buyer`, and `project.retailer`/`project.buyer`; adapter maps them. Account screen at `src/features/accounts/`. `Retailer.resale_restriction`/`Buyer.samples_required` exist. `retailer`/`buyer` are curated tables (`docs/quirks.md`).
 **Remaining:** No buyer-feedback history, CRM activity feed, or account-specific rule surfaces beyond `samples_required`/`resale_restriction`.
 
 ## 2.26 The app lacks factory and sourcing context
@@ -252,7 +259,7 @@ Original gap: no role-aware navigation/dashboards/actions; pricing not hidden fr
 
 Original gap: no real creation/conversion flows.
 **Status (2026-06-21):** PARTIAL
-**Evidence:** `TaskDetailModal` can create submission/sample/revision for a product via `src/features/workflow/api.ts`; inline product field edits exist (AGENTS.md §11).
+**Evidence:** `TaskDetailModal` can create submission/sample/revision for a product via `src/features/workflow/api.ts`; inline product field edits exist (`docs/quirks.md`).
 **Remaining:** No create-project/offer, convert-buyer-pick-into-SKU, record-PO (Orders is read-only), create-design-collection/account-project/selection→style-number, or pricing-request creation.
 
 ## 2.33 The app lacks batch operations
@@ -310,7 +317,7 @@ APIs split around pipeline/projects/board.
 
 App switches screens via internal state; deep-link is `?item=`.
 **Status (2026-06-21):** OPEN
-**Evidence:** No `react-router` dependency. `src/App.tsx` `ActiveScreen()` is a `switch (screen)` over `useAppState()`; deep-link is only `?item=<uuid>` (AGENTS.md §15).
+**Evidence:** No `react-router` dependency. `src/App.tsx` `ActiveScreen()` is a `switch (screen)` over `useAppState()`; deep-link is only `?item=<uuid>` (`docs/agents-reference.md`).
 **Remaining:** Adopt a router; per-object-type URLs for the screens.
 
 ## 3.6 Search is too narrow
@@ -331,7 +338,7 @@ Pipeline filters by licensor only.
 
 Loads 300/500 products; client-slice pagination only.
 **Status (2026-06-21):** PARTIAL
-**Evidence:** `fetchPipelineProducts` uses a flat `limit` (default 300); `countPipelineProducts`/`fetchListFacets` give aggregate counts; filtering + count are server-side and debounced (AGENTS.md §15).
+**Evidence:** `fetchPipelineProducts` uses a flat `limit` (default 300); `countPipelineProducts`/`fetchListFacets` give aggregate counts; filtering + count are server-side and debounced (`docs/agents-reference.md`).
 **Remaining:** No cursor/offset server pagination, no per-column lazy loading/virtualization; deep-linked item not guaranteed in the loaded slice.
 
 ## 3.9 Error handling is too quiet
@@ -487,7 +494,7 @@ Modal mixes ClickUp data with PM fields.
 **Status (2026-06-21):** PARTIAL — domain `Product` model + adapters; `MockTask` gone. Remaining: `TaskDetailModal.tsx` still named `Task` and monolithic (§3.4).
 
 ### Priority 2: Separate POP and Spruce
-**Status (2026-06-21):** DONE — `appState.tsx` `businessUnit` filter drives pipeline, control-room, and reports (AGENTS.md §11).
+**Status (2026-06-21):** DONE — `appState.tsx` `businessUnit` filter drives pipeline, control-room, and reports (`docs/quirks.md`).
 
 ### Priority 3: Add real My Work
 **Status (2026-06-21):** PARTIAL — `features/mywork/api.ts` merges assignments + lifecycle-owned products + assigned revisions. Remaining: subtasks and explicit role-owned stage/review queues.
@@ -513,4 +520,4 @@ Modal mixes ClickUp data with PM fields.
 
 The app has moved decisively past the prototype phase the original doc critiqued. All mock data and the `MockTask` abstraction are gone; every production screen reads real Supabase data through a domain-organized API layer (`src/features/*/api.ts`, `src/domain/products`), and POP vs Spruce are hard-separated by a business-unit filter. First-class screens now exist for projects, designs, collections, submissions, samples, revisions, orders, accounts, reports, control room, and My Work, with lifecycle/next-action/owner/risk fields surfaced and inline-edited.
 
-The remaining gaps are **architectural maturity** rather than honesty: no client router (state-switch + `?item=` only), a large `TaskDetailModal` still named "Task", narrow pipeline search/filter, no server cursor pagination, quiet error handling (sonner installed but unused), and ClickUp metadata still prominent. The biggest missing capability is **automation/intelligence** — no external notification delivery, stage-gate enforcement, SLA/stuck/handoff Flows, role-named cockpits, or reuse/turnaround reporting — plus the looming **Supabase→Supabase migration** (AGENTS.md §15). Net: a solid, honest, data-backed PM tool that now has first-class operating records and needs routing, modal decomposition, gated workflows, and the automation/analytics layer to fulfill the business graph the original doc envisioned.
+The remaining gaps are **architectural maturity** rather than honesty: no client router (state-switch + `?item=` only), a large `TaskDetailModal` still named "Task", narrow pipeline search/filter, no server cursor pagination, quiet error handling (sonner installed but unused), and ClickUp metadata still prominent. The biggest missing capability is **automation/intelligence** — no external notification delivery, stage-gate enforcement, SLA/stuck/handoff Flows, role-named cockpits, or reuse/turnaround reporting — plus the looming **Supabase→Supabase migration** (`docs/agents-reference.md`). Net: a solid, honest, data-backed PM tool that now has first-class operating records and needs routing, modal decomposition, gated workflows, and the automation/analytics layer to fulfill the business graph the original doc envisioned.

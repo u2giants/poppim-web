@@ -1,3 +1,10 @@
+---
+summary: Every build-time env var (VITE_SUPABASE_*, build metadata), config files (vite, tsconfig, components.json, nginx, theme), and backend config owned by shared-db.
+kind: living
+status: current
+read-when: adding or changing env vars or config files
+---
+
 # Configuration — poppim-web
 
 See `AGENTS.md` first. The frontend has **no secrets** (browser app; Supabase publishable anon keys are client-safe, but service-role keys must never be exposed).

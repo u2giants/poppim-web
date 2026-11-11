@@ -1,3 +1,10 @@
+---
+summary: 2026-06-30 audit removing legacy CRM account naming from PM: never call crm_account_* contracts; landed via regenerated types and curated pickers.
+kind: plan
+status: done
+read-when: checking which customer/CRM API names PM code may call
+---
+
 # Remove Legacy CRM Account Naming — PM/PIM Audit
 
 Date: 2026-06-30

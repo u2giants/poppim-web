@@ -1,3 +1,10 @@
+---
+summary: The one release path: merge to main, Actions verify, GHCR image, Coolify sha-tag pin + restart; deploy QUIRKs 1-4 and rollback.
+kind: living
+status: current
+read-when: changing CI/CD, deploying, or debugging a deploy that did not go live
+---
+
 # CI/CD rules — poppim-web
 
 The org's full CI/CD operating rules apply; this file records **how they're implemented for this app** and the **one normal release path**. Read `AGENTS.md` and `docs/deployment.md` alongside this.

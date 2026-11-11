@@ -1,3 +1,10 @@
+---
+summary: System design: React 19 + Vite SPA as a pure client of the shared Supabase backend - stack, data flow, domain layer, hard-separated departments, screens.
+kind: living
+status: current
+read-when: changing screens, data flow or the domain layer
+---
+
 # Architecture — poppim-web
 
 See `AGENTS.md` first. This doc covers system design and data flow.
@@ -16,7 +23,7 @@ Browser (pm-dev / pm.designflow.app)
 
 ## Stack
 - React 19 + Vite + TypeScript (strict).
-- Tailwind CSS v4 + shadcn/ui (`new-york`/Radix — see AGENTS.md §11).
+- Tailwind CSS v4 + shadcn/ui (`new-york`/Radix — see `docs/quirks.md`).
 - `@supabase/supabase-js` for data and auth.
 - `@dnd-kit/core` for board drag.
 - `lucide-react` icons; `sonner` toasts; Plus Jakarta Sans variable font.

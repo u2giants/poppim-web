@@ -1,3 +1,10 @@
+---
+summary: 2026-06-30 customer views/RPC cutover plan (core.customer, api.customer_list pickers); landed, then superseded by api.pm_customer_list.
+kind: plan
+status: done
+read-when: background on the customer schema cutover
+---
+
 # fix_new_schema.md - Customer Views/RPC Cutover Plan
 
 Read this top to bottom before changing anything. It assumes no prior context and

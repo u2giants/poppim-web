@@ -1,3 +1,10 @@
+---
+summary: ClickUp official remote MCP server: OAuth setup record on Hetzner (2026-06-30), available tools, audit notes, and regenerating the PM gap-review PDF.
+kind: ops
+status: current
+read-when: using ClickUp MCP for migration audits or gap-review work
+---
+
 # ClickUp MCP Server
 
 ClickUp has an official remote MCP server for connecting AI assistants to the

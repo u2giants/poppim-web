@@ -1,3 +1,10 @@
+---
+summary: Phase-0 codebase audit baseline captured 2026-07-26: checkout states, toolchain versions, clean-install results recorded before remediation.
+kind: proof
+status: done
+read-when: auditing what changed since the phase-0 audit
+---
+
 # Codebase audit remediation — Phase 0 baseline
 
 Captured on 2026-07-26 EDT before application behavior changes.
