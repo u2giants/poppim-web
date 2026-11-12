@@ -11,7 +11,7 @@ Issue: [poppim-web#9](https://github.com/u2giants/poppim-web/issues/9)
 
 Required shared contract: [shared-db#3298](https://github.com/u2giants/shared-db/issues/3298)
 
-Execution handoff: [`HANDOFF.d/2026-09-20T1405Z-hetz-codex-jev-activity-triage.md`](HANDOFF.d/2026-09-20T1405Z-hetz-codex-jev-activity-triage.md)
+Execution handoffs: retired 2026-11-11 under the handoff successor rule — `HANDOFF.d/2026-09-20T1405Z-hetz-codex-jev-activity-triage.md` (planning; successor of PR #10) and `HANDOFF.d/2026-09-22T2212Z-edge-dev-claude-jev-phase0-fail-closed.md` (Phase 0; successor of PRs #11/#13). Git history preserves their text; still-open obligations live in this plan and issue #9, and the only dead ends that existed nowhere else are copied verbatim in §13.
 
 ## STATUS
 
@@ -677,6 +677,14 @@ For a credential/privacy/unauthorized-write emergency, use the pre-authorized pr
 ### Open questions
 
 Only the eight owner decisions in §8 remain open; decision 8 is deliberately deferred until a completed pilot is adoption-eligible. Exact wording, quality thresholds, UI spacing, and timeout values are implementation judgments constrained by measured evidence; the request/token/cost/concurrency ceilings are fixed by decision 7 and may not be relaxed by implementation judgment.
+
+### Notes carried forward from retired handoffs (2026-11-11)
+
+Both Jev handoffs were retired under the handoff successor rule on 2026-11-11. Their still-open obligations already live in §8 (owner decisions 1–8), §9 (steps), the STATUS table, and issue #9; the Phase 0 landed work (PR #11 `38caa74e`, PR #13 `ccfeb36`) is recorded in the STATUS table. The only dead-end notes that existed nowhere else came from the Phase 0 handoff (`HANDOFF.d/2026-09-22T2212Z-edge-dev-claude-jev-phase0-fail-closed.md`) and are copied verbatim:
+
+- “**bundle:check on Windows** — `scripts/check-bundle.mjs` builds `C:\C:\...` and ENOENT. Pre-existing Windows path bug; out of Phase 0 scope. `tsc` + `vite build` succeed. Do not “fix” it in a Jev transport PR.” (Verified still unfixed 2026-11-11: the script still derives its path from `new URL('../dist/assets/', import.meta.url).pathname`.)
+- “**Python/Node hybrid curl parser** — unnecessary complexity; replaced with awk-joined curl invocations + bash `case` matching.” (The surviving implementation is `scripts/test-deploy-transport.sh`.)
+- §9 risk line: “New: hostname-pin bypass if someone “helpfully” moves the pin to a repo variable; stale `issue-335-deploy-repair` worktree confusing deploy history; `check-bundle.mjs` Windows path bug masking CI-on-Windows only.” (The hostname-pin rule is durable in `docs/cicd.md` §QUIRK-4 — “never a repository variable”; the stale worktrees were machine-local on `edge-dev` and their branch work was already on main per that handoff.)
 
 ## Mandatory self-audit
 
