@@ -32,4 +32,16 @@ describe('authentication characterization', () => {
 
     expect(guard.isCurrent(pending)).toBe(false)
   })
+
+  it('accepts new profile completions after a StrictMode remount, but not ones started before it', () => {
+    const guard = createAuthRequestGuard()
+    guard.mount()
+    const beforeRemount = guard.begin()
+    guard.unmount()
+    guard.mount()
+    const afterRemount = guard.begin()
+
+    expect(guard.isCurrent(beforeRemount)).toBe(false)
+    expect(guard.isCurrent(afterRemount)).toBe(true)
+  })
 })
