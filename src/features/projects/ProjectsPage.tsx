@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Briefcase, X, ChevronRight } from 'lucide-react'
-import type { Project, Product } from '@/lib/types'
-import { fetchProjects, fetchProjectProducts } from './api'
+import type { Buyer, Project, Product, Retailer } from '@/lib/types'
+import { fetchProjects, fetchProjectProducts, PROJECT_EDIT_CONFLICT, updateProjectFields, type ProjectFieldPatch } from './api'
+import { fetchBuyers, fetchCustomers } from '@/features/board/collab'
+import { cachedReference } from '@/lib/referenceCache'
+import { EditDate, EditSelect } from '@/features/product-detail/InlineEditors'
 import { useAppState } from '@/lib/appState'
 import { productToSummary } from '@/domain/products/adapters'
 import { CATEGORY_COLORS, CATEGORY_ICONS, LICENSOR_META, STAGE_COLORS, stageColor } from '@/domain/products/presentation'
-import { pageLoadFailure, reportUiError } from '@/lib/uiError'
+import { pageLoadFailure, reportOptionalDataError, reportUiError } from '@/lib/uiError'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -26,9 +29,31 @@ function designCollectionName(c: Project['design_collection']): string {
   return typeof c === 'object' ? [c.name, c.theme].filter(Boolean).join(' · ') || '—' : c
 }
 
+// A bare YYYY-MM-DD is a calendar day: parse it as local midnight, otherwise
+// new Date() treats it as UTC and US time zones show the previous day.
+function parseDate(iso: string): Date {
+  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  return day ? new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3])) : new Date(iso)
+}
+
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const date = parseDate(iso)
+  if (Number.isNaN(date.getTime())) return iso
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function dateInputValue(iso: string | null | undefined): string {
+  if (!iso) return ''
+  if (/^\d{4}-\d{2}-\d{2}/.test(iso)) return iso.slice(0, 10)
+  const date = parseDate(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-')
+}
+
+function entityId(value: string | { id: string } | null | undefined): string | null {
+  if (!value) return null
+  return typeof value === 'object' ? value.id : null
 }
 
 const STATUS_STYLE: Record<string, { bg: string; dot: string; label: string }> = {
@@ -69,6 +94,7 @@ export function ProjectsPage() {
   const [selected, setSelected] = useState<Project | null>(null)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [retailers, setRetailers] = useState<Retailer[]>([])
 
   const debouncedSearch = useDebounce(search, 200)
 
@@ -82,6 +108,25 @@ export function ProjectsPage() {
       })
       .finally(() => { setLoading(false); firstLoad.current = false })
   }, [businessUnit, debouncedSearch])
+
+  useEffect(() => {
+    cachedReference('customers', fetchCustomers)
+      .then(setRetailers)
+      .catch((error) => reportOptionalDataError('projects.loadRetailers', 'Retailers', error))
+  }, [])
+
+  // Optimistic: show the edit at once, roll the row back if the save fails.
+  function saveProjectField(projectId: string, local: Partial<Project>, patch: ProjectFieldPatch) {
+    const before = projects.find((p) => p.id === projectId)
+    if (!before) return
+    const restore = { ...before }
+    setProjects((current) => current.map((p) => (p.id === projectId ? { ...p, ...local } : p)))
+    updateProjectFields(projectId, patch).catch((error) => {
+      setProjects((current) => current.map((p) => (p.id === projectId ? restore : p)))
+      const conflict = error instanceof Error && error.message === PROJECT_EDIT_CONFLICT
+      reportUiError('projects.save', conflict ? PROJECT_EDIT_CONFLICT : 'The project could not be saved. Try again.', error)
+    })
+  }
 
   const visible = useMemo(() => {
     return projects.filter((p) => {
@@ -195,18 +240,47 @@ export function ProjectsPage() {
                   <td className="px-4 py-3 text-[13px]" style={{ color: '#5A6883' }}>
                     {project.business_unit ?? '—'}
                   </td>
-                  <td className="px-4 py-3 text-[13px]" style={{ color: '#5A6883' }}>
-                    {retailerName(project.retailer)}
-                  </td>
-                  <td className="px-4 py-3 text-[13px]" style={{ color: '#5A6883' }}>
-                    {buyerName(project.buyer)}
-                  </td>
-                  <td className="px-4 py-3 text-[13px]" style={{ color: '#5A6883' }}>
-                    {formatDate(project.pps_requested_date ?? null)}
-                  </td>
-                  <td className="px-4 py-3 text-[13px]" style={{ color: '#5A6883' }}>
-                    {formatDate(project.on_shelf_date)}
-                  </td>
+                  <EditableCell>
+                    <EditSelect
+                      value={entityId(project.retailer) ?? ''}
+                      options={[{ value: '', label: '—' }, ...retailers.map((r) => ({ value: r.id, label: r.name }))]}
+                      onSave={(id) => {
+                        const r = id ? retailers.find((x) => x.id === id) : null
+                        saveProjectField(
+                          project.id,
+                          { retailer: r ? { ...r } : null, buyer: null },
+                          { company_id: id || null, primary_contact_id: null },
+                        )
+                      }}
+                      renderValue={() => <CellText>{retailerName(project.retailer)}</CellText>}
+                    />
+                  </EditableCell>
+                  <EditableCell>
+                    <BuyerSelect
+                      retailerId={entityId(project.retailer)}
+                      value={entityId(project.buyer)}
+                      label={buyerName(project.buyer)}
+                      onSave={(b) => saveProjectField(
+                        project.id,
+                        { buyer: b ? { ...b } : null },
+                        { primary_contact_id: b?.id ?? null },
+                      )}
+                    />
+                  </EditableCell>
+                  <EditableCell>
+                    <EditDate
+                      value={dateInputValue(project.pps_requested_date)}
+                      displayValue={formatDate(project.pps_requested_date ?? null)}
+                      onSave={(day) => saveProjectField(project.id, { pps_requested_date: day || null }, { pps_requested_date: day || null })}
+                    />
+                  </EditableCell>
+                  <EditableCell>
+                    <EditDate
+                      value={dateInputValue(project.on_shelf_date)}
+                      displayValue={formatDate(project.on_shelf_date)}
+                      onSave={(day) => saveProjectField(project.id, { on_shelf_date: day || null }, { on_shelf_date: day || null })}
+                    />
+                  </EditableCell>
                   <td className="px-4 py-3">
                     {count > 0 ? (
                       <span
@@ -234,6 +308,54 @@ export function ProjectsPage() {
       {selected && (
         <ProjectDetailModal project={selected} onClose={() => setSelected(null)} />
       )}
+    </div>
+  )
+}
+
+// ─── Inline table editors ────────────────────────────────────────────────────
+
+// Clicks inside an editable cell edit the field instead of opening the project.
+function EditableCell({ children }: { children: React.ReactNode }) {
+  return (
+    <td className="px-4 py-3 text-[13px]" style={{ color: '#5A6883', minWidth: 140 }} onClick={(e) => e.stopPropagation()}>
+      {children}
+    </td>
+  )
+}
+
+function CellText({ children }: { children: React.ReactNode }) {
+  return <span className="text-[13px]" style={{ color: '#5A6883' }}>{children}</span>
+}
+
+// Buyers belong to a retailer, so they load the first time the cell is opened.
+function BuyerSelect({ retailerId, value, label, onSave }: {
+  retailerId: string | null
+  value: string | null
+  label: string
+  onSave: (buyer: Buyer | null) => void
+}) {
+  const [buyers, setBuyers] = useState<Buyer[]>([])
+  const loadedFor = useRef<string | null>(null)
+  if (!retailerId) return <span className="text-[13px]" style={{ color: '#A0AEC0' }} title="Choose a retailer first">{label}</span>
+  function load() {
+    if (!retailerId || loadedFor.current === retailerId) return
+    loadedFor.current = retailerId
+    const id = retailerId
+    cachedReference(`buyers:${id}`, () => fetchBuyers(id))
+      .then(setBuyers)
+      .catch((error) => {
+        loadedFor.current = null
+        reportOptionalDataError('projects.loadBuyers', 'Buyers', error)
+      })
+  }
+  return (
+    <div onClickCapture={load}>
+      <EditSelect
+        value={value ?? ''}
+        options={[{ value: '', label: '—' }, ...buyers.map((b) => ({ value: b.id, label: b.name ?? b.email ?? '' }))]}
+        onSave={(id) => onSave(id ? buyers.find((b) => b.id === id) ?? null : null)}
+        renderValue={() => <CellText>{label}</CellText>}
+      />
     </div>
   )
 }

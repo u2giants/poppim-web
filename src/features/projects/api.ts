@@ -2,7 +2,8 @@ import { api, asDynamic } from '@/lib/supabaseQuery'
 import type { BusinessUnit } from '@/domain/products/types'
 import { enrichProductRowsWithBoardFields } from '@/domain/products/enrich'
 import { supabaseProductToProduct } from '@/domain/products/supabaseAdapter'
-import { pim, unwrap } from '@/lib/supabaseQuery'
+import { metadata as metadataOf, pim, unwrap } from '@/lib/supabaseQuery'
+import type { Json } from '@/lib/database.types'
 import type { Project, Product } from '@/lib/types'
 
 interface ProjectRpcRow {
@@ -39,6 +40,45 @@ export async function fetchProjects(businessUnit: BusinessUnit, search?: string,
     counts: new Map(rows.map((row) => [row.id, Number(row.product_count)])),
     nextCursor: raw.length > 100 && last ? btoa(JSON.stringify({ updatedAt:last.updated_at,id:last.id })) : null,
   }
+}
+
+export const PROJECT_EDIT_CONFLICT = 'This project was changed by someone else. Reload and try again.'
+
+export type ProjectFieldPatch = {
+  company_id?: string | null
+  primary_contact_id?: string | null
+  on_shelf_date?: string | null
+  pps_requested_date?: string | null
+}
+
+// Retailer and buyer are columns on pim.project; the two dates live in its
+// metadata jsonb (same keys pm_project_page reads). Metadata is merged
+// client-side, guarded by updated_at so a concurrent edit is not overwritten.
+export async function updateProjectFields(projectId: string, patch: ProjectFieldPatch): Promise<void> {
+  const { on_shelf_date, pps_requested_date, ...direct } = patch
+  const metadataPatch: Record<string, string | null> = {}
+  if (on_shelf_date !== undefined) metadataPatch.on_shelf_date = on_shelf_date
+  if (pps_requested_date !== undefined) metadataPatch.pps_requested_date = pps_requested_date
+
+  if (Object.keys(metadataPatch).length === 0) {
+    // RLS hides a refused update as zero rows rather than an error.
+    const rows = unwrap<Array<{ id: string }>>(await pim().from('project').update(direct).eq('id', projectId).select('id'))
+    if (rows.length === 0) throw new Error('This project could not be saved.')
+    return
+  }
+
+  const current = unwrap<{ metadata: Json; updated_at: string }>(
+    await pim().from('project').select('metadata,updated_at').eq('id', projectId).single(),
+  )
+  const metadata = { ...metadataOf(current) }
+  for (const [key, value] of Object.entries(metadataPatch)) {
+    if (value === null) delete metadata[key]
+    else metadata[key] = value
+  }
+  const rows = unwrap<Array<{ id: string }>>(
+    await pim().from('project').update({ ...direct, metadata: metadata as Json }).eq('id', projectId).eq('updated_at', current.updated_at).select('id'),
+  )
+  if (rows.length === 0) throw new Error(PROJECT_EDIT_CONFLICT)
 }
 
 export async function fetchProjectProducts(projectId: string): Promise<Product[]> {
